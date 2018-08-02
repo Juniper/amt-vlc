@@ -8,4 +8,4 @@ Added AMT access module to VLC. To use:
 * The source_addr parameter is optional and only used for SSM.  
 * The group_addr is always required.  
   
-If you need to change/input the relay address, go to VLC->Preferences->Show all->Input/Codecs->Access Modules->AMT and change the address. In theory this would be a relay anycast address, but with there only existing one you have to use the Juniper one.
+If you need to change/input the relay address, go to VLC->Preferences->Show all->Input/Codecs->Access Modules->AMT and change the address. In theory this could be the IANA-defined relay anycast address, but since 198.38.23.145 is the only known relay on the MBONE at the moment, this is the default.
