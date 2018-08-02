@@ -1,0 +1,22 @@
+prefix=/Users/nlandsberg/Desktop/development/vlc/build/vlc_install_dir
+exec_prefix=${prefix}
+includedir=${prefix}/include
+datarootdir=${prefix}/share
+libdir=${exec_prefix}/lib
+datadir=${datarootdir}
+pkgincludedir=${prefix}/include/vlc
+pkgdatadir=${datadir}/vlc
+pkglibdir=${libdir}/vlc
+pluginsdir=${pkglibdir}/plugins
+
+Name: VLC plugin API
+Description: VLC media player plugin interface
+Version: 4.0.0-dev
+Cflags: -I${includedir} -I${pkgincludedir}/plugins \
+	-D__PLUGIN__ \
+	-D_FILE_OFFSET_BITS=64 \
+	
+Libs: -L${libdir} -lvlccore
+Libs.private: -Wl,-framework,CoreFoundation,-framework,CoreServices  \
+	-L/Users/nlandsberg/Desktop/development/vlc/contrib/x86_64-apple-darwin16/lib -lintl -liconv -lc -Wl,-framework -Wl,CoreFoundation -liconv \
+	  -lm
