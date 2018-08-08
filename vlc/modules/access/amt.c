@@ -65,10 +65,29 @@
 
 #define BUFFER_TEXT N_("Receive buffer")
 #define BUFFER_LONGTEXT N_("AMT receive buffer size (bytes)" )
-#define TIMEOUT_TEXT N_("AMT Source timeout (sec)")
+#define TIMEOUT_TEXT N_("Native multicast timeout (sec)")
 #define AMT_TIMEOUT_TEXT N_("AMT timeout (sec)")
 #define AMT_RELAY_ADDRESS N_("AMT relay address")
 #define AMT_RELAY_ADDR_LONG N_("AMT relay anycast address, or specify the relay you want")
+
+static int  Open (vlc_object_t *);
+static void Close (vlc_object_t *);
+
+vlc_module_begin ()
+    set_shortname( N_("AMT" ) )
+    set_description( N_("AMT input") )
+    set_category( CAT_INPUT )
+    set_subcategory( SUBCAT_INPUT_ACCESS )
+
+    add_integer( "amt-timeout", 5, AMT_TIMEOUT_TEXT, NULL, true )
+    add_integer( "amt-native-timeout", 3, TIMEOUT_TEXT, NULL, true )
+    add_string( "amt-relay", "198.38.23.145", AMT_RELAY_ADDRESS, AMT_RELAY_ADDR_LONG, true )
+
+    set_capability( "access", 0 )
+    add_shortcut( "amt" )
+
+    set_callbacks( Open, Close )
+vlc_module_end ()
 
 /*****************************************************************************
  * Control:
@@ -156,12 +175,6 @@ static block_t *BlockUDP(stream_t *access, bool *restrict eof)
     ssize_t len;
     if( sys->tryAMT )
     {
-        if( (vlc_tick_now() / CLOCK_FREQ - sys->queryTime) > sys->relay_igmp_query.qqic )
-        {
-            amt_send_mem_update( sys, access, false );
-            sys->queryTime = vlc_tick_now() / CLOCK_FREQ;
-        }
-
         char *amtpkt = malloc( DEFAULT_MTU );
         len = recv( sys->sAMT, amtpkt, DEFAULT_MTU, 0 );
 
@@ -171,6 +184,7 @@ static block_t *BlockUDP(stream_t *access, bool *restrict eof)
         if( amtpkt[0] != AMT_MULT_DATA )
         {
             msg_Dbg( access, "Not AMT multicast data, dropping.");
+            free( amtpkt );
             goto skip;
         }
 
@@ -281,7 +295,7 @@ static int Open( vlc_object_t *p_this )
 
     sys->mtu = 7 * 188;
 
-    sys->timeout = var_InheritInteger( p_access, "udp-timeout");
+    sys->timeout = var_InheritInteger( p_access, "amt-native-timeout");
     if( sys->timeout > 0)
         sys->timeout *= 1000;
 
@@ -290,6 +304,7 @@ static int Open( vlc_object_t *p_this )
         sys->amtTimeout *= 1000;
 
     sys->tryAMT = false;
+    sys->threadReady = false;
 
     return VLC_SUCCESS;
 }
@@ -306,15 +321,18 @@ static void Close( vlc_object_t *p_this )
         amt_leaveASM_group( sys );
     else
         amt_leaveSSM_group( sys );
-    amt_send_mem_update( sys, p_access, true );
+    amt_send_mem_update( sys, true );
+
+    if( sys->threadReady )
+    {
+        sys->threadReady = false;
+        vlc_cancel( sys->updateThread );
+        vlc_join( sys->updateThread, NULL );
+    }
 
     net_Close( sys->fd );
     net_Close( sys->sAMT );
     net_Close( sys->sQuery );
-
-    free( sys->mcastGroup );
-    free( sys->srcAddr );
-    free( sys->relayAddr);
 }
 
 
@@ -357,7 +375,6 @@ bool open_amt_tunnel( access_sys_t *sys, stream_t *access )
             }
             msg_Dbg( access, "Joined SSM src: %s group: %s", sys->srcAddr, sys->mcastGroup );
         }
-        amt_send_mem_update( sys, access, false );
     }
 
     sys->queryTime = vlc_tick_now() / CLOCK_FREQ;
@@ -608,12 +625,11 @@ void amt_send_relay_request( access_sys_t *sys, stream_t *p_access )
 * | Msg Type(1 byte)| Reserved (1 byte)| MAC (6 byte)| nonce (4 byte) | IGMP packet  |
 * +----------------------------------------------------------------------------------+
 */
-void amt_send_mem_update( access_sys_t *sys, stream_t *p_access, bool leave)
+void amt_send_mem_update( access_sys_t *sys, bool leave)
 {
     int sendBufSize = IP_HDR_IGMP_LEN + MAC_LEN + NONCE_LEN + AMT_HDR_LEN;
     char pSendBuffer[ sendBufSize + IGMP_REPORT_LEN ];
     unsigned int ulNonce = 0;
-    int nRet = 0;
     memset( &pSendBuffer, 0, sizeof(pSendBuffer) );
 
     pSendBuffer[0] = AMT_MEM_UPD;
@@ -667,10 +683,7 @@ void amt_send_mem_update( access_sys_t *sys, stream_t *p_access, bool leave)
 
     memcpy( (void*)&pSendBuffer[12], (void*)&memUpdateMsg, sizeof(memUpdateMsg) );
 
-    nRet = send( sys->sAMT, pSendBuffer, sizeof(pSendBuffer), 0 );
-
-    if( nRet < 0 )
-        msg_Err(p_access, "Error sending membership update error: %s", strerror(errno) );
+    send( sys->sAMT, pSendBuffer, sizeof(pSendBuffer), 0 );
 }
 
 /**
@@ -846,6 +859,13 @@ bool amt_rcv_relay_mem_query( access_sys_t *sys, stream_t *p_access )
         memcpy( (void*)&sys->relay_igmp_query.srcIP, &pkt[shift], 4 );
     }
 
+    if( vlc_clone( &sys->updateThread, amt_mem_upd, sys, VLC_THREAD_PRIORITY_LOW) )
+    {
+        msg_Err( p_access, "Could not create update thread" );
+        return false;
+    }
+
+    sys->threadReady = true;
     return true;
 }
 
@@ -907,17 +927,20 @@ int amt_leaveASM_group( access_sys_t *sys )
     return setsockopt( sys->sAMT, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&imr, sizeof(imr) );
 }
 
-vlc_module_begin ()
-    set_shortname( N_("AMT" ) )
-    set_description( N_("AMT input") )
-    set_category( CAT_INPUT )
-    set_subcategory( SUBCAT_INPUT_ACCESS )
+void *amt_mem_upd( void *data )
+{
+    access_sys_t *sys = data;
+    for (;;)
+    {
 
-    add_integer( "amt-timeout", 5, AMT_TIMEOUT_TEXT, NULL, true )
-    add_string( "amt-relay", "", AMT_RELAY_ADDRESS, AMT_RELAY_ADDR_LONG, true )
-
-    set_capability( "access", 0 )
-    add_shortcut( "amt" )
-
-    set_callbacks( Open, Close )
-vlc_module_end ()
+        // if( (vlc_tick_now() / CLOCK_FREQ - params->sys->queryTime) > params->sys->relay_igmp_query.qqic )
+        // {
+        if( !sys->threadReady )
+            break;
+        amt_send_mem_update( sys, false );
+        //params->sys->queryTime = vlc_tick_now() / CLOCK_FREQ;
+        vlc_tick_sleep( (vlc_tick_t)sys->relay_igmp_query.qqic * CLOCK_FREQ );
+        //}
+    }
+    return NULL;
+}

@@ -369,12 +369,8 @@ libudp_plugin_la_SOURCES = access/udp.c
 libudp_plugin_la_LIBADD = $(SOCKET_LIBS)
 access_LTLIBRARIES += libudp_plugin.la
 
-libamt_plugin_la_SOURCES = \
-	access/amt.c \
-	acces/amt.h
+libamt_plugin_la_SOURCES = access/amt.c access/amt.h
 libamt_plugin_la_LIBADD = $(SOCKET_LIBS)
-libamt_plugin_la_LDFLAGS = $(AM_LD_FLAGS) -rpath '$(accessdir)'
-libamt_plugin_la_CFLAGS = $(AM_CFLAGS)
 access_LTLIBRARIES += libamt_plugin.la
 
 libunc_plugin_la_SOURCES = access/unc.c access/smb_common.h

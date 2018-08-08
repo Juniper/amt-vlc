@@ -166,8 +166,9 @@ int amt_leaveASM_group( access_sys_t *sys );
 int amt_leaveSSM_group( access_sys_t *sys );
 bool amt_rcv_relay_adv( access_sys_t *sys, stream_t *p_access );
 bool amt_rcv_relay_mem_query( access_sys_t *sys, stream_t *p_access );
-void amt_send_mem_update( access_sys_t *sys, stream_t *p_access, bool leave );
+void amt_send_mem_update( access_sys_t *sys, bool leave );
 bool open_amt_tunnel( access_sys_t *sys, stream_t *access );
+void *amt_mem_upd( void *data );
 
 /* Utility functions */
 unsigned short getChecksum( unsigned short *buffer, int nLen );
@@ -183,7 +184,9 @@ struct access_sys_t
     int amtTimeout;
     size_t mtu;
     bool tryAMT;
+    bool threadReady;
 
+    vlc_thread_t updateThread;
     vlc_tick_t queryTime;
 
     char *mcastGroup;
