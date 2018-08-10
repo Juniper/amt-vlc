@@ -1,0 +1,14 @@
+gui/skins2/src/libskins2_plugin_la-ft2_err.lo: \
+ ../../extras/package/win32/../../../modules/gui/skins2/src/ft2_err.c \
+ /home/nlandsberg/vlc/contrib/i686-w64-mingw32/include/freetype2/ft2build.h \
+ /home/nlandsberg/vlc/contrib/i686-w64-mingw32/include/freetype2/freetype/config/ftheader.h \
+ ../../extras/package/win32/../../../modules/gui/skins2/src/ft2_err.h \
+ /home/nlandsberg/vlc/contrib/i686-w64-mingw32/include/freetype2/freetype/fterrdef.h
+
+/home/nlandsberg/vlc/contrib/i686-w64-mingw32/include/freetype2/ft2build.h:
+
+/home/nlandsberg/vlc/contrib/i686-w64-mingw32/include/freetype2/freetype/config/ftheader.h:
+
+../../extras/package/win32/../../../modules/gui/skins2/src/ft2_err.h:
+
+/home/nlandsberg/vlc/contrib/i686-w64-mingw32/include/freetype2/freetype/fterrdef.h:
