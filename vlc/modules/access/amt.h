@@ -82,58 +82,58 @@
 typedef struct access_sys_t access_sys_t;
 
 typedef struct _amt_ip {
-    unsigned char  ver_ihl;
-    unsigned char  tos;
-    unsigned short tot_len;
-    unsigned short id;
-    unsigned short frag_off;
-    unsigned char  ttl;
-    unsigned char  protocol;
-    unsigned short check;
-    unsigned int srcAddr;
-    unsigned int destAddr;
+    uint8_t  ver_ihl;
+    uint8_t  tos;
+    uint16_t tot_len;
+    uint16_t id;
+    uint16_t frag_off;
+    uint8_t  ttl;
+    uint8_t  protocol;
+    uint16_t check;
+    uint32_t srcAddr;
+    uint32_t destAddr;
 } amt_ip_t;
 
 typedef struct _amt_ip_alert {
-    unsigned char  ver_ihl;
-    unsigned char   tos;
-    unsigned short tot_len;
-    unsigned short id;
-    unsigned short frag_off;
-    unsigned char  ttl;
-    unsigned char  protocol;
-    unsigned short check;
-    unsigned int srcAddr;
-    unsigned int destAddr;
-    unsigned int options;
+    uint8_t  ver_ihl;
+    uint8_t   tos;
+    uint16_t tot_len;
+    uint16_t id;
+    uint16_t frag_off;
+    uint8_t  ttl;
+    uint8_t  protocol;
+    uint16_t check;
+    uint32_t srcAddr;
+    uint32_t destAddr;
+    uint32_t options;
 } amt_ip_alert_t;
 
 typedef struct _amt_igmpv3_groupRecord {
-    unsigned char type;
-    unsigned char auxDatalen;
-    unsigned short nSrc;
-    unsigned int ssm;
-    unsigned int srcIP[1];
+    uint8_t type;
+    uint8_t auxDatalen;
+    uint16_t nSrc;
+    uint32_t ssm;
+    uint32_t srcIP[1];
 } amt_igmpv3_groupRecord_t;
 
 typedef struct _amt_igmpv3_membership_report {
-    unsigned char  type;
-    unsigned char  resv;
-    unsigned short checksum;
-    unsigned short resv2;
-    unsigned short nGroupRecord;
+    uint8_t  type;
+    uint8_t  resv;
+    uint16_t checksum;
+    uint16_t resv2;
+    uint16_t nGroupRecord;
     amt_igmpv3_groupRecord_t grp[1];
 } amt_igmpv3_membership_report_t;
 
 typedef struct _amt_igmpv3_membership_query {
-    unsigned char  type;
-    unsigned char  max_resp_code;  /* in 100ms, Max Resp Time = (mant | 0x10) << (exp + 3) */
-    unsigned short checksum;
-    unsigned int   ssmIP;
-    unsigned char  s_qrv;
-    unsigned char  qqic;           /* in second, query Time = (mant | 0x10) << (exp + 3) */
-    unsigned short nSrc;
-    unsigned int srcIP[1];
+    uint8_t  type;
+    uint8_t  max_resp_code;  /* in 100ms, Max Resp Time = (mant | 0x10) << (exp + 3) */
+    uint32_t checksum;
+    uint32_t   ssmIP;
+    uint8_t  s_qrv;
+    uint8_t  qqic;           /* in second, query Time = (mant | 0x10) << (exp + 3) */
+    uint16_t nSrc;
+    uint32_t srcIP[1];
 } amt_igmpv3_membership_query_t;
 
 typedef struct _amt_membership_update_msg {
@@ -142,18 +142,18 @@ typedef struct _amt_membership_update_msg {
 } amt_membership_update_msg_t;
 
 typedef struct _amt_udpHdr {
-    unsigned short srcPort;
-    unsigned short dstPort;
-    unsigned short len;
-    unsigned short check;
+    uint16_t srcPort;
+    uint16_t dstPort;
+    uint16_t len;
+    uint16_t check;
 } amt_udpHdr_t;
 
 typedef struct _amt_multicast_data {
-    unsigned char   type;
-    unsigned char   resv;
+    uint8_t   type;
+    uint8_t   resv;
     amt_ip_t        ip;
     amt_udpHdr_t    udp;
-    unsigned char   *buf;
+    uint8_t   *buf;
 } amt_multicast_data_t;
 
 /* AMT Functions */
@@ -198,20 +198,20 @@ struct access_sys_t
     struct sockaddr_in stLocalAddr;
     struct sockaddr_in stSvrAddr;
 
-    unsigned int glob_ulNonce;
-    unsigned int ulRelayNonce;
+    uint32_t glob_ulNonce;
+    uint32_t ulRelayNonce;
 
     struct relay_mem_query_msg_t {
-        unsigned char type;
-        unsigned int  ulRcvedNonce;
-        unsigned char uchaMAC[MAC_LEN];
-        unsigned char uchaIGMP[IGMP_QUERY_LEN];
+        uint8_t type;
+        uint32_t  ulRcvedNonce;
+        uint8_t uchaMAC[MAC_LEN];
+        uint8_t uchaIGMP[IGMP_QUERY_LEN];
     } relay_mem_query_msg;
 
     struct relay_adv_msg_t {
-        unsigned char type;
-        unsigned int ulRcvNonce;
-        unsigned int ipAddr;
+        uint8_t type;
+        uint32_t ulRcvNonce;
+        uint32_t ipAddr;
     } relay_adv_msg;
 
     amt_ip_t relay_ip_hdr;
