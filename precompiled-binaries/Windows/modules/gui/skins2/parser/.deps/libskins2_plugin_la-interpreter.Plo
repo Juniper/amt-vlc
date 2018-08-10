@@ -1,0 +1,1027 @@
+gui/skins2/parser/libskins2_plugin_la-interpreter.lo: \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/interpreter.cpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/interpreter.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_generic.hpp \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/string \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/i686-w64-mingw32/bits/c++config.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/i686-w64-mingw32/bits/os_defines.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/i686-w64-mingw32/bits/cpu_defines.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stringfwd.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/memoryfwd.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/char_traits.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_algobase.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/functexcept.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/exception_defines.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/cpp_type_traits.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/ext/type_traits.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/ext/numeric_traits.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_pair.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/move.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/concept_check.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/type_traits \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_iterator_base_types.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_iterator_base_funcs.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/debug/assertions.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_iterator.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/ptr_traits.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/debug/debug.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/predefined_ops.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/postypes.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/cwchar \
+ /usr/share/mingw-w64/include/wchar.h \
+ /usr/share/mingw-w64/include/crtdefs.h \
+ /usr/share/mingw-w64/include/_mingw.h \
+ /usr/share/mingw-w64/include/_mingw_mac.h \
+ /usr/share/mingw-w64/include/_mingw_secapi.h \
+ /usr/share/mingw-w64/include/vadefs.h \
+ /usr/share/mingw-w64/include/sdks/_mingw_directx.h \
+ /usr/share/mingw-w64/include/sdks/_mingw_ddk.h \
+ /usr/share/mingw-w64/include/_mingw_print_push.h \
+ /usr/share/mingw-w64/include/_mingw_off_t.h \
+ /usr/share/mingw-w64/include/_mingw_stat64.h \
+ /usr/i686-w64-mingw32/include/swprintf.inl \
+ /usr/share/mingw-w64/include/sec_api/wchar_s.h \
+ /usr/share/mingw-w64/include/_mingw_print_pop.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/cstdint \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/stdint.h \
+ /usr/share/mingw-w64/include/stdint.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/stddef.h \
+ /usr/share/mingw-w64/include/stddef.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/allocator.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/i686-w64-mingw32/bits/c++allocator.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/ext/new_allocator.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/new \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/exception \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/exception.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/exception_ptr.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/cxxabi_init_exception.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/typeinfo \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/hash_bytes.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/nested_exception.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/localefwd.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/i686-w64-mingw32/bits/c++locale.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/clocale \
+ /usr/share/mingw-w64/include/locale.h \
+ /usr/share/mingw-w64/include/stdio.h \
+ /usr/share/mingw-w64/include/sec_api/stdio_s.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/iosfwd \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/cctype \
+ /usr/share/mingw-w64/include/ctype.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/ostream_insert.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/cxxabi_forced.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_function.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/backward/binders.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/range_access.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/initializer_list \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/basic_string.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/ext/atomicity.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/i686-w64-mingw32/bits/gthr.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/i686-w64-mingw32/bits/gthr-default.h \
+ /usr/share/mingw-w64/include/errno.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/i686-w64-mingw32/bits/atomic_word.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/ext/alloc_traits.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/alloc_traits.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/ext/string_conversions.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/cstdlib \
+ /usr/share/mingw-w64/include/stdlib.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include-fixed/limits.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include-fixed/syslimits.h \
+ /usr/share/mingw-w64/include/limits.h \
+ /usr/share/mingw-w64/include/sec_api/stdlib_s.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/stdlib.h \
+ /usr/share/mingw-w64/include/malloc.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/std_abs.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/cstdio \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/cerrno \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/functional_hash.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/basic_string.tcc \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/skin_common.hpp \
+ ../config.h ../../extras/package/win32/../../../include/vlc_fixups.h \
+ /usr/share/mingw-w64/include/time.h \
+ /usr/share/mingw-w64/include/_timeval.h \
+ /usr/share/mingw-w64/include/sys/timeb.h \
+ /usr/share/mingw-w64/include/sec_api/sys/timeb_s.h \
+ /home/nlandsberg/vlc/contrib/i686-w64-mingw32/include/pthread_time.h \
+ /usr/share/mingw-w64/include/sys/types.h \
+ /usr/share/mingw-w64/include/dirent.h /usr/share/mingw-w64/include/io.h \
+ /usr/share/mingw-w64/include/string.h \
+ /usr/share/mingw-w64/include/sec_api/string_s.h \
+ ../../extras/package/win32/../../../include/vlc_common.h \
+ ../../extras/package/win32/../../../include/vlc_config.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/stdarg.h \
+ /usr/share/mingw-w64/include/stdarg.h \
+ /usr/share/mingw-w64/include/_mingw_stdarg.h \
+ /usr/share/mingw-w64/include/inttypes.h \
+ /usr/share/mingw-w64/include/windows.h \
+ /usr/share/mingw-w64/include/sdkddkver.h \
+ /usr/share/mingw-w64/include/excpt.h \
+ /usr/share/mingw-w64/include/windef.h \
+ /usr/share/mingw-w64/include/minwindef.h \
+ /usr/share/mingw-w64/include/winapifamily.h \
+ /usr/share/mingw-w64/include/specstrings.h \
+ /usr/share/mingw-w64/include/sal.h /usr/share/mingw-w64/include/winnt.h \
+ /usr/share/mingw-w64/include/_mingw_unicode.h \
+ /usr/share/mingw-w64/include/apiset.h \
+ /usr/share/mingw-w64/include/psdk_inc/intrin-impl.h \
+ /usr/share/mingw-w64/include/basetsd.h \
+ /usr/share/mingw-w64/include/guiddef.h \
+ /usr/share/mingw-w64/include/pshpack4.h \
+ /usr/share/mingw-w64/include/poppack.h \
+ /usr/share/mingw-w64/include/pshpack4.h \
+ /usr/share/mingw-w64/include/pshpack2.h \
+ /usr/share/mingw-w64/include/poppack.h \
+ /usr/share/mingw-w64/include/pshpack2.h \
+ /usr/share/mingw-w64/include/pshpack8.h \
+ /usr/share/mingw-w64/include/pshpack8.h \
+ /usr/share/mingw-w64/include/ktmtypes.h \
+ /usr/share/mingw-w64/include/winbase.h \
+ /usr/share/mingw-w64/include/apisetcconv.h \
+ /usr/share/mingw-w64/include/minwinbase.h \
+ /usr/share/mingw-w64/include/bemapiset.h \
+ /usr/share/mingw-w64/include/debugapi.h \
+ /usr/share/mingw-w64/include/errhandlingapi.h \
+ /usr/share/mingw-w64/include/fibersapi.h \
+ /usr/share/mingw-w64/include/fileapi.h \
+ /usr/share/mingw-w64/include/handleapi.h \
+ /usr/share/mingw-w64/include/heapapi.h \
+ /usr/share/mingw-w64/include/ioapiset.h \
+ /usr/share/mingw-w64/include/interlockedapi.h \
+ /usr/share/mingw-w64/include/jobapi.h \
+ /usr/share/mingw-w64/include/libloaderapi.h \
+ /usr/share/mingw-w64/include/memoryapi.h \
+ /usr/share/mingw-w64/include/namedpipeapi.h \
+ /usr/share/mingw-w64/include/namespaceapi.h \
+ /usr/share/mingw-w64/include/processenv.h \
+ /usr/share/mingw-w64/include/processthreadsapi.h \
+ /usr/share/mingw-w64/include/processtopologyapi.h \
+ /usr/share/mingw-w64/include/profileapi.h \
+ /usr/share/mingw-w64/include/realtimeapiset.h \
+ /usr/share/mingw-w64/include/securityappcontainer.h \
+ /usr/share/mingw-w64/include/securitybaseapi.h \
+ /usr/share/mingw-w64/include/synchapi.h \
+ /usr/share/mingw-w64/include/sysinfoapi.h \
+ /usr/share/mingw-w64/include/systemtopologyapi.h \
+ /usr/share/mingw-w64/include/threadpoolapiset.h \
+ /usr/share/mingw-w64/include/threadpoollegacyapiset.h \
+ /usr/share/mingw-w64/include/utilapiset.h \
+ /usr/share/mingw-w64/include/wow64apiset.h \
+ /usr/share/mingw-w64/include/winerror.h \
+ /usr/share/mingw-w64/include/fltwinerror.h \
+ /usr/share/mingw-w64/include/timezoneapi.h \
+ /usr/share/mingw-w64/include/wingdi.h \
+ /usr/share/mingw-w64/include/pshpack1.h \
+ /usr/share/mingw-w64/include/winuser.h \
+ /usr/share/mingw-w64/include/tvout.h \
+ /usr/share/mingw-w64/include/winnls.h \
+ /usr/share/mingw-w64/include/datetimeapi.h \
+ /usr/share/mingw-w64/include/stringapiset.h \
+ /usr/share/mingw-w64/include/wincon.h \
+ /usr/share/mingw-w64/include/winver.h \
+ /usr/share/mingw-w64/include/winreg.h \
+ /usr/share/mingw-w64/include/reason.h \
+ /usr/share/mingw-w64/include/winnetwk.h \
+ /usr/share/mingw-w64/include/wnnc.h \
+ /usr/share/mingw-w64/include/virtdisk.h \
+ /usr/share/mingw-w64/include/stralign.h \
+ /usr/share/mingw-w64/include/sec_api/stralign_s.h \
+ /usr/share/mingw-w64/include/winsvc.h /usr/share/mingw-w64/include/mcx.h \
+ /usr/share/mingw-w64/include/imm.h \
+ ../../extras/package/win32/../../../include/vlc_tick.h \
+ ../../extras/package/win32/../../../include/vlc_threads.h \
+ /usr/share/mingw-w64/include/process.h \
+ ../../extras/package/win32/../../../include/vlc_arrays.h \
+ /usr/share/mingw-w64/include/tchar.h \
+ /usr/share/mingw-w64/include/sec_api/tchar_s.h \
+ ../../extras/package/win32/../../../include/vlc_messages.h \
+ ../../extras/package/win32/../../../include/vlc_objects.h \
+ ../../extras/package/win32/../../../include/vlc_variables.h \
+ ../../extras/package/win32/../../../include/vlc_configuration.h \
+ ../../extras/package/win32/../../../include/vlc_interface.h \
+ ../../extras/package/win32/../../../include/vlc_charset.h \
+ ../../extras/package/win32/../../../include/vlc_fs.h \
+ /usr/share/mingw-w64/include/sys/stat.h \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../utils/pointer.hpp \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/map \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_tree.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/ext/aligned_buffer.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_map.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/tuple \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/utility \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_relops.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/array \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/stdexcept \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/uses_allocator.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/invoke.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_multimap.h \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/expr_evaluator.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/skin_common.hpp \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/list \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_list.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/allocated_ptr.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/list.tcc \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_audio.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_generic.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_muxer.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_playlist.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../utils/var_list.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../utils/variable.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../utils/../src/skin_common.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../utils/pointer.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../utils/observer.hpp \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/set \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_set.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_multiset.h \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../utils/ustring.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../utils/var_percent.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_playtree.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../utils/var_tree.hpp \
+ /usr/share/mingw-w64/include/assert.h \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_dialogs.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/dialogs.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/skin_common.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_change_skin.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_dummy.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_dvd.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_layout.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_quit.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_minimize.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_input.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_fullscreen.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_on_top.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_show_window.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/os_factory.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/../utils/position.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/../utils/variable.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/../utils/observer.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/../utils/pointer.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/../src/generic_window.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/../src/skin_common.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/../src/../utils/var_bool.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/../src/../utils/variable.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/../src/../utils/observer.hpp \
+ ../../extras/package/win32/../../../include/vlc_vout_window.h \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/top_window.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/generic_window.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/../utils/pointer.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/window_manager.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/top_window.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/popup.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_snapshot.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/theme.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/generic_bitmap.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/skin_common.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../src/os_graphics.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../src/skin_common.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../src/../utils/position.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../src/../utils/pointer.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/pointer.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/position.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/generic_font.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/generic_layout.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/top_window.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/popup.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../src/window_manager.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../commands/cmd_generic.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/bezier.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/../src/skin_common.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/pointer.hpp \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/vector \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_construct.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_uninitialized.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_vector.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_bvector.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/vector.tcc \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/variable.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/ctrl_generic.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/../src/skin_common.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/../utils/pointer.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/../utils/ustring.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/../utils/observer.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/../commands/cmd_generic.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/var_manager.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/var_text.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/variable.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/var_percent.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/observer.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/ustring.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/vlcproc.hpp \
+ ../../extras/package/win32/../../../include/vlc_input.h \
+ ../../extras/package/win32/../../../include/vlc_es.h \
+ ../../extras/package/win32/../../../include/vlc_fourcc.h \
+ ../../extras/package/win32/../../../include/vlc_viewpoint.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/math.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/cmath \
+ /usr/share/mingw-w64/include/math.h \
+ ../../extras/package/win32/../../../include/vlc_meta.h \
+ ../../extras/package/win32/../../../include/vlc_epg.h \
+ ../../extras/package/win32/../../../include/vlc_events.h \
+ ../../extras/package/win32/../../../include/vlc_input_item.h \
+ ../../extras/package/win32/../../../include/vlc_list.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/stdalign.h \
+ /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/stdbool.h \
+ ../../extras/package/win32/../../../include/vlc_vout.h \
+ ../../extras/package/win32/../../../include/vlc_picture.h \
+ ../../extras/package/win32/../../../include/vlc_subpicture.h \
+ ../../extras/package/win32/../../../include/vlc_text_style.h \
+ ../../extras/package/win32/../../../include/vlc_vout_osd.h \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../vars/equalizer.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../vars/../utils/var_percent.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../vars/playtree.hpp \
+ ../../extras/package/win32/../../../include/vlc_playlist.h \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../vars/../utils/var_tree.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../vars/time.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../vars/volume.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/var_string.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/ctrl_video.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/ctrl_generic.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/../utils/position.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/../src/vout_window.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/../src/generic_window.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/../src/dialogs.hpp \
+ ../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/../src/../commands/cmd_generic.hpp
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/interpreter.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_generic.hpp:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/string:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/i686-w64-mingw32/bits/c++config.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/i686-w64-mingw32/bits/os_defines.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/i686-w64-mingw32/bits/cpu_defines.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stringfwd.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/memoryfwd.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/char_traits.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_algobase.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/functexcept.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/exception_defines.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/cpp_type_traits.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/ext/type_traits.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/ext/numeric_traits.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_pair.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/move.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/concept_check.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/type_traits:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_iterator_base_types.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_iterator_base_funcs.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/debug/assertions.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_iterator.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/ptr_traits.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/debug/debug.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/predefined_ops.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/postypes.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/cwchar:
+
+/usr/share/mingw-w64/include/wchar.h:
+
+/usr/share/mingw-w64/include/crtdefs.h:
+
+/usr/share/mingw-w64/include/_mingw.h:
+
+/usr/share/mingw-w64/include/_mingw_mac.h:
+
+/usr/share/mingw-w64/include/_mingw_secapi.h:
+
+/usr/share/mingw-w64/include/vadefs.h:
+
+/usr/share/mingw-w64/include/sdks/_mingw_directx.h:
+
+/usr/share/mingw-w64/include/sdks/_mingw_ddk.h:
+
+/usr/share/mingw-w64/include/_mingw_print_push.h:
+
+/usr/share/mingw-w64/include/_mingw_off_t.h:
+
+/usr/share/mingw-w64/include/_mingw_stat64.h:
+
+/usr/i686-w64-mingw32/include/swprintf.inl:
+
+/usr/share/mingw-w64/include/sec_api/wchar_s.h:
+
+/usr/share/mingw-w64/include/_mingw_print_pop.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/cstdint:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/stdint.h:
+
+/usr/share/mingw-w64/include/stdint.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/stddef.h:
+
+/usr/share/mingw-w64/include/stddef.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/allocator.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/i686-w64-mingw32/bits/c++allocator.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/ext/new_allocator.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/new:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/exception:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/exception.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/exception_ptr.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/cxxabi_init_exception.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/typeinfo:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/hash_bytes.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/nested_exception.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/localefwd.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/i686-w64-mingw32/bits/c++locale.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/clocale:
+
+/usr/share/mingw-w64/include/locale.h:
+
+/usr/share/mingw-w64/include/stdio.h:
+
+/usr/share/mingw-w64/include/sec_api/stdio_s.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/iosfwd:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/cctype:
+
+/usr/share/mingw-w64/include/ctype.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/ostream_insert.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/cxxabi_forced.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_function.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/backward/binders.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/range_access.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/initializer_list:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/basic_string.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/ext/atomicity.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/i686-w64-mingw32/bits/gthr.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/i686-w64-mingw32/bits/gthr-default.h:
+
+/usr/share/mingw-w64/include/errno.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/i686-w64-mingw32/bits/atomic_word.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/ext/alloc_traits.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/alloc_traits.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/ext/string_conversions.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/cstdlib:
+
+/usr/share/mingw-w64/include/stdlib.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include-fixed/limits.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include-fixed/syslimits.h:
+
+/usr/share/mingw-w64/include/limits.h:
+
+/usr/share/mingw-w64/include/sec_api/stdlib_s.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/stdlib.h:
+
+/usr/share/mingw-w64/include/malloc.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/std_abs.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/cstdio:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/cerrno:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/functional_hash.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/basic_string.tcc:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/skin_common.hpp:
+
+../config.h:
+
+../../extras/package/win32/../../../include/vlc_fixups.h:
+
+/usr/share/mingw-w64/include/time.h:
+
+/usr/share/mingw-w64/include/_timeval.h:
+
+/usr/share/mingw-w64/include/sys/timeb.h:
+
+/usr/share/mingw-w64/include/sec_api/sys/timeb_s.h:
+
+/home/nlandsberg/vlc/contrib/i686-w64-mingw32/include/pthread_time.h:
+
+/usr/share/mingw-w64/include/sys/types.h:
+
+/usr/share/mingw-w64/include/dirent.h:
+
+/usr/share/mingw-w64/include/io.h:
+
+/usr/share/mingw-w64/include/string.h:
+
+/usr/share/mingw-w64/include/sec_api/string_s.h:
+
+../../extras/package/win32/../../../include/vlc_common.h:
+
+../../extras/package/win32/../../../include/vlc_config.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/stdarg.h:
+
+/usr/share/mingw-w64/include/stdarg.h:
+
+/usr/share/mingw-w64/include/_mingw_stdarg.h:
+
+/usr/share/mingw-w64/include/inttypes.h:
+
+/usr/share/mingw-w64/include/windows.h:
+
+/usr/share/mingw-w64/include/sdkddkver.h:
+
+/usr/share/mingw-w64/include/excpt.h:
+
+/usr/share/mingw-w64/include/windef.h:
+
+/usr/share/mingw-w64/include/minwindef.h:
+
+/usr/share/mingw-w64/include/winapifamily.h:
+
+/usr/share/mingw-w64/include/specstrings.h:
+
+/usr/share/mingw-w64/include/sal.h:
+
+/usr/share/mingw-w64/include/winnt.h:
+
+/usr/share/mingw-w64/include/_mingw_unicode.h:
+
+/usr/share/mingw-w64/include/apiset.h:
+
+/usr/share/mingw-w64/include/psdk_inc/intrin-impl.h:
+
+/usr/share/mingw-w64/include/basetsd.h:
+
+/usr/share/mingw-w64/include/guiddef.h:
+
+/usr/share/mingw-w64/include/pshpack4.h:
+
+/usr/share/mingw-w64/include/poppack.h:
+
+/usr/share/mingw-w64/include/pshpack4.h:
+
+/usr/share/mingw-w64/include/pshpack2.h:
+
+/usr/share/mingw-w64/include/poppack.h:
+
+/usr/share/mingw-w64/include/pshpack2.h:
+
+/usr/share/mingw-w64/include/pshpack8.h:
+
+/usr/share/mingw-w64/include/pshpack8.h:
+
+/usr/share/mingw-w64/include/ktmtypes.h:
+
+/usr/share/mingw-w64/include/winbase.h:
+
+/usr/share/mingw-w64/include/apisetcconv.h:
+
+/usr/share/mingw-w64/include/minwinbase.h:
+
+/usr/share/mingw-w64/include/bemapiset.h:
+
+/usr/share/mingw-w64/include/debugapi.h:
+
+/usr/share/mingw-w64/include/errhandlingapi.h:
+
+/usr/share/mingw-w64/include/fibersapi.h:
+
+/usr/share/mingw-w64/include/fileapi.h:
+
+/usr/share/mingw-w64/include/handleapi.h:
+
+/usr/share/mingw-w64/include/heapapi.h:
+
+/usr/share/mingw-w64/include/ioapiset.h:
+
+/usr/share/mingw-w64/include/interlockedapi.h:
+
+/usr/share/mingw-w64/include/jobapi.h:
+
+/usr/share/mingw-w64/include/libloaderapi.h:
+
+/usr/share/mingw-w64/include/memoryapi.h:
+
+/usr/share/mingw-w64/include/namedpipeapi.h:
+
+/usr/share/mingw-w64/include/namespaceapi.h:
+
+/usr/share/mingw-w64/include/processenv.h:
+
+/usr/share/mingw-w64/include/processthreadsapi.h:
+
+/usr/share/mingw-w64/include/processtopologyapi.h:
+
+/usr/share/mingw-w64/include/profileapi.h:
+
+/usr/share/mingw-w64/include/realtimeapiset.h:
+
+/usr/share/mingw-w64/include/securityappcontainer.h:
+
+/usr/share/mingw-w64/include/securitybaseapi.h:
+
+/usr/share/mingw-w64/include/synchapi.h:
+
+/usr/share/mingw-w64/include/sysinfoapi.h:
+
+/usr/share/mingw-w64/include/systemtopologyapi.h:
+
+/usr/share/mingw-w64/include/threadpoolapiset.h:
+
+/usr/share/mingw-w64/include/threadpoollegacyapiset.h:
+
+/usr/share/mingw-w64/include/utilapiset.h:
+
+/usr/share/mingw-w64/include/wow64apiset.h:
+
+/usr/share/mingw-w64/include/winerror.h:
+
+/usr/share/mingw-w64/include/fltwinerror.h:
+
+/usr/share/mingw-w64/include/timezoneapi.h:
+
+/usr/share/mingw-w64/include/wingdi.h:
+
+/usr/share/mingw-w64/include/pshpack1.h:
+
+/usr/share/mingw-w64/include/winuser.h:
+
+/usr/share/mingw-w64/include/tvout.h:
+
+/usr/share/mingw-w64/include/winnls.h:
+
+/usr/share/mingw-w64/include/datetimeapi.h:
+
+/usr/share/mingw-w64/include/stringapiset.h:
+
+/usr/share/mingw-w64/include/wincon.h:
+
+/usr/share/mingw-w64/include/winver.h:
+
+/usr/share/mingw-w64/include/winreg.h:
+
+/usr/share/mingw-w64/include/reason.h:
+
+/usr/share/mingw-w64/include/winnetwk.h:
+
+/usr/share/mingw-w64/include/wnnc.h:
+
+/usr/share/mingw-w64/include/virtdisk.h:
+
+/usr/share/mingw-w64/include/stralign.h:
+
+/usr/share/mingw-w64/include/sec_api/stralign_s.h:
+
+/usr/share/mingw-w64/include/winsvc.h:
+
+/usr/share/mingw-w64/include/mcx.h:
+
+/usr/share/mingw-w64/include/imm.h:
+
+../../extras/package/win32/../../../include/vlc_tick.h:
+
+../../extras/package/win32/../../../include/vlc_threads.h:
+
+/usr/share/mingw-w64/include/process.h:
+
+../../extras/package/win32/../../../include/vlc_arrays.h:
+
+/usr/share/mingw-w64/include/tchar.h:
+
+/usr/share/mingw-w64/include/sec_api/tchar_s.h:
+
+../../extras/package/win32/../../../include/vlc_messages.h:
+
+../../extras/package/win32/../../../include/vlc_objects.h:
+
+../../extras/package/win32/../../../include/vlc_variables.h:
+
+../../extras/package/win32/../../../include/vlc_configuration.h:
+
+../../extras/package/win32/../../../include/vlc_interface.h:
+
+../../extras/package/win32/../../../include/vlc_charset.h:
+
+../../extras/package/win32/../../../include/vlc_fs.h:
+
+/usr/share/mingw-w64/include/sys/stat.h:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../utils/pointer.hpp:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/map:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_tree.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/ext/aligned_buffer.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_map.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/tuple:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/utility:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_relops.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/array:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/stdexcept:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/uses_allocator.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/invoke.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_multimap.h:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/expr_evaluator.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/skin_common.hpp:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/list:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_list.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/allocated_ptr.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/list.tcc:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_audio.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_generic.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_muxer.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_playlist.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../utils/var_list.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../utils/variable.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../utils/../src/skin_common.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../utils/pointer.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../utils/observer.hpp:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/set:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_set.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_multiset.h:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../utils/ustring.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../utils/var_percent.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_playtree.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../utils/var_tree.hpp:
+
+/usr/share/mingw-w64/include/assert.h:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_dialogs.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/dialogs.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/skin_common.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_change_skin.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_dummy.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_dvd.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_layout.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_quit.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_minimize.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_input.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_fullscreen.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_on_top.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_show_window.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/os_factory.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/../utils/position.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/../utils/variable.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/../utils/observer.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/../utils/pointer.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/../src/generic_window.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/../src/skin_common.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/../src/../utils/var_bool.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/../src/../utils/variable.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/../src/../utils/observer.hpp:
+
+../../extras/package/win32/../../../include/vlc_vout_window.h:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/top_window.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/generic_window.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/../utils/pointer.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/window_manager.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/top_window.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/../src/popup.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../commands/cmd_snapshot.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/theme.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/generic_bitmap.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/skin_common.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../src/os_graphics.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../src/skin_common.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../src/../utils/position.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../src/../utils/pointer.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/pointer.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/position.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/generic_font.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/generic_layout.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/top_window.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/popup.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../src/window_manager.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../commands/cmd_generic.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/bezier.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/../src/skin_common.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/pointer.hpp:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/vector:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_construct.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_uninitialized.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_vector.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/stl_bvector.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/bits/vector.tcc:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/variable.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/ctrl_generic.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/../src/skin_common.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/../utils/pointer.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/../utils/ustring.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/../utils/observer.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/../commands/cmd_generic.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/var_manager.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/var_text.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/variable.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/var_percent.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/observer.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/ustring.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/vlcproc.hpp:
+
+../../extras/package/win32/../../../include/vlc_input.h:
+
+../../extras/package/win32/../../../include/vlc_es.h:
+
+../../extras/package/win32/../../../include/vlc_fourcc.h:
+
+../../extras/package/win32/../../../include/vlc_viewpoint.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/math.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/c++/cmath:
+
+/usr/share/mingw-w64/include/math.h:
+
+../../extras/package/win32/../../../include/vlc_meta.h:
+
+../../extras/package/win32/../../../include/vlc_epg.h:
+
+../../extras/package/win32/../../../include/vlc_events.h:
+
+../../extras/package/win32/../../../include/vlc_input_item.h:
+
+../../extras/package/win32/../../../include/vlc_list.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/stdalign.h:
+
+/usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/stdbool.h:
+
+../../extras/package/win32/../../../include/vlc_vout.h:
+
+../../extras/package/win32/../../../include/vlc_picture.h:
+
+../../extras/package/win32/../../../include/vlc_subpicture.h:
+
+../../extras/package/win32/../../../include/vlc_text_style.h:
+
+../../extras/package/win32/../../../include/vlc_vout_osd.h:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../vars/equalizer.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../vars/../utils/var_percent.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../vars/playtree.hpp:
+
+../../extras/package/win32/../../../include/vlc_playlist.h:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../vars/../utils/var_tree.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../vars/time.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../vars/volume.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../utils/var_string.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/ctrl_video.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/ctrl_generic.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/../utils/position.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/../src/vout_window.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/../src/generic_window.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/../src/dialogs.hpp:
+
+../../extras/package/win32/../../../modules/gui/skins2/parser/../src/../controls/../src/../commands/cmd_generic.hpp:
