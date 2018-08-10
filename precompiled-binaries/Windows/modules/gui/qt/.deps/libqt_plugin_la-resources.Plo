@@ -1,0 +1,1 @@
+gui/qt/libqt_plugin_la-resources.lo: gui/qt/resources.cpp
