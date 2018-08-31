@@ -1,2 +1,0 @@
-#! /bin/sh
-exec /home/nlandsberg/vlc/win32/_win32/bin/vlc -I "rc" "$@"
