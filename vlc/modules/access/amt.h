@@ -157,17 +157,17 @@ typedef struct _amt_multicast_data {
 } amt_multicast_data_t;
 
 /* AMT Functions */
-int amt_sockets_init( access_sys_t *sys, stream_t *p_access );
-void amt_send_relay_discovery_msg( access_sys_t *sys, stream_t *p_access );
-void amt_send_relay_request( access_sys_t *sys, stream_t *p_access );
-int amt_joinSSM_group( access_sys_t *sys );
-int amt_joinASM_group( access_sys_t *sys );
-int amt_leaveASM_group( access_sys_t *sys );
-int amt_leaveSSM_group( access_sys_t *sys );
-bool amt_rcv_relay_adv( access_sys_t *sys, stream_t *p_access );
-bool amt_rcv_relay_mem_query( access_sys_t *sys, stream_t *p_access );
-void amt_send_mem_update( access_sys_t *sys, bool leave );
-bool open_amt_tunnel( access_sys_t *sys, stream_t *access );
+int amt_sockets_init( stream_t *p_access );
+void amt_send_relay_discovery_msg( stream_t *p_access, char *relay_ip );
+void amt_send_relay_request( stream_t *p_access, char *relay_ip );
+int amt_joinSSM_group( stream_t *p_access );
+int amt_joinASM_group( stream_t *p_access );
+int amt_leaveASM_group( stream_t *p_access );
+int amt_leaveSSM_group( stream_t *p_access );
+bool amt_rcv_relay_adv( stream_t *p_access );
+bool amt_rcv_relay_mem_query( stream_t *p_access );
+void amt_send_mem_update( stream_t *p_access, char *relay_ip, bool leave );
+bool open_amt_tunnel( stream_t *p_access );
 void *amt_mem_upd( void *data );
 
 /* Utility functions */
