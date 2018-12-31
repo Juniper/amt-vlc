@@ -7,6 +7,7 @@ Added AMT access module to VLC. To use:
 -In URL, type out the stream you want with the following format: 'amt://[source_addr]@[group_addr]'  
 * The source_addr parameter is optional and only used for SSM.  
 * The group_addr is always required.  
+* source_addr, group_addr or the AMT relay can be FQDN defined in DNS
   
 Some known working streams to try out include:  
 amt://129.174.131.51@233.44.15.9  
