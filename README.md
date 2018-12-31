@@ -3,7 +3,7 @@ Module for the VLC media player leveraging AMT functionality
 
 Added AMT access module to VLC. To use:  
 -Open VLC  
--File->Open Network (or alternatively /<Control-N/>)
+-File->Open Network (or alternatively Control-N)
 -In URL, type out the stream you want with the following format: 'amt://[source_addr]@[group_addr]'  
 * The source_addr parameter is optional and only used for SSM.  
 * The group_addr is always required.  
