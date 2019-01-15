@@ -12,6 +12,7 @@
  * This code is not an official Juniper product.
  *
  * Authors: Natalie Landsberg <nlandsberg@juniper.net>
+ *          Wayne Brassem <wbrassem@rogers.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License

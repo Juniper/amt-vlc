@@ -13,7 +13,7 @@
  *          Jean-Paul Saman <jpsaman #_at_# m2x dot nl>     - original UDP code
  *          Remi Denis-Courmont                             - original UDP code
  *          Natalie Landsberg natalie.landsberg97@gmail.com - AMT support
- *          Wayne Brassem <wbrassem@juniper.net>            - Added FQDN support 
+ *          Wayne Brassem <wbrassem@rogers.com>             - Added FQDN support 
  *
  * This code is licensed to you under the GNU Lesser General Public License
  * version 2.1 or later. You may not use this code except in compliance with
