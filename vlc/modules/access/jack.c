@@ -39,7 +39,6 @@
 
 #include <vlc_common.h>
 #include <vlc_plugin.h>
-#include <vlc_input.h>
 #include <vlc_demux.h>
 #include <vlc_url.h>
 #include <vlc_strings.h>
@@ -320,7 +319,6 @@ static void Close( vlc_object_t *p_this )
 static int Control( demux_t *p_demux, int i_query, va_list args )
 {
     bool *pb;
-    int64_t *pi64;
     demux_sys_t *p_sys = p_demux->p_sys;
 
     switch( i_query )
@@ -345,8 +343,7 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
         return VLC_SUCCESS;
 
     case DEMUX_GET_TIME:
-        pi64 = va_arg( args, int64_t * );
-        *pi64 = date_Get(&p_sys->pts);
+        *va_arg( args, vlc_tick_t * ) = date_Get(&p_sys->pts);
         return VLC_SUCCESS;
 
     /* TODO implement others */

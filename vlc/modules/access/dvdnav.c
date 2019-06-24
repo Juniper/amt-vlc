@@ -2,7 +2,6 @@
  * dvdnav.c: DVD module using the dvdnav library.
  *****************************************************************************
  * Copyright (C) 2004-2009 VLC authors and VideoLAN
- * $Id: bfe9ab88999d8f9c8df631b0dc6789d1854189e8 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *
@@ -80,10 +79,7 @@
 static int  AccessDemuxOpen ( vlc_object_t * );
 static void Close( vlc_object_t * );
 
-#if DVDREAD_VERSION >= 50300 && defined( HAVE_STREAM_CB_IN_DVDNAV_H )
-#define HAVE_DVDNAV_DEMUX
 static int  DemuxOpen ( vlc_object_t * );
-#endif
 
 vlc_module_begin ()
     set_shortname( N_("DVD with menus") )
@@ -97,7 +93,6 @@ vlc_module_begin ()
     set_capability( "access", 305 )
     add_shortcut( "dvd", "dvdnav", "file" )
     set_callbacks( AccessDemuxOpen, Close )
-#ifdef HAVE_DVDNAV_DEMUX
     add_submodule()
         set_description( N_("DVDnav demuxer") )
         set_category( CAT_INPUT )
@@ -105,7 +100,6 @@ vlc_module_begin ()
         set_capability( "demux", 5 )
         set_callbacks( DemuxOpen, Close )
         add_shortcut( "dvd", "iso" )
-#endif
 vlc_module_end ()
 
 /* Shall we use libdvdnav's read ahead cache? */
@@ -392,7 +386,6 @@ bailout:
     return i_ret;
 }
 
-#ifdef HAVE_DVDNAV_DEMUX
 /*****************************************************************************
  * StreamProbeDVD: very weak probing that avoids going too often into a dvdnav_open()
  *****************************************************************************/
@@ -485,7 +478,6 @@ static int DemuxOpen ( vlc_object_t *p_this )
         dvdnav_close( p_dvdnav );
     return i_ret;
 }
-#endif
 
 /*****************************************************************************
  * Close:
@@ -561,7 +553,7 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
             case DEMUX_GET_TIME:
                 if( p_sys->i_pgc_length > 0 )
                 {
-                    *va_arg( args, int64_t * ) = p_sys->i_pgc_length*pos/len;
+                    *va_arg( args, vlc_tick_t * ) = p_sys->i_pgc_length*pos/len;
                     return VLC_SUCCESS;
                 }
                 break;
@@ -569,7 +561,7 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
             case DEMUX_GET_LENGTH:
                 if( p_sys->i_pgc_length > 0 )
                 {
-                    *va_arg( args, int64_t * ) = (int64_t)p_sys->i_pgc_length;
+                    *va_arg( args, vlc_tick_t * ) = p_sys->i_pgc_length;
                     return VLC_SUCCESS;
                 }
                 break;
@@ -998,7 +990,7 @@ static int Demux( demux_t *p_demux )
         msg_Dbg( p_demux, "     - pg_start=%"PRId64, event->pg_start );
 
         /* Store the length in time of the current PGC */
-        p_sys->i_pgc_length = event->pgc_length / 90 * 1000;
+        p_sys->i_pgc_length = FROM_SCALE_NZ(event->pgc_length);
         p_sys->i_vobu_index = 0;
         p_sys->i_vobu_flush = 0;
 
@@ -1209,14 +1201,14 @@ static void DemuxTitles( demux_t *p_demux )
             p_chapters_time = NULL;
         }
         t = vlc_input_title_New();
-        t->i_length = i_title_length * 1000 / 90;
+        t->i_length = FROM_SCALE_NZ(i_title_length);
         for( int j = 0; j < __MAX( i_chapters, 1 ); j++ )
         {
             s = vlc_seekpoint_New();
             if( p_chapters_time )
             {
                 if ( j > 0 )
-                    s->i_time_offset = p_chapters_time[j - 1] * 1000 / 90;
+                    s->i_time_offset = FROM_SCALE_NZ(p_chapters_time[j - 1]);
                 else
                     s->i_time_offset = 0;
             }
@@ -1388,11 +1380,11 @@ static int DemuxBlock( demux_t *p_demux, const uint8_t *p, int len )
 
         case 0x1ba:
         {
-            int64_t i_scr;
+            vlc_tick_t i_scr;
             int i_mux_rate;
             if( !ps_pkt_parse_pack( p_pkt, &i_scr, &i_mux_rate ) )
             {
-                es_out_SetPCR( p_demux->out, i_scr + 1 );
+                es_out_SetPCR( p_demux->out, i_scr );
                 if( i_mux_rate > 0 ) p_sys->i_mux_rate = i_mux_rate;
             }
             block_Release( p_pkt );

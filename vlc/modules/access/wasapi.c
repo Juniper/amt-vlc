@@ -31,6 +31,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
+#define _DECL_DLLMAIN
 #include <vlc_common.h>
 #include <vlc_aout.h>
 #include <vlc_demux.h>
@@ -40,9 +41,7 @@
 
 static LARGE_INTEGER freq; /* performance counters frequency */
 
-BOOL WINAPI DllMain(HINSTANCE, DWORD, LPVOID); /* avoid warning */
-
-BOOL WINAPI DllMain(HINSTANCE dll, DWORD reason, LPVOID reserved)
+BOOL WINAPI DllMain(HANDLE dll, DWORD reason, LPVOID reserved)
 {
     (void) dll;
     (void) reserved;
@@ -314,13 +313,13 @@ static unsigned __stdcall Thread(void *data)
     while (WaitForMultipleObjects(2, sys->events, FALSE, INFINITE)
             != WAIT_OBJECT_0)
     {
-        BYTE *data;
+        BYTE *buf;
         UINT32 frames;
         DWORD flags;
         UINT64 qpc;
         vlc_tick_t pts;
 
-        hr = IAudioCaptureClient_GetBuffer(capture, &data, &frames, &flags,
+        hr = IAudioCaptureClient_GetBuffer(capture, &buf, &frames, &flags,
                                            NULL, &qpc);
         if (hr != S_OK)
             continue;
@@ -333,7 +332,7 @@ static unsigned __stdcall Thread(void *data)
         block_t *block = block_Alloc(bytes);
 
         if (likely(block != NULL)) {
-            memcpy(block->p_buffer, data, bytes);
+            memcpy(block->p_buffer, buf, bytes);
             block->i_nb_samples = frames;
             block->i_pts = block->i_dts = pts;
             es_out_Send(demux->out, sys->es, block);
@@ -356,7 +355,7 @@ static int Control(demux_t *demux, int query, va_list ap)
     switch (query)
     {
         case DEMUX_GET_TIME:
-            *(va_arg(ap, int64_t *)) = vlc_tick_now() - sys->start_time;
+            *(va_arg(ap, vlc_tick_t *)) = vlc_tick_now() - sys->start_time;
             break;
 
         case DEMUX_GET_PTS_DELAY:

@@ -3,7 +3,6 @@
  *****************************************************************************
  * Copyright (C) 2001-2006 VLC authors and VideoLAN
  * Copyright © 2006-2007 Rémi Denis-Courmont
- * $Id: bb9eb6afce4f6ae0a1868319eaf953c1c61079cd $
  *
  * Authors: Christophe Massiot <massiot@via.ecp.fr>
  *          Rémi Denis-Courmont <rem # videolan # org>
@@ -55,7 +54,6 @@
 
 #include <vlc_common.h>
 #include "fs.h"
-#include <vlc_input.h>
 #include <vlc_access.h>
 #ifdef _WIN32
 # include <vlc_charset.h>

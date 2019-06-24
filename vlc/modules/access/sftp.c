@@ -2,7 +2,6 @@
  * sftp.c: SFTP input module
  *****************************************************************************
  * Copyright (C) 2009 VLC authors and VideoLAN
- * $Id: 8baa320eb7971c4289e2da0c47e74e46e4dc02bc $
  *
  * Authors: Rémi Duraffort <ivoire@videolan.org>
  *          Petri Hintukainen <phintuka@gmail.com>
@@ -195,7 +194,8 @@ static int SSHSessionInit( stream_t *p_access, const char *psz_host, int i_port 
 
     /* Connect to the server using a regular socket */
     assert( p_sys->i_socket == -1 );
-    p_sys->i_socket = net_ConnectTCP( p_access, psz_host, i_port );
+    p_sys->i_socket = net_Connect( p_access, psz_host, i_port, SOCK_STREAM,
+                                   0 );
     if( p_sys->i_socket < 0 )
         goto error;
 
@@ -307,7 +307,7 @@ static int Open( vlc_object_t* p_this )
         case LIBSSH2_HOSTKEY_TYPE_DSS:
             knownhost_fingerprint_algo = LIBSSH2_KNOWNHOST_KEY_SSHDSS;
             break;
-#if LIBSSH2_VERSION_NUM >= 0x010801
+#if LIBSSH2_VERSION_NUM >= 0x010900
         case LIBSSH2_HOSTKEY_TYPE_ECDSA_256:
             knownhost_fingerprint_algo = LIBSSH2_KNOWNHOST_KEY_ECDSA_256;
             break;

@@ -39,8 +39,17 @@
 #include <vlc_dialog.h>
 #include <vlc_access.h>
 
+#import <AvailabilityMacros.h>
 #import <AVFoundation/AVFoundation.h>
 #import <CoreMedia/CoreMedia.h>
+
+#ifndef MAC_OS_X_VERSION_10_14
+@interface AVCaptureDevice (AVCaptureDeviceAuthorizationSince10_14)
+
++ (void)requestAccessForMediaType:(AVMediaType)mediaType completionHandler:(void (^)(BOOL granted))handler API_AVAILABLE(macos(10.14), ios(7.0));
+
+@end
+#endif
 
 /*****************************************************************************
 * Local prototypes
@@ -321,13 +330,31 @@ static int Open(vlc_object_t *p_this)
             goto error;
         }
 
+        if (@available(macOS 10.14, *)) {
+            msg_Dbg(p_demux, "Check user consent for access to the video device");
+
+            dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+            __block bool accessGranted = NO;
+            [AVCaptureDevice requestAccessForMediaType: AVMediaTypeVideo completionHandler:^(BOOL granted) {
+                accessGranted = granted;
+                dispatch_semaphore_signal(sema);
+            } ];
+            dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+            dispatch_release(sema);
+            if (!accessGranted) {
+                msg_Err(p_demux, "Can't use the video device as access has not been granted by the user");
+                goto error;
+            }
+        }
+
         input = [AVCaptureDeviceInput deviceInputWithDevice:(__bridge AVCaptureDevice *)p_sys->device error:&o_returnedError];
 
         if ( !input )
         {
-            msg_Err(p_demux, "can't create a valid capture input facility (%ld)", [o_returnedError code]);
+            msg_Err(p_demux, "can't create a valid capture input facility: %s (%ld)",[[o_returnedError localizedDescription] UTF8String], [o_returnedError code]);
             goto error;
         }
+
 
         int chroma = VLC_CODEC_RGB32;
 
@@ -436,7 +463,6 @@ static int Demux(demux_t *p_demux)
 static int Control(demux_t *p_demux, int i_query, va_list args)
 {
     bool        *pb;
-    int64_t     *pi64;
 
     switch( i_query )
     {
@@ -455,8 +481,7 @@ static int Control(demux_t *p_demux, int i_query, va_list args)
            return VLC_SUCCESS;
 
         case DEMUX_GET_TIME:
-            pi64 = va_arg(args, int64_t *);
-            *pi64 = vlc_tick_now();
+            *va_arg(args, vlc_tick_t *) = vlc_tick_now();
             return VLC_SUCCESS;
 
         default:

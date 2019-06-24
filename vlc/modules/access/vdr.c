@@ -816,7 +816,7 @@ static void ImportMarks( stream_t *p_access )
         return;
     }
     p_marks->psz_name = strdup( _("VDR Cut Marks") );
-    p_marks->i_length = i_frame_count * (int64_t)( CLOCK_FREQ / p_sys->fps );
+    p_marks->i_length = i_frame_count * (vlc_tick_t)( CLOCK_FREQ / p_sys->fps );
 
     uint64_t *offsetv = NULL;
 
@@ -862,7 +862,7 @@ static void ImportMarks( stream_t *p_access )
         seekpoint_t *sp = vlc_seekpoint_New();
         if( !sp )
             continue;
-        sp->i_time_offset = i_frame * (int64_t)( CLOCK_FREQ / p_sys->fps );
+        sp->i_time_offset = i_frame * (vlc_tick_t)( CLOCK_FREQ / p_sys->fps );
         sp->psz_name = strdup( line );
 
         TAB_APPEND( p_marks->i_seekpoint, p_marks->seekpoint, sp );

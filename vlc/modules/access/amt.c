@@ -7,13 +7,13 @@
  * Copyright (C) 2018 VLC authors and VideoLAN
  * Copyright (c) Juniper Networks, Inc., 2018. All rights reserved.
  *
- * Authors: Christophe Massiot <massiot@via.ecp.fr>         - original UDP code
- *          Tristan Leteurtre <tooney@via.ecp.fr>           - original UDP code
- *          Laurent Aimar <fenrir@via.ecp.fr>               - original UDP code
- *          Jean-Paul Saman <jpsaman #_at_# m2x dot nl>     - original UDP code
- *          Remi Denis-Courmont                             - original UDP code
- *          Natalie Landsberg natalie.landsberg97@gmail.com - AMT support
- *          Wayne Brassem <wbrassem@rogers.com>             - Added FQDN support 
+ * Authors: Christophe Massiot <massiot@via.ecp.fr>           - original UDP code
+ *          Tristan Leteurtre <tooney@via.ecp.fr>             - original UDP code
+ *          Laurent Aimar <fenrir@via.ecp.fr>                 - original UDP code
+ *          Jean-Paul Saman <jpsaman #_at_# m2x dot nl>       - original UDP code
+ *          Remi Denis-Courmont                               - original UDP code
+ *          Natalie Landsberg <natalie.landsberg97@gmail.com> - AMT support
+ *          Wayne Brassem <wbrassem@rogers.com>               - Added FQDN support
  *
  * This code is licensed to you under the GNU Lesser General Public License
  * version 2.1 or later. You may not use this code except in compliance with
@@ -40,6 +40,7 @@
 
 #include <errno.h>
 #include <ctype.h>
+#include <assert.h>
 #ifdef HAVE_ARPA_INET_H
 # include <arpa/inet.h>
 #endif
@@ -61,8 +62,6 @@
 #include <vlc_interrupt.h>
 #include <vlc_url.h>
 
-#include "amt.h"
-
 #ifdef HAVE_POLL
  #include <poll.h>
 #endif
@@ -78,11 +77,202 @@
 #define AMT_RELAY_ADDR_LONG N_("AMT relay anycast address, or specify the relay you want by address or fully qualified domain name")
 #define AMT_DEFAULT_RELAY N_("amt-relay.m2icast.net")
 
+/*****************************************************************************
+ * Various Lengths of Msgs or Hdrs
+ *****************************************************************************/
+#define MAC_LEN 6                /* length of generated MAC in bytes */
+#define NONCE_LEN 4              /* length of nonce in bytes */
+
+#define MSG_TYPE_LEN 1           /* length of msg type */
+#define RELAY_QUERY_MSG_LEN 48   /* total length of relay query */
+#define RELAY_ADV_MSG_LEN 12     /* length of relay advertisement message */
+#define IGMP_QUERY_LEN 24        /* length of encapsulated IGMP query message */
+#define IGMP_REPORT_LEN 20
+#define AMT_HDR_LEN 2            /* length of AMT header on a packet */
+#define IP_HDR_LEN 20            /* length of standard IP header */
+#define IP_HDR_IGMP_LEN 24       /* length of IP header with an IGMP report */
+#define UDP_HDR_LEN 8            /* length of standard UDP header */
+#define AMT_REQUEST_MSG_LEN 9
+#define AMT_DISCO_MSG_LEN 8
+
+/*****************************************************************************
+ * Different AMT Message Types
+ *****************************************************************************/
+#define AMT_RELAY_DISCO 1       /* relay discovery */
+#define AMT_RELAY_ADV 2         /* relay advertisement */
+#define AMT_REQUEST 3           /* request */
+#define AMT_MEM_QUERY 4         /* membership query */
+#define AMT_MEM_UPD 5           /* membership update */
+#define AMT_MULT_DATA 6         /* multicast data */
+#define AMT_TEARDOWN 7          /* teardown (not currently supported) */
+
+/*****************************************************************************
+ * Different IGMP Message Types
+ *****************************************************************************/
+#define AMT_IGMPV3_MEMBERSHIP_QUERY_TYPEID 0x11
+#define AMT_IGMPV3_MEMBERSHIP_REPORT_TYPEID 0x22
+/* IGMPv2, interoperability  */
+#define AMT_IGMPV1_MEMBERSHIP_REPORT_TYPEID 0x12
+#define AMT_IGMPV2_MEMBERSHIP_REPORT_TYPEID 0x16
+#define AMT_IGMPV2_MEMBERSHIP_LEAVE_TYPEID 0x17
+
+#define AMT_IGMP_INCLUDE 0x01
+#define AMT_IGMP_EXCLUDE 0x02
+#define AMT_IGMP_INCLUDE_CHANGE 0x03
+#define AMT_IGMP_EXCLUDE_CHANGE 0x04
+#define AMT_IGMP_ALLOW 0x05
+#define AMT_IGMP_BLOCK 0x06
+
+#define MCAST_ANYCAST  "0.0.0.0"
+#define MCAST_ALLHOSTS "224.0.0.22"
+#define LOCAL_LOOPBACK "127.0.0.1"
+#define AMT_PORT 2268
+
+#define DEFAULT_MTU (1500u - (20 + 8))
+#define MAX_IPV4_UDP (65535u - (20 + 8))
+
+/* IPv4 Header Format */
+typedef struct _amt_ip {
+    uint8_t  ver_ihl;
+    uint8_t  tos;
+    uint16_t tot_len;
+    uint16_t id;
+    uint16_t frag_off;
+    uint8_t  ttl;
+    uint8_t  protocol;
+    uint16_t check;
+    uint32_t srcAddr;
+    uint32_t destAddr;
+} amt_ip_t;
+
+/* IPv4 Header Format with options field */
+typedef struct _amt_ip_alert {
+    uint8_t  ver_ihl;
+    uint8_t  tos;
+    uint16_t tot_len;
+    uint16_t id;
+    uint16_t frag_off;
+    uint8_t  ttl;
+    uint8_t  protocol;
+    uint16_t check;
+    uint32_t srcAddr;
+    uint32_t destAddr;
+    uint32_t options;
+} amt_ip_alert_t;
+
+/* IGMPv3 Group Record Format (RFC3376) */
+typedef struct _amt_igmpv3_groupRecord {
+    uint8_t  type;
+    uint8_t  auxDatalen;
+    uint16_t nSrc;
+    uint32_t ssm;
+    uint32_t srcIP[1];
+} amt_igmpv3_groupRecord_t;
+
+/* IGMPv3 Membership Report Format (RFC3376) */
+typedef struct _amt_igmpv3_membership_report {
+    uint8_t  type;
+    uint8_t  resv;
+    uint16_t checksum;
+    uint16_t resv2;
+    uint16_t nGroupRecord;
+    amt_igmpv3_groupRecord_t grp[1];
+} amt_igmpv3_membership_report_t;
+
+/* IGMPv3 Membership Query Format (RFC3376) */
+typedef struct _amt_igmpv3_membership_query {
+    uint8_t  type;
+    uint8_t  max_resp_code;  /* in 100ms, Max Resp Time = (mant | 0x10) << (exp + 3) */
+    uint32_t checksum;
+    uint32_t ssmIP;
+    uint8_t  s_qrv;
+    uint8_t  qqic;           /* in second, query Time = (mant | 0x10) << (exp + 3) */
+    uint16_t nSrc;
+    uint32_t srcIP[1];
+} amt_igmpv3_membership_query_t;
+
+/* ATM Membership Update Format (RFC7450) */
+typedef struct _amt_membership_update_msg {
+    amt_ip_alert_t ipHead;
+    amt_igmpv3_membership_report_t memReport;
+} amt_membership_update_msg_t;
+
+/* AMT Functions */
+static int amt_sockets_init( stream_t *p_access );
+static void amt_send_relay_discovery_msg( stream_t *p_access, char *relay_ip );
+static void amt_send_relay_request( stream_t *p_access, char *relay_ip );
+static int amt_joinSSM_group( stream_t *p_access );
+static int amt_joinASM_group( stream_t *p_access );
+static int amt_leaveASM_group( stream_t *p_access );
+static int amt_leaveSSM_group( stream_t *p_access );
+static bool amt_rcv_relay_adv( stream_t *p_access );
+static bool amt_rcv_relay_mem_query( stream_t *p_access );
+static void amt_send_mem_update( stream_t *p_access, char *relay_ip, bool leave );
+static bool open_amt_tunnel( stream_t *p_access );
+static void *amt_mem_upd( void *data );
+
+/* Struct to hold AMT state */
+typedef struct _access_sys_t
+{
+    char *mcastGroup;
+    char *mcastSrc;
+    char *relay;
+    char *relayDisco;
+    block_t *overflow_block;
+
+    vlc_thread_t updateThread;
+    vlc_tick_t queryTime;
+
+    /* Mulicast group and source */
+    struct sockaddr_in mcastGroupAddr;
+    struct sockaddr_in mcastSrcAddr;
+
+    /* AMT relay imformation */
+    struct sockaddr_in relayDiscoAddr;
+    struct sockaddr_in relayAddr;
+    struct sockaddr_in stLocalAddr;
+    struct sockaddr_in stSvrAddr;
+
+    /* AMT Relay Membership Query data (RFC7450) */
+    struct relay_mem_query_msg_t {
+        uint32_t ulRcvedNonce;
+        uint8_t  type;
+        uint8_t  uchaMAC[MAC_LEN];
+        uint8_t  uchaIGMP[IGMP_QUERY_LEN];
+    } relay_mem_query_msg;
+
+    /* AMT Relay Advertisement data (RFC7450) */
+    struct relay_adv_msg_t {
+        uint32_t ulRcvNonce;
+        uint32_t ipAddr;
+        uint8_t  type;
+    } relay_adv_msg;
+
+    amt_ip_t relay_ip_hdr;
+    amt_igmpv3_membership_query_t relay_igmp_query;
+    ssize_t mtu;
+
+    uint32_t glob_ulNonce;
+    uint32_t ulRelayNonce;
+
+    int fd;
+    int sAMT;
+    int sQuery;
+    int timeout;
+    int amtTimeout;
+
+    bool tryAMT;
+    bool threadReady;
+} access_sys_t;
+
+/* Standard open/close functions */
 static int  Open (vlc_object_t *);
 static void Close (vlc_object_t *);
 
-/* memory leak and packet counters */
-static int mem_alloc, packet;
+/* Utility functions */
+static unsigned short get_checksum( unsigned short *buffer, int nLen );
+static void make_report( amt_igmpv3_membership_report_t *mr );
+static void make_ip_header( amt_ip_alert_t *p_ipHead );
 
 vlc_module_begin ()
     set_shortname( N_("AMT" ) )
@@ -101,157 +291,13 @@ vlc_module_begin ()
 vlc_module_end ()
 
 /*****************************************************************************
- * Control:
+ * Local prototypes
  *****************************************************************************/
-static int Control( stream_t *p_access, int i_query, va_list args )
-{
-    bool    *pb_bool;
-
-/*    msg_Dbg( p_access, "Control: mem_alloc = %d", mem_alloc); */
-
-    switch( i_query )
-    {
-        case STREAM_CAN_SEEK:
-        case STREAM_CAN_FASTSEEK:
-        case STREAM_CAN_PAUSE:
-        case STREAM_CAN_CONTROL_PACE:
-            pb_bool = va_arg( args, bool * );
-            *pb_bool = false;
-            break;
-
-        case STREAM_GET_PTS_DELAY:
-            *va_arg( args, vlc_tick_t * ) =
-                VLC_TICK_FROM_MS(var_InheritInteger( p_access, "network-caching" ));
-        break;
-
-        default:
-            return VLC_EGENERIC;
-    }
-    return VLC_SUCCESS;
-}
+static block_t *BlockUDP( stream_t *, bool * );
+static int Control( stream_t *, int, va_list );
 
 /*****************************************************************************
- * BlockUDP:
- *****************************************************************************/
-static block_t *BlockUDP(stream_t *p_access, bool *restrict eof)
-{
-    access_sys_t *sys = p_access->p_sys;
-    ssize_t len;
-
-    block_t *pkt = block_Alloc(sys->mtu);
-    char *amtpkt = malloc( DEFAULT_MTU );
-
-    packet++;
-    mem_alloc++;   /* do not include *pkt in memory alloc count because it gets freed by caller */
-    
-/*    msg_Dbg( p_access, "BlockUDP Enter: packet = %d, mem_alloc = %d, pkt = %016x, amtpkt = %016x", packet, mem_alloc, (int) pkt, (int) amtpkt); */
-
-    if (unlikely(pkt == NULL))
-    {   /* OOM - dequeue and discard one packet */
-        char dummy;
-        recv(sys->fd, &dummy, 1, 0);
-        return NULL;
-    }
-
-    if (unlikely(amtpkt == NULL))
-    	goto error;
-    
-    struct iovec iov = {
-        .iov_base = pkt->p_buffer,
-        .iov_len  = sys->mtu,
-    };
-    struct msghdr msg = {
-        .msg_iov = &iov,
-        .msg_iovlen = 1,
-#ifdef __linux__
-        .msg_flags = MSG_TRUNC,
-#endif
-    };
-
-    struct pollfd ufd[1];
-
-    if( sys->tryAMT )
-        ufd[0].fd = sys->sAMT;
-    else
-        ufd[0].fd = sys->fd;
-    ufd[0].events = POLLIN;
-
-    switch (vlc_poll_i11e(ufd, 1, sys->timeout))
-    {
-        case 0:
-            msg_Err(p_access, "native multicast receive time-out, packet = %d", packet);
-            net_Close( sys->fd );
-            if( !sys->tryAMT )
-            {
-                if( open_amt_tunnel( p_access ) == false )
-                    goto error;
-                break;
-            }
-            else
-            {
-                msg_Err(p_access, "AMT receive time-out");
-                *eof = true;
-            }
-            /* fall through */
-        case -1:
-/*            msg_Dbg(p_access, "Exiting vlc_poll switch, packet = %d", packet); */
-            goto error;
-    }
-
-    if( sys->tryAMT )
-    {
-        len = recv( sys->sAMT, amtpkt, DEFAULT_MTU, 0 );
-
-        if( len < 0 || amtpkt[0] != AMT_MULT_DATA )
-            goto error;
-
-        ssize_t shift = IP_HDR_LEN + UDP_HDR_LEN + AMT_HDR_LEN;
-
-        if( len < shift )
-        {
-            msg_Err(p_access, "%zd bytes packet truncated (MTU was %zu)",
-                len, sys->mtu);
-            pkt->i_flags |= BLOCK_FLAG_CORRUPTED;
-            sys->mtu = len;
-        } else {
-            len -= shift;
-        }
-
-        memcpy( pkt->p_buffer, &amtpkt[shift], len );
-    }
-    else
-        len = recvmsg(sys->fd, &msg, 0);
-
-#ifdef MSG_TRUNC
-    if (msg.msg_flags & MSG_TRUNC)
-    {
-        msg_Err(p_access, "%zd bytes packet truncated (MTU was %zu)",
-                len, sys->mtu);
-        pkt->i_flags |= BLOCK_FLAG_CORRUPTED;
-        sys->mtu = len;
-    }
-    else
-#endif
-        pkt->i_buffer = len;
-
-    free( amtpkt );
-    mem_alloc--;
-
-/*    msg_Dbg( p_access, "BlockUDP: Main Exit: mem_alloc = %d, packet = %d", mem_alloc, packet); */
-
-    return pkt;
-    
-error:
-    free( amtpkt );
-    mem_alloc--;
-
-/*    msg_Dbg( p_access, "BlockUDP: Error Exit: mem_alloc = %d, packet = %d", mem_alloc, packet); */
-
-    return NULL;
-}
-
-/*****************************************************************************
- * Open: open the socket
+ * Open: Open a connection to the multicast feed
  *****************************************************************************/
 static int Open( vlc_object_t *p_this )
 {
@@ -259,29 +305,25 @@ static int Open( vlc_object_t *p_this )
     access_sys_t        *sys = NULL;
     struct addrinfo      hints, *serverinfo = NULL;
     struct sockaddr_in  *server_addr;
-    char                *psz_name = NULL, *saveptr, ip_buffer[INET_ADDRSTRLEN];
+    char                *psz_name = NULL, *saveptr, *psz_strtok_r, ip_buffer[INET_ADDRSTRLEN];
     int                  i_bind_port = 1234, i_server_port = 0, VLC_ret = VLC_SUCCESS, res;
     vlc_url_t            url;
-    
-    mem_alloc = 0; packet = 0;
-/*    msg_Dbg( p_access, "Open: Enter: mem_alloc = %d", mem_alloc); */
 
     if( p_access->b_preparsing )
-    {
-        VLC_ret = VLC_EGENERIC;
-        goto cleanup;
-    }
+        return VLC_EGENERIC;
 
-    sys = vlc_obj_malloc( p_this, sizeof( *sys ) );
-    mem_alloc++;
-    
+    /* Allocate the structure for holding AMT info and zeroize it */
+    sys = vlc_obj_calloc( p_this, 1, sizeof( *sys ) );
     if( unlikely( sys == NULL ) )
-    {
-        VLC_ret = VLC_ENOMEM;
-        goto cleanup;
-    }
-    else
-        memset( sys, 0, sizeof( *sys ));
+        return VLC_ENOMEM;
+
+    /* The standard MPEG-2 transport is 188 bytes.  7 packets fit into a standard 1500 byte Ethernet frame */
+    sys->mtu = 7 * 188;
+
+    /* Protective packet overflow buffer designed to accommodate maximum IPv4 UDP payload minus the anticapated MTU */
+    sys->overflow_block = block_Alloc(MAX_IPV4_UDP - sys->mtu);
+    if( unlikely( sys->overflow_block == NULL ) )
+        return VLC_ENOMEM;
 
     p_access->p_sys = sys;
 
@@ -289,50 +331,58 @@ static int Open( vlc_object_t *p_this )
     ACCESS_SET_CALLBACKS( NULL, BlockUDP, Control, NULL );
 
     if( !p_access->psz_location )
-    {
-        VLC_ret = VLC_EGENERIC;
-        goto cleanup;
-    }
+        return VLC_EGENERIC;
 
     psz_name = strdup( p_access->psz_location );
-    mem_alloc++;
     if ( unlikely( psz_name == NULL ) )
-    {
-        VLC_ret = VLC_ENOMEM;
-        goto cleanup;
-    }
-    
+        return VLC_ENOMEM;
+
     /* Parse psz_name syntax :
      * [serveraddr[:serverport]][@[bindaddr]:[bindport]] */
     if( vlc_UrlParse( &url, p_access->psz_url ) != 0 )
     {
-        msg_Err( p_access, "Invalid URL" );
+        msg_Err( p_access, "Invalid URL: %s", p_access->psz_url );
         VLC_ret = VLC_EGENERIC;
         goto cleanup;
     }
-    mem_alloc++;
 
+    /* Determining the multicast source and group depends on the URL provided */
+    /*                                                                        */
+    /* The address(es) in the URL can be in the form of IP address or FQDN    */
+    /* By calling vlc_getaaddrinfo() you get it in IP form either way         */
+    /*                                                                        */
+    /* Case 1: amt://<source-ip-address>@<multicast-group-ip-address>         */
+    /*                                                                        */
+    /*         sys->mcastSrc = <source-ip-address>                            */
+    /*         sys->mcastSrcAddr = inet_pton( sys->mcastSrc )                 */
+    /*                                                                        */
+    /*         sys->mcastGroup = <multicast-group-ip-address>                 */
+    /*         sys->mcastGroupAddr = inet_pton( sys->mcastGroup )             */
+    /*                                                                        */
+    /* Case 2: amt://<multicast-group-ip-address>                             */
+    /*                                                                        */
+    /*         sys->mcastSrc = MCAST_ANYCAST = "0.0.0.0"                      */
+    /*         sys->mcastSrcAddr = inet_pton( sys->mcastSrc ) = 0             */
+    /*                                                                        */
+    /*         sys->mcastGroup = <multicast-group-ip-address>                 */
+    /*         sys->mcastGroupAddr = inet_pton( sys->mcastGroup )             */
+    /*                                                                        */
+
+    /* If UDP port provided then assign port to stream */
     if( url.i_port > 0 )
         i_bind_port = url.i_port;
 
-    msg_Dbg( p_access, "opening multicast: %s:%d local=%s:%d",
-             url.psz_host, i_server_port, url.psz_path, i_bind_port );
+    msg_Dbg( p_access, "Opening multicast: %s:%d local=%s:%d", url.psz_host, i_server_port, url.psz_path, i_bind_port );
 
-    if( ( url.psz_host == NULL ) || ( strlen( url.psz_host ) == 0 ) )
-    {
-        msg_Err( p_access, "Please enter a group and/or source address." );
-        VLC_ret = VLC_EGENERIC;
-        goto cleanup;
-    }
-
+    /* Initialize hints prior to call to vlc_getaddrinfo with either IP address or FQDN */
     memset( &hints, 0, sizeof( hints ));
     hints.ai_family = AF_INET;  /* Setting to AF_UNSPEC accepts both IPv4 and IPv6 */
     hints.ai_socktype = SOCK_DGRAM;
 
-    /* retrieve list of multicast addresses matching the multicast group identifier */
+    /* Retrieve list of multicast addresses matching the multicast group identifier */
     res = vlc_getaddrinfo( url.psz_host, AMT_PORT, &hints, &serverinfo );
-    mem_alloc++;
 
+    /* If an error returned print reason and exit */
     if( res )
     {
         msg_Err( p_access, "Could not find multicast group %s, reason: %s", url.psz_host, gai_strerror(res) );
@@ -344,45 +394,55 @@ static int Open( vlc_object_t *p_this )
     server_addr = (struct sockaddr_in *) serverinfo->ai_addr;
     inet_ntop(AF_INET, &(server_addr->sin_addr), ip_buffer, INET_ADDRSTRLEN);
 
-    /* release the allocated memory */
-    freeaddrinfo(serverinfo);
+    /* Store the binary socket representation of multicast group address */
+    sys->mcastGroupAddr = *server_addr;
+
+    /* Release the allocated memory */
+    freeaddrinfo( serverinfo );
     serverinfo = NULL;
-    mem_alloc--;
 
-    msg_Dbg( p_access, "Setting multicast group address to %s", ip_buffer);
-
+    /* Store string representation */
     sys->mcastGroup = strdup( ip_buffer );
-    mem_alloc++;
     if( unlikely( sys->mcastGroup == NULL ) )
     {
         VLC_ret = VLC_ENOMEM;
         goto cleanup;
     }
-	
-    /* The following uses strtok_r() because strtok() is not thread safe */
-    sys->srcAddr = strdup( strtok_r( psz_name, "@", &saveptr ) );
-    mem_alloc++;
 
-    if( unlikely( sys->srcAddr == NULL ) )
+    msg_Dbg( p_access, "Setting multicast group address to %s", sys->mcastGroup);
+
+    /* Extract the source from the URL, or the multicast group when no source is provided */
+    if ( !( psz_strtok_r = strtok_r( psz_name, "@", &saveptr ) ) )
+    {
+        msg_Err( p_access, "Could not parse location %s", psz_name);
+        VLC_ret = VLC_EGENERIC;
+        goto cleanup;
+    }
+
+    /* Store the string representation */
+    sys->mcastSrc = strdup( psz_strtok_r );
+    if( unlikely( sys->mcastSrc == NULL ) )
     {
         VLC_ret = VLC_ENOMEM;
         goto cleanup;
     }
-    
-    /* if strings are equal then no multicast source has been specified */
-    if( strcmp( url.psz_host, sys->srcAddr ) == 0 )
-	{
-        strcpy(sys->srcAddr, "0.0.0.0");
+
+    /* If strings are equal then no multicast source has been specified, so try anycast */
+    if( strcmp( url.psz_host, sys->mcastSrc ) == 0 )
+    {
+        free( sys->mcastSrc );
+        sys->mcastSrc = strdup(MCAST_ANYCAST);
+        sys->mcastSrcAddr.sin_addr.s_addr = 0;
         msg_Dbg( p_access, "No multicast source address specified, trying ASM...");
     }
 
     /* retrieve list of source addresses matching the multicast source identifier */
-    res = vlc_getaddrinfo( sys->srcAddr, AMT_PORT, &hints, &serverinfo );
-    mem_alloc++;
+    res = vlc_getaddrinfo( sys->mcastSrc, AMT_PORT, &hints, &serverinfo );
 
+    /* If an error returned print reason and exit */
     if( res )
     {
-        msg_Err( p_access, "Could not find multicast source %s, reason: %s", sys->srcAddr, gai_strerror(res) );
+        msg_Err( p_access, "Could not find multicast source %s, reason: %s", sys->mcastSrc, gai_strerror(res) );
         VLC_ret = VLC_EGENERIC;
         goto cleanup;
     }
@@ -391,43 +451,43 @@ static int Open( vlc_object_t *p_this )
     server_addr = (struct sockaddr_in *) serverinfo->ai_addr;
     inet_ntop(AF_INET, &(server_addr->sin_addr), ip_buffer, INET_ADDRSTRLEN);
 
-    msg_Dbg( p_access, "Setting multicast source address to %s", ip_buffer);
-            
+    /* Store the binary socket representation of multicast source address */
+    sys->mcastSrcAddr = *server_addr;
+
     /* free the original source address buffer (IP or FQDN) and assign it just the IP address */
-    free(sys->srcAddr);
-    sys->srcAddr = strdup( ip_buffer );
-    
-    if( unlikely( sys->srcAddr == NULL ) )
+    free( sys->mcastSrc );
+
+    /* Store string representation */
+    sys->mcastSrc = strdup( ip_buffer );
+    if( unlikely( sys->mcastSrc == NULL ) )
     {
         VLC_ret = VLC_ENOMEM;
         goto cleanup;
     }
-    
-    if( strcmp( url.psz_host, sys->srcAddr ) == 0 )
-        strcpy(sys->srcAddr, "0.0.0.0");
 
-    sys->relayAddr = var_InheritString( p_access, "amt-relay" );
+    msg_Dbg( p_access, "Setting multicast source address to %s", sys->mcastSrc);
 
-    if( unlikely(sys->relayAddr == NULL ) )
+    /* Pull the AMT relay address from the settings */
+    sys->relay = var_InheritString( p_access, "amt-relay" );
+    if( unlikely( sys->relay == NULL ) )
     {
         msg_Err( p_access, "No relay anycast or unicast address specified." );
         VLC_ret = VLC_EGENERIC;
         goto cleanup;
     }
 
-    msg_Dbg( p_access, "Addresses: mcastGroup: %s srcAddr: %s relayAddr: %s", \
-             sys->mcastGroup, sys->srcAddr, sys->relayAddr);
+    msg_Dbg( p_access, "Addresses: mcastGroup: %s mcastSrc: %s relay: %s", \
+             sys->mcastGroup, sys->mcastSrc, sys->relay);
 
+    /* Native multicast file descriptor */
     sys->fd = net_OpenDgram( p_access, sys->mcastGroup, i_bind_port,
-                             sys->srcAddr, i_server_port, IPPROTO_UDP );
+                             sys->mcastSrc, i_server_port, IPPROTO_UDP );
     if( sys->fd == -1 )
     {
         msg_Err( p_access, "cannot open socket" );
         VLC_ret = VLC_EGENERIC;
         goto cleanup;
     }
-
-    sys->mtu = 7 * 188;
 
     sys->timeout = var_InheritInteger( p_access, "amt-native-timeout");
     if( sys->timeout > 0)
@@ -441,69 +501,225 @@ static int Open( vlc_object_t *p_this )
     sys->threadReady = false;
 
 cleanup: /* fall through */
-    
+
     /* release the allocated memory */
     free( psz_name );
     vlc_UrlClean( &url );
     freeaddrinfo( serverinfo );
 
-    mem_alloc-=3;
-
     /* if an error occurred free the memory */
     if ( VLC_ret != VLC_SUCCESS )
     {
+        msg_Dbg( p_access, "Open(): Before free( sys-> sys->Addr ) #4" );
         free( sys->mcastGroup );
-        free( sys->srcAddr );
-        vlc_obj_free( p_this, sys );
-        mem_alloc -= 3;
+        free( sys->mcastSrc );
     }
-    
-/*    msg_Dbg( p_access, "Open: Exit: mem_alloc = %d", mem_alloc); */
 
     return VLC_ret;
 }
 
 /*****************************************************************************
- * Close: free unused data structures
+ * Close: Cancel thread and free data structures
  *****************************************************************************/
 static void Close( vlc_object_t *p_this )
 {
-    char         relay_ip[INET_ADDRSTRLEN];
     stream_t     *p_access = (stream_t*)p_this;
     access_sys_t *sys = p_access->p_sys;
 
-    inet_ntop(AF_INET, &(sys->relayAddrDisco.sin_addr), relay_ip, INET_ADDRSTRLEN);
-    
-    if( strcmp(sys->srcAddr, "0.0.0.0") == 0 )
-        amt_leaveASM_group( p_access );
-    else
-        amt_leaveSSM_group( p_access );
-    amt_send_mem_update( p_access, relay_ip, true );
+    msg_Dbg( p_access, "Closing AMT plugin" );
 
+    /* If using AMT tunneling send leave message and free the relay addresses */
+    if ( sys->tryAMT )
+    {
+        /* Prepare socket options */
+        if( sys->mcastSrcAddr.sin_addr.s_addr )
+            amt_leaveSSM_group( p_access );
+        else
+            amt_leaveASM_group( p_access );
+
+        /* Send IGMP leave message */
+        amt_send_mem_update( p_access, sys->relayDisco, true );
+
+        free( sys->relay );
+        free( sys->relayDisco );
+    }
+
+    /* If overflow block allocated then free the memory */
+    if( sys->overflow_block )
+        block_Release( sys->overflow_block );
+
+    /* If membership thread spawned cancel it */
     if( sys->threadReady )
     {
+        msg_Dbg( p_access, "Canceling IGMP membership thread" );
         sys->threadReady = false;
         vlc_cancel( sys->updateThread );
         vlc_join( sys->updateThread, NULL );
     }
 
     free( sys->mcastGroup );
-    free( sys->srcAddr );
-    vlc_obj_free( p_this, sys );
-
-    mem_alloc -= 3;
-    if (mem_alloc)
-        msg_Err( p_access, "Closing AMT plugin, mem_alloc = %d", mem_alloc);
-    else
-        msg_Dbg( p_access, "Closing AMT plugin, mem_alloc = %d", mem_alloc);
+    free( sys->mcastSrc );
 
     net_Close( sys->fd );
     net_Close( sys->sAMT );
     net_Close( sys->sQuery );
+
+    msg_Dbg( p_access, "Exiting AMT plugin" );
 }
 
+/*****************************************************************************
+ * Control: Define stream controls
+ *****************************************************************************/
+static int Control( stream_t *p_access, int i_query, va_list args )
+{
+    switch( i_query )
+    {
+        case STREAM_CAN_SEEK:
+        case STREAM_CAN_FASTSEEK:
+        case STREAM_CAN_PAUSE:
+        case STREAM_CAN_CONTROL_PACE:
+            *va_arg( args, bool * ) = false;
+            break;
 
-bool open_amt_tunnel( stream_t *p_access )
+        case STREAM_GET_PTS_DELAY:
+            *va_arg( args, vlc_tick_t * ) =
+                VLC_TICK_FROM_MS(var_InheritInteger( p_access, "network-caching" ));
+            break;
+
+        default:
+            return VLC_EGENERIC;
+    }
+
+    return VLC_SUCCESS;
+}
+
+/*****************************************************************************
+ * BlockUDP: Responsible for returning the multicast payload
+ * BlockUDP: Sections of code are based upon BlockUDP code in udp.c
+ *
+ * Default MTU based on number of MPEG-2 transports carried in a 1500 byte Ethernet frame
+ * however the code is able to receive maximal IPv4 UDP frames and then adjusts the MTU
+ *****************************************************************************/
+static block_t *BlockUDP(stream_t *p_access, bool *restrict eof)
+{
+    access_sys_t *sys = p_access->p_sys;
+    ssize_t len = 0, shift = 0, tunnel = IP_HDR_LEN + UDP_HDR_LEN + AMT_HDR_LEN;
+
+    /* Allocate anticipated MTU buffer for holding the UDP packet suitable for native or AMT tunneled multicast */
+    block_t *pkt = block_Alloc( sys->mtu + tunnel );
+    if ( unlikely( pkt == NULL ) )
+        return NULL;
+
+    /* Structure initialized to hold anticipated MTU buffer along with protective overflow buffer */
+    struct iovec iov[] = {{
+        .iov_base = pkt->p_buffer,
+        .iov_len = sys->mtu + tunnel,
+    },{
+        .iov_base = sys->overflow_block->p_buffer,
+        .iov_len = sys->overflow_block->i_buffer,
+    }};
+
+    /* References the two element array above to be passed into recvmsg */
+    struct msghdr msg = {
+        .msg_iov = iov,
+        .msg_iovlen = 2,
+    };
+
+    struct pollfd ufd[1];
+
+    if( sys->tryAMT )
+        ufd[0].fd = sys->sAMT; /* AMT tunneling file descriptor */
+    else
+        ufd[0].fd = sys->fd;   /* Native multicast file descriptor */
+    ufd[0].events = POLLIN;
+
+    switch (vlc_poll_i11e(ufd, 1, sys->timeout))
+    {
+        case 0:
+            if( !sys->tryAMT )
+            {
+                msg_Err(p_access, "Native multicast receive time-out");
+                if( !open_amt_tunnel( p_access ) )
+                    goto error;
+                break;
+            }
+            else
+            {
+                *eof = true;
+            }
+            /* fall through */
+        case -1:
+            goto error;
+    }
+
+    /* If using AMT tunneling perform basic checks and point to beginning of the payload */
+    if( sys->tryAMT )
+    {
+        len = recvmsg( sys->sAMT, &msg, 0 );
+
+        /* Check for the integrity of the received AMT packet */
+        if( len < 0 || *(pkt->p_buffer) != AMT_MULT_DATA )
+            goto error;
+
+        /* Set the offet to the first byte of the payload */
+        shift += tunnel;
+
+        /* If the length received is less than the AMT tunnel header then it's truncated */
+        if( len < tunnel )
+        {
+            msg_Err(p_access, "%zd bytes packet truncated (MTU was %zd)", len, sys->mtu);
+            pkt->i_flags |= BLOCK_FLAG_CORRUPTED;
+        }
+
+        /* Otherwise subtract the length of the AMT encapsulation from the packet received */
+        else
+        {
+            len -= tunnel;
+        }
+    }
+
+    /* Otherwise pull native multicast */
+    else
+    {
+        len = recvmsg(sys->fd, &msg, 0);
+    }
+
+    /* If the payload length is greater than the MTU then the overflow buffer was utilized */
+    if ( unlikely( len > sys->mtu ) )
+    {
+        msg_Warn(p_access, "%zd bytes packet received (MTU was %zd), adjusting mtu", len, sys->mtu);
+
+        block_t *gather_block = sys->overflow_block;
+
+        /* Allocate a new overflow buffer based on the received payload length */
+        sys->overflow_block = block_Alloc(MAX_IPV4_UDP - len);
+
+        /* Set number of bytes consumed in the overflow block */
+        gather_block->i_buffer = len - sys->mtu;
+
+        /* Chain the anticipated packet and overflow buffers, copy into a single buffer and free the chain */
+        pkt->p_next = gather_block;
+        pkt = block_ChainGather( pkt );
+
+        /* Adjust the anticipated MTU to match the payload received */
+        sys->mtu = len;
+    }
+
+    /* Set the offset to payload start */
+    pkt->p_buffer += shift;
+    pkt->i_buffer -= shift;
+
+    return pkt;
+
+error:
+    block_Release( pkt );
+    return NULL;
+}
+
+/*****************************************************************************
+ * open_amt_tunnel: Create an AMT tunnel to the AMT relay
+ *****************************************************************************/
+static bool open_amt_tunnel( stream_t *p_access )
 {
     struct addrinfo hints, *serverinfo, *server;
     access_sys_t *sys = p_access->p_sys;
@@ -512,37 +728,44 @@ bool open_amt_tunnel( stream_t *p_access )
     hints.ai_family = AF_INET;  /* Setting to AF_UNSPEC accepts both IPv4 and IPv6 */
     hints.ai_socktype = SOCK_DGRAM;
 
-/*    msg_Dbg( p_access, "open_amt_tunnel: Enter: mem_alloc = %d", mem_alloc); */
-
-    msg_Dbg( p_access, "Attempting AMT to %s...", sys->relayAddr);
+    msg_Dbg( p_access, "Attempting AMT to %s...", sys->relay);
     sys->tryAMT = true;
 
-    /* retrieve list of addresses matching the AMT relay */
-    int res = vlc_getaddrinfo( sys->relayAddr, AMT_PORT, &hints, &serverinfo );
-    mem_alloc++;
+    /* Retrieve list of addresses matching the AMT relay */
+    int res = vlc_getaddrinfo( sys->relay, AMT_PORT, &hints, &serverinfo );
 
+    /* If an error returned print reason and exit */
     if( res )
     {
-        msg_Err( p_access, "Could not find relay %s, reason: %s", sys->relayAddr, gai_strerror(res) );
+        msg_Err( p_access, "Could not find relay %s, reason: %s", sys->relay, gai_strerror(res) );
         goto error;
     }
 
-    /* iterate through the list of sockets to find one the works */
+    /* Iterate through the list of sockets to find one that works */
     for (server = serverinfo; server != NULL; server = server->ai_next)
     {
         struct sockaddr_in *server_addr = (struct sockaddr_in *) server->ai_addr;
         char relay_ip[INET_ADDRSTRLEN];
 
+        /* Convert to binary representation */
         inet_ntop(AF_INET, &(server_addr->sin_addr), relay_ip, INET_ADDRSTRLEN);
 
-        msg_Dbg( p_access, "Trying AMT Server: %s", relay_ip);
-	
-        sys->relayAddrDisco.sin_addr = server_addr->sin_addr;
+        /* Store string representation */
+        sys->relayDisco = strdup( relay_ip );
+        if( unlikely( sys->relayDisco == NULL ) )
+        {
+            goto error;
+        }
 
-        /* if can't open socket try any others in list */
+        msg_Dbg( p_access, "Trying AMT Server: %s", sys->relayDisco);
+
+        /* Store the binary representation */
+        sys->relayDiscoAddr.sin_addr = server_addr->sin_addr;
+
+        /* If can't open socket try any others in list */
         if( amt_sockets_init( p_access ) != 0 )
             msg_Err( p_access, "Error initializing socket to %s", relay_ip );
-        
+
         /* Otherwise negotiate with AMT relay and confirm you can pull a UDP packet  */
         else
         {
@@ -558,7 +781,7 @@ bool open_amt_tunnel( stream_t *p_access )
 
             amt_send_relay_request( p_access, relay_ip );
             msg_Dbg( p_access, "Sent AMT relay request message to %s", relay_ip );
-            
+
             if( !amt_rcv_relay_mem_query( p_access ) )
             {
                 msg_Err( p_access, "Could not receive AMT relay membership query from %s, reason: %s", relay_ip, vlc_strerror(errno));
@@ -566,8 +789,19 @@ bool open_amt_tunnel( stream_t *p_access )
             }
             msg_Dbg( p_access, "Received AMT relay membership query from %s", relay_ip );
 
-            if( strcmp(sys->srcAddr, "") == 0 )
+            /* If single source multicast send SSM join */
+            if( sys->mcastSrcAddr.sin_addr.s_addr )
             {
+                if( amt_joinSSM_group( p_access ) != 0 )
+                {
+                    msg_Err( p_access, "Error joining SSM %s", vlc_strerror(errno) );
+                    goto error;
+                }
+                msg_Dbg( p_access, "Joined SSM src: %s group: %s", sys->mcastSrc, sys->mcastGroup );
+            }
+
+            /* If any source multicast send ASM join */
+            else {
                 if( amt_joinASM_group( p_access ) != 0 )
                 {
                     msg_Err( p_access, "Error joining ASM %s", vlc_strerror(errno) );
@@ -575,24 +809,16 @@ bool open_amt_tunnel( stream_t *p_access )
                 }
                 msg_Dbg( p_access, "Joined ASM group: %s", sys->mcastGroup );
             }
-            else {
-                if( amt_joinSSM_group( p_access ) != 0 )
-                {
-                    msg_Err( p_access, "Error joining SSM %s", vlc_strerror(errno) );
-                    goto error;
-                }
-                msg_Dbg( p_access, "Joined SSM src: %s group: %s", sys->srcAddr, sys->mcastGroup );
-            }
 
             bool eof=false;
             block_t *pkt;
-       	
+
             /* Confirm that you can pull a UDP packet from the socket */
-            if ( (pkt = BlockUDP( p_access, &eof )) == false )
-                msg_Dbg( p_access, "Unable to receive UDP packet from AMT relay %s for multicast group %s, skipping...", relay_ip, sys->mcastGroup );
+            if ( !(pkt = BlockUDP( p_access, &eof )) )
+                msg_Err( p_access, "Unable to receive UDP packet from AMT relay %s for multicast group %s", relay_ip, sys->mcastGroup );
             else
             {
-                block_Release(pkt);  /* don't decrement mem_alloc since pkt not included in count */
+                block_Release( pkt );
                 msg_Dbg( p_access, "Got UDP packet from multicast group %s via AMT relay %s, continuing...", sys->mcastGroup, relay_ip );
                 break;   /* found an active server sending UDP packets, so exit loop */
            }
@@ -605,31 +831,24 @@ bool open_amt_tunnel( stream_t *p_access )
         msg_Err( p_access, "No AMT servers responding" );
         goto error;
     }
-	
+
     sys->queryTime = vlc_tick_now() / CLOCK_FREQ;
 
     /* release the allocated memory */
-    freeaddrinfo(serverinfo);
-    mem_alloc--;
-
-/*    msg_Dbg( p_access, "open_amt_tunnel: Exit: mem_alloc = %d", mem_alloc); */
-
+    freeaddrinfo( serverinfo );
     return true;
 
 error:
     /* release the allocated memory */
-    freeaddrinfo(serverinfo);
-    mem_alloc--;
-
-/*    msg_Dbg( p_access, "open_amt_tunnel: Exit: mem_alloc = %d", mem_alloc); */
-
+    freeaddrinfo( serverinfo );
     sys->threadReady = false;
     return false;
 }
+
 /**
  * Calculate checksum
  * */
-unsigned short getChecksum( unsigned short *buffer, int nLen )
+static unsigned short get_checksum( unsigned short *buffer, int nLen )
 {
     int nleft = nLen;
     int sum = 0;
@@ -654,7 +873,7 @@ unsigned short getChecksum( unsigned short *buffer, int nLen )
 /**
  * Make IGMP Membership report
  * */
-void makeReport( amt_igmpv3_membership_report_t *mr )
+static void make_report( amt_igmpv3_membership_report_t *mr )
 {
     mr->type = AMT_IGMPV3_MEMBERSHIP_REPORT_TYPEID;
     mr->resv = 0;
@@ -666,7 +885,7 @@ void makeReport( amt_igmpv3_membership_report_t *mr )
 /**
  * Make IP header
  * */
-void makeIPHeader( amt_ip_alert_t *p_ipHead )
+static void make_ip_header( amt_ip_alert_t *p_ipHead )
 {
     p_ipHead->ver_ihl = 0x46;
     p_ipHead->tos = 0xc0;
@@ -684,7 +903,7 @@ void makeIPHeader( amt_ip_alert_t *p_ipHead )
  * fills in relay anycast address for discovery
  * return 0 if successful, -1 if not
  */
-int amt_sockets_init( stream_t *p_access )
+static int amt_sockets_init( stream_t *p_access )
 {
     struct sockaddr_in rcvAddr;
     access_sys_t *sys = p_access->p_sys;
@@ -692,8 +911,8 @@ int amt_sockets_init( stream_t *p_access )
     int enable = 0, res = 0;
 
     /* Relay anycast address for discovery */
-    sys->relayAddrDisco.sin_family = AF_INET;
-    sys->relayAddrDisco.sin_port = htons( AMT_PORT );
+    sys->relayDiscoAddr.sin_family = AF_INET;
+    sys->relayDiscoAddr.sin_port = htons( AMT_PORT );
 
     /* create UDP socket */
     sys->sAMT = vlc_socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP, true );
@@ -747,7 +966,7 @@ int amt_sockets_init( stream_t *p_access )
 
     sys->stSvrAddr.sin_family        = AF_INET;
     sys->stSvrAddr.sin_port          = htons( 9124 );
-    res = inet_pton( AF_INET, "127.0.0.1", &sys->stSvrAddr.sin_addr );
+    res = inet_pton( AF_INET, LOCAL_LOOPBACK, &sys->stSvrAddr.sin_addr );
     if( res == 0 )
     {
         msg_Err( p_access, "Could not convert loopback address" );
@@ -765,7 +984,7 @@ error:
 /**
  * Send a relay discovery message, before 3-way handshake
  * */
-void amt_send_relay_discovery_msg( stream_t *p_access, char *relay_ip )
+static void amt_send_relay_discovery_msg( stream_t *p_access, char *relay_ip )
 {
     char          chaSendBuffer[AMT_DISCO_MSG_LEN];
     unsigned int  ulNonce;
@@ -792,12 +1011,12 @@ void amt_send_relay_discovery_msg( stream_t *p_access, char *relay_ip )
     /* create nonce and copy into send buffer */
     srand( (unsigned int)time(NULL) );
     ulNonce = htonl( rand() );
-    memcpy( (void*)&chaSendBuffer[4], (void*)&ulNonce, sizeof(ulNonce) );
+    memcpy( &chaSendBuffer[4], &ulNonce, sizeof(ulNonce) );
     sys->glob_ulNonce = ulNonce;
 
     /* send it */
     nRet = sendto( sys->sAMT, chaSendBuffer, sizeof(chaSendBuffer), 0,\
-            (struct sockaddr *)&sys->relayAddrDisco, sizeof(struct sockaddr) );
+            (struct sockaddr *)&sys->relayDiscoAddr, sizeof(struct sockaddr) );
 
     if( nRet < 0)
         msg_Err( p_access, "Sendto failed to %s with error %d.", relay_ip, errno);
@@ -806,19 +1025,17 @@ void amt_send_relay_discovery_msg( stream_t *p_access, char *relay_ip )
 /**
  * Send relay request message, stage 2 of handshake
  * */
-void amt_send_relay_request( stream_t *p_access, char *relay_ip )
+static void amt_send_relay_request( stream_t *p_access, char *relay_ip )
 {
     char         chaSendBuffer[AMT_REQUEST_MSG_LEN];
     uint32_t     ulNonce;
     int          nRet;
-    int          nRetry;
     access_sys_t *sys = p_access->p_sys;
 
     memset( chaSendBuffer, 0, sizeof(chaSendBuffer) );
 
     ulNonce = 0;
     nRet = 0;
-    nRetry = 0;
 
     /*
      * create AMT request message format
@@ -848,7 +1065,7 @@ void amt_send_relay_request( stream_t *p_access, char *relay_ip )
     chaSendBuffer[3] = 0;
 
     ulNonce = sys->glob_ulNonce;
-    memcpy( (void*)&chaSendBuffer[4], (void*)&ulNonce, sizeof(uint32_t) );
+    memcpy( &chaSendBuffer[4], &ulNonce, sizeof(uint32_t) );
 
     nRet = send( sys->sAMT, chaSendBuffer, sizeof(chaSendBuffer), 0 );
 
@@ -862,46 +1079,43 @@ void amt_send_relay_request( stream_t *p_access, char *relay_ip )
 * | Msg Type(1 byte)| Reserved (1 byte)| MAC (6 byte)| nonce (4 byte) | IGMP packet  |
 * +----------------------------------------------------------------------------------+
 */
-void amt_send_mem_update( stream_t *p_access, char *relay_ip, bool leave)
+static void amt_send_mem_update( stream_t *p_access, char *relay_ip, bool leave)
 {
     int           sendBufSize = IP_HDR_IGMP_LEN + MAC_LEN + NONCE_LEN + AMT_HDR_LEN;
     char          pSendBuffer[ sendBufSize + IGMP_REPORT_LEN ];
     uint32_t      ulNonce = 0;
     access_sys_t *sys = p_access->p_sys;
 
-    memset( &pSendBuffer, 0, sizeof(pSendBuffer) );
+    memset( pSendBuffer, 0, sizeof(pSendBuffer) );
 
     pSendBuffer[0] = AMT_MEM_UPD;
 
     /* copy relay MAC response */
-    memcpy( (void*)&pSendBuffer[2], (void*)sys->relay_mem_query_msg.uchaMAC, MAC_LEN );
+    memcpy( &pSendBuffer[2], sys->relay_mem_query_msg.uchaMAC, MAC_LEN );
 
     /* copy nonce */
     ulNonce = ntohl(sys->glob_ulNonce);
-    memcpy( (void*)&pSendBuffer[8], (void*)&ulNonce, NONCE_LEN );
+    memcpy( &pSendBuffer[8], &ulNonce, NONCE_LEN );
 
     /* make IP header for IGMP packet */
     amt_ip_alert_t p_ipHead;
     memset( &p_ipHead, 0, IP_HDR_IGMP_LEN );
-    makeIPHeader( &p_ipHead );
+    make_ip_header( &p_ipHead );
 
     struct sockaddr_in temp;
     inet_pton( AF_INET, MCAST_ALLHOSTS, &(temp.sin_addr) );
     p_ipHead.destAddr = temp.sin_addr.s_addr;
-    p_ipHead.check = getChecksum( (unsigned short*)&p_ipHead, IP_HDR_IGMP_LEN );
+    p_ipHead.check = get_checksum( (unsigned short*)&p_ipHead, IP_HDR_IGMP_LEN );
 
     amt_igmpv3_groupRecord_t groupRcd;
     groupRcd.auxDatalen = 0;
-    inet_pton( AF_INET, sys->mcastGroup, &(temp.sin_addr) );
-    groupRcd.ssm = temp.sin_addr.s_addr;
+    groupRcd.ssm = sys->mcastGroupAddr.sin_addr.s_addr;
 
-    if( strcmp(sys->srcAddr, "0.0.0.0") != 0 )
+    if( sys->mcastSrcAddr.sin_addr.s_addr )
     {
         groupRcd.type = leave ? AMT_IGMP_BLOCK:AMT_IGMP_INCLUDE;
         groupRcd.nSrc = htons(1);
-
-        inet_pton( AF_INET, sys->srcAddr, &(temp.sin_addr) );
-        groupRcd.srcIP[0] = temp.sin_addr.s_addr;
+        groupRcd.srcIP[0] = sys->mcastSrcAddr.sin_addr.s_addr;
 
     } else {
         groupRcd.type = leave ? AMT_IGMP_INCLUDE_CHANGE:AMT_IGMP_EXCLUDE_CHANGE;
@@ -910,17 +1124,17 @@ void amt_send_mem_update( stream_t *p_access, char *relay_ip, bool leave)
 
     /* make IGMP membership report */
     amt_igmpv3_membership_report_t p_igmpMemRep;
-    makeReport( &p_igmpMemRep );
+    make_report( &p_igmpMemRep );
 
-    memcpy((void *)&p_igmpMemRep.grp[0], (void *)&groupRcd, (int)sizeof(groupRcd) );
-    p_igmpMemRep.checksum = getChecksum( (unsigned short*)&p_igmpMemRep, IGMP_REPORT_LEN );
+    memcpy(&p_igmpMemRep.grp[0], &groupRcd, (int)sizeof(groupRcd) );
+    p_igmpMemRep.checksum = get_checksum( (unsigned short*)&p_igmpMemRep, IGMP_REPORT_LEN );
 
     amt_membership_update_msg_t memUpdateMsg;
-    memset((void*)&memUpdateMsg, 0, sizeof(memUpdateMsg));
-    memcpy((void*)&memUpdateMsg.ipHead, (void*)&p_ipHead, sizeof(p_ipHead) );
-    memcpy((void*)&memUpdateMsg.memReport, (void*)&p_igmpMemRep, sizeof(p_igmpMemRep) );
+    memset(&memUpdateMsg, 0, sizeof(memUpdateMsg));
+    memcpy(&memUpdateMsg.ipHead, &p_ipHead, sizeof(p_ipHead) );
+    memcpy(&memUpdateMsg.memReport, &p_igmpMemRep, sizeof(p_igmpMemRep) );
 
-    memcpy( (void*)&pSendBuffer[12], (void*)&memUpdateMsg, sizeof(memUpdateMsg) );
+    memcpy( &pSendBuffer[12], &memUpdateMsg, sizeof(memUpdateMsg) );
 
     send( sys->sAMT, pSendBuffer, sizeof(pSendBuffer), 0 );
 
@@ -941,12 +1155,12 @@ void amt_send_mem_update( stream_t *p_access, char *relay_ip, bool leave)
  *  |                                                               |
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * */
-bool amt_rcv_relay_adv( stream_t *p_access )
+static bool amt_rcv_relay_adv( stream_t *p_access )
 {
     char pkt[RELAY_ADV_MSG_LEN];
     access_sys_t *sys = p_access->p_sys;
 
-    memset( &pkt, 0, RELAY_ADV_MSG_LEN );
+    memset( pkt, 0, RELAY_ADV_MSG_LEN );
 
     struct pollfd ufd[1];
 
@@ -972,28 +1186,28 @@ bool amt_rcv_relay_adv( stream_t *p_access )
         return false;
     }
 
-    memcpy( (void*)&sys->relay_adv_msg.type, &pkt[0], MSG_TYPE_LEN );
+    memcpy( &sys->relay_adv_msg.type, &pkt[0], MSG_TYPE_LEN );
     if( sys->relay_adv_msg.type != AMT_RELAY_ADV )
     {
         msg_Err( p_access, "Received message not an AMT relay advertisement, ignoring. ");
         return false;
     }
 
-    memcpy( (void*)&sys->relay_adv_msg.ulRcvNonce, &pkt[NONCE_LEN], NONCE_LEN );
+    memcpy( &sys->relay_adv_msg.ulRcvNonce, &pkt[NONCE_LEN], NONCE_LEN );
     if( sys->glob_ulNonce != sys->relay_adv_msg.ulRcvNonce )
     {
         msg_Err( p_access, "Discovery nonces differ! currNonce:%x rcvd%x", sys->glob_ulNonce, ntohl(sys->relay_adv_msg.ulRcvNonce) );
         return false;
     }
 
-    memcpy( (void*)&sys->relay_adv_msg.ipAddr, &pkt[8], 4 );
+    memcpy( &sys->relay_adv_msg.ipAddr, &pkt[8], 4 );
 
-    memset( &sys->relayAddress, 0, sizeof(sys->relayAddress) );
-    sys->relayAddress.sin_family       = AF_INET;
-    sys->relayAddress.sin_addr.s_addr  = sys->relay_adv_msg.ipAddr;
-    sys->relayAddress.sin_port         = htons( AMT_PORT );
+    memset( &sys->relayAddr, 0, sizeof(sys->relayAddr) );
+    sys->relayAddr.sin_family       = AF_INET;
+    sys->relayAddr.sin_addr.s_addr  = sys->relay_adv_msg.ipAddr;
+    sys->relayAddr.sin_port         = htons( AMT_PORT );
 
-    int nRet = connect( sys->sAMT, (struct sockaddr *)&sys->relayAddress, sizeof(sys->relayAddress) );
+    int nRet = connect( sys->sAMT, (struct sockaddr *)&sys->relayAddr, sizeof(sys->relayAddr) );
     if( nRet < 0 )
     {
         msg_Err( p_access, "Error connecting AMT UDP socket: %s", vlc_strerror(errno) );
@@ -1029,10 +1243,10 @@ bool amt_rcv_relay_adv( stream_t *p_access )
    |                               |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
-bool amt_rcv_relay_mem_query( stream_t *p_access )
+static bool amt_rcv_relay_mem_query( stream_t *p_access )
 {
     char pkt[RELAY_QUERY_MSG_LEN];
-    memset( &pkt, 0, RELAY_QUERY_MSG_LEN );
+    memset( pkt, 0, RELAY_QUERY_MSG_LEN );
     struct pollfd ufd[1];
     access_sys_t *sys = p_access->p_sys;
 
@@ -1056,10 +1270,10 @@ bool amt_rcv_relay_mem_query( stream_t *p_access )
         return false;
     }
 
-    memcpy( (void*)&sys->relay_mem_query_msg.type, &pkt[0], MSG_TYPE_LEN );
+    memcpy( &sys->relay_mem_query_msg.type, &pkt[0], MSG_TYPE_LEN );
     /* pkt[1] is reserved  */
-    memcpy( (void*)&sys->relay_mem_query_msg.uchaMAC[0], &pkt[AMT_HDR_LEN], MAC_LEN );
-    memcpy( (void*)&sys->relay_mem_query_msg.ulRcvedNonce, &pkt[AMT_HDR_LEN + MAC_LEN], NONCE_LEN );
+    memcpy( &sys->relay_mem_query_msg.uchaMAC[0], &pkt[AMT_HDR_LEN], MAC_LEN );
+    memcpy( &sys->relay_mem_query_msg.ulRcvedNonce, &pkt[AMT_HDR_LEN + MAC_LEN], NONCE_LEN );
     if( sys->relay_mem_query_msg.ulRcvedNonce != sys->glob_ulNonce )
     {
         msg_Warn( p_access, "Nonces are different rcvd: %x glob: %x", sys->relay_mem_query_msg.ulRcvedNonce, sys->glob_ulNonce );
@@ -1068,42 +1282,37 @@ bool amt_rcv_relay_mem_query( stream_t *p_access )
 
     sys->glob_ulNonce = ntohl(sys->relay_mem_query_msg.ulRcvedNonce);
 
-    int shift = AMT_HDR_LEN + MAC_LEN + NONCE_LEN;
-    memcpy( (void*)&sys->relay_ip_hdr, (void*)&pkt[shift], IP_HDR_IGMP_LEN );
+    size_t shift = AMT_HDR_LEN + MAC_LEN + NONCE_LEN;
+    memcpy( &sys->relay_ip_hdr, &pkt[shift], IP_HDR_IGMP_LEN );
 
     shift += IP_HDR_IGMP_LEN;
     sys->relay_igmp_query.type = pkt[shift];
-    shift++;
+    shift++; assert( shift < RELAY_QUERY_MSG_LEN);
     sys->relay_igmp_query.max_resp_code = pkt[shift];
-    shift++;
-    memcpy( (void*)&sys->relay_igmp_query.checksum, &pkt[shift], 2 );
-    shift += 2;
-    memcpy( (void*)&sys->relay_igmp_query.ssmIP, &pkt[shift], 4 );
-    shift += 4;
+    shift++; assert( shift < RELAY_QUERY_MSG_LEN);
+    memcpy( &sys->relay_igmp_query.checksum, &pkt[shift], 2 );
+    shift += 2; assert( shift < RELAY_QUERY_MSG_LEN);
+    memcpy( &sys->relay_igmp_query.ssmIP, &pkt[shift], 4 );
+    shift += 4; assert( shift < RELAY_QUERY_MSG_LEN);
     sys->relay_igmp_query.s_qrv = pkt[shift];
-    shift++;
-    if( (int)pkt[shift] == 0 )
+    shift++; assert( shift < RELAY_QUERY_MSG_LEN);
+    if( pkt[shift] == 0 )
         sys->relay_igmp_query.qqic = 125;
-    else if( (int)pkt[shift] < 128 )
+    else
         sys->relay_igmp_query.qqic = pkt[shift];
-    else {
-        int qqic;
-        qqic = ((pkt[shift]&0x0f) + 0x10) << (((pkt[shift] >> 4)&0x07) + 3);
-        sys->relay_igmp_query.qqic = qqic;
-    }
 
-    shift++;
-    memcpy( (void*)&sys->relay_igmp_query.nSrc, &pkt[shift], 2 );
+    shift++; assert( shift < RELAY_QUERY_MSG_LEN);
+    memcpy( &sys->relay_igmp_query.nSrc, &pkt[shift], 2 );
     if( sys->relay_igmp_query.nSrc != 0 )
     {
         shift += 2;
-        memcpy( (void*)&sys->relay_igmp_query.srcIP, &pkt[shift], 4 );
+        memcpy( &sys->relay_igmp_query.srcIP, &pkt[shift], 4 );
     }
 
     /* if a membership thread exists cancel it */
     if( sys->threadReady )
     {
-        msg_Dbg( p_access, "Cancelling existing AMT relay membership update thread");
+        msg_Dbg( p_access, "Canceling existing AMT relay membership update thread");
 
         sys->threadReady = false;
         vlc_cancel( sys->updateThread );
@@ -1126,30 +1335,24 @@ bool amt_rcv_relay_mem_query( stream_t *p_access )
 /**
  * Join SSM group based on input addresses, or use the defaults
  * */
-int amt_joinSSM_group( stream_t *p_access )
+static int amt_joinSSM_group( stream_t *p_access )
 {
     struct ip_mreq_source imr;
-    struct sockaddr_in temp;
     access_sys_t *sys = p_access->p_sys;
 
-    inet_pton( AF_INET, sys->mcastGroup, &(temp.sin_addr.s_addr) );
-    imr.imr_multiaddr.s_addr = temp.sin_addr.s_addr;
-
-    inet_pton( AF_INET, sys->srcAddr, &(temp.sin_addr.s_addr) );
-    imr.imr_sourceaddr.s_addr = temp.sin_addr.s_addr;
+    imr.imr_multiaddr.s_addr = sys->mcastGroupAddr.sin_addr.s_addr;
+    imr.imr_sourceaddr.s_addr = sys->mcastSrcAddr.sin_addr.s_addr;
     imr.imr_interface.s_addr = INADDR_ANY;
 
     return setsockopt( sys->sAMT, IPPROTO_IP, IP_ADD_SOURCE_MEMBERSHIP, (char *)&imr, sizeof(imr) );
 }
 
-int amt_joinASM_group( stream_t *p_access )
+static int amt_joinASM_group( stream_t *p_access )
 {
     struct ip_mreq imr;
-    struct sockaddr_in temp;
     access_sys_t *sys = p_access->p_sys;
 
-    inet_pton( AF_INET, sys->mcastGroup, &(temp.sin_addr.s_addr) );
-    imr.imr_multiaddr.s_addr = temp.sin_addr.s_addr;
+    imr.imr_multiaddr.s_addr = sys->mcastGroupAddr.sin_addr.s_addr;
     imr.imr_interface.s_addr = INADDR_ANY;
 
     return setsockopt( sys->sAMT, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&imr, sizeof(imr) );
@@ -1158,51 +1361,47 @@ int amt_joinASM_group( stream_t *p_access )
 /**
  * Leave SSM group that was joined earlier.
  * */
-int amt_leaveSSM_group( stream_t *p_access )
+static int amt_leaveSSM_group( stream_t *p_access )
 {
     struct ip_mreq_source imr;
-    struct sockaddr_in temp;
     access_sys_t *sys = p_access->p_sys;
 
-    inet_pton( AF_INET, sys->mcastGroup, &(temp.sin_addr.s_addr) );
-    imr.imr_multiaddr.s_addr = temp.sin_addr.s_addr;
-
-    inet_pton( AF_INET, sys->srcAddr, &(temp.sin_addr.s_addr) );
-    imr.imr_sourceaddr.s_addr = temp.sin_addr.s_addr;
+    imr.imr_multiaddr.s_addr = sys->mcastGroupAddr.sin_addr.s_addr;
+    imr.imr_sourceaddr.s_addr = sys->mcastSrcAddr.sin_addr.s_addr;
     imr.imr_interface.s_addr = INADDR_ANY;
 
     return setsockopt( sys->sAMT, IPPROTO_IP, IP_DROP_SOURCE_MEMBERSHIP, (char *)&imr, sizeof(imr) );
 }
 
-int amt_leaveASM_group( stream_t *p_access )
+/**
+ * Leave ASM group that was joined earlier.
+ * */
+static int amt_leaveASM_group( stream_t *p_access )
 {
     struct ip_mreq imr;
-    struct sockaddr_in temp;
     access_sys_t *sys = p_access->p_sys;
 
-    inet_pton( AF_INET, sys->mcastGroup, &(temp.sin_addr.s_addr) );
-    imr.imr_multiaddr.s_addr = temp.sin_addr.s_addr;
+    imr.imr_multiaddr.s_addr = sys->mcastGroupAddr.sin_addr.s_addr;
     imr.imr_interface.s_addr = INADDR_ANY;
 
     return setsockopt( sys->sAMT, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&imr, sizeof(imr) );
 }
 
-void *amt_mem_upd( void *data )
+/* A thread is spawned since IGMP membership updates need to issued periodically in order to continue to receive multicast */
+/* Simple timers are not suitable for this requirement since the parent is otherwise occupied in receiving UDP packet flow */
+static void *amt_mem_upd( void *data )
 {
-    char          relay_ip[INET_ADDRSTRLEN];
     stream_t     *p_access = (stream_t*) data;
     access_sys_t *sys = p_access->p_sys;
-
+ 
     msg_Dbg( p_access, "AMT relay membership update thread started" );
-
-    inet_ntop(AF_INET, &(sys->relayAddrDisco.sin_addr), relay_ip, INET_ADDRSTRLEN);
-    
-    /* thread sends periodic AMT membership updates until Close() which clears sys->threadReady and terminates thread */
-    while ( sys->threadReady  )
+ 
+    /* thread sends periodic AMT membership updates until Close() which terminates thread */
+    while ( TRUE  )
     {
-        amt_send_mem_update( p_access, relay_ip, false );
+        amt_send_mem_update( p_access, sys->relayDisco, false );
         vlc_tick_sleep( (vlc_tick_t)sys->relay_igmp_query.qqic * CLOCK_FREQ );
     }
-
+ 
     return NULL;
 }
