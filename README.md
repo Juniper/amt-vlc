@@ -11,6 +11,7 @@ Added AMT access module to VLC. To use:
   
 Some known working streams to try out include:  
 - amt://129.174.131.51@233.44.15.9
+- amt://198.116.200.36@233.1.14.13
 - amt://162.250.138.201@232.162.250.138
 - amt://162.250.138.201@232.162.250.139
 - amt://162.250.138.201@232.162.250.140
