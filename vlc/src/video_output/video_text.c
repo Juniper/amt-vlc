@@ -2,7 +2,6 @@
  * video_text.c : OSD text manipulation functions
  *****************************************************************************
  * Copyright (C) 1999-2010 VLC authors and VideoLAN
- * $Id: 10de062aa8ba0b62b11d133098028714a7e0c0ce $
  *
  * Author: Sigmund Augdal Helberg <dnumgis@videolan.org>
  *         Laurent Aimar <fenrir _AT_ videolan _DOT_ org>
@@ -93,11 +92,6 @@ static void OSDTextUpdate(subpicture_t *subpic,
         r->i_y += margin_v + fmt_dst->i_y_offset;
     else if (r->i_align & SUBPICTURE_ALIGN_BOTTOM )
         r->i_y += margin_v - fmt_dst->i_y_offset;
-
-    r->fmt.transfer  = fmt_dst->transfer;
-    r->fmt.primaries = fmt_dst->primaries;
-    r->fmt.space     = fmt_dst->space;
-    r->fmt.mastering = fmt_dst->mastering;
 }
 
 static void OSDTextDestroy(subpicture_t *subpic)
@@ -144,11 +138,9 @@ void vout_OSDText(vout_thread_t *vout, int channel,
     vout_PutSubpicture(vout, subpic);
 }
 
-void vout_OSDMessage(vout_thread_t *vout, int channel, const char *format, ...)
+void vout_OSDMessageVa(vout_thread_t *vout, int channel,
+                       const char *format, va_list args)
 {
-    va_list args;
-    va_start(args, format);
-
     char *string;
     if (vasprintf(&string, format, args) != -1) {
         vout_OSDText(vout, channel,
@@ -156,6 +148,4 @@ void vout_OSDMessage(vout_thread_t *vout, int channel, const char *format, ...)
                      string);
         free(string);
     }
-    va_end(args);
 }
-

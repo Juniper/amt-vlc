@@ -2,7 +2,6 @@
  * recents.hpp : Recents MRL (menu)
  *****************************************************************************
  * Copyright © 2008-2014 VideoLAN and VLC authors
- * $Id: a86d78f76e7639be217fc7eb856cc07eeda26ba6 $
  *
  * Authors: Ludovic Fauvet <etix@l0cal.com>
  *          Jean-baptiste Kempf <jb@videolan.org>
@@ -55,16 +54,16 @@ class RecentsMRL : public QObject, public Singleton<RecentsMRL>
     friend class Singleton<RecentsMRL>;
 
 public:
+    
     void addRecent( const QString & );
-    QStringList recentList();
     QSignalMapper *signalMapper;
 
-    int time( const QString &mrl );
-    void setTime( const QString &mrl, const int64_t time );
+    vlc_tick_t time( const QString &mrl );
+    void setTime( const QString &mrl, const vlc_tick_t time );
+    virtual ~RecentsMRL();
 
 private:
     RecentsMRL( intf_thread_t* _p_intf );
-    virtual ~RecentsMRL();
 
     intf_thread_t *p_intf;
 
@@ -75,8 +74,11 @@ private:
 
     void load();
     void save();
-
+     
+signals:
+       void saved();
 public slots:
+    QStringList recentList();
     void clear();
     void playMRL( const QString & );
 };

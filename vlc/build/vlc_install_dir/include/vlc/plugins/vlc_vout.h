@@ -2,7 +2,6 @@
  * vlc_vout.h: common video definitions
  *****************************************************************************
  * Copyright (C) 1999 - 2008 VLC authors and VideoLAN
- * $Id: 6bb712c17c809b0d272a5c99cee50f6caef117dc $
  *
  * Authors: Vincent Seguin <seguin@via.ecp.fr>
  *          Samuel Hocevar <sam@via.ecp.fr>
@@ -58,7 +57,7 @@ typedef struct vout_thread_sys_t vout_thread_sys_t;
  * structure.
  */
 struct vout_thread_t {
-    struct vlc_common_members obj;
+    struct vlc_object_t obj;
 
     /* Private vout_thread data */
     vout_thread_sys_t *p;
@@ -72,9 +71,40 @@ struct vout_thread_t {
 #define VOUT_ALIGN_BOTTOM       0x0008
 #define VOUT_ALIGN_VMASK        0x000C
 
+/**
+ * vout or spu_channel order
+ */
+enum vlc_vout_order
+{
+    VLC_VOUT_ORDER_NONE,
+    /**
+     * There is only one primary vout/spu_channel
+     * For vouts: this is the first vout, probably embedded in the UI.
+     * For spu channels: main and first SPU channel.
+     */
+    VLC_VOUT_ORDER_PRIMARY,
+    /**
+     * There can be several secondary vouts or spu_channels
+     * For vouts: a secondary vout using its own window.
+     * For spu channels: a secondary spu channel that is placed in function of
+     * the primary one. See "secondary-sub-margin" and
+     * "secondary-sub-alignment".
+     */
+    VLC_VOUT_ORDER_SECONDARY,
+};
+
 /*****************************************************************************
  * Prototypes
  *****************************************************************************/
+
+/**
+ * Destroys a vout.
+ *
+ * This function closes and releases a vout created by vout_Request().
+ *
+ * \param vout the vout to close
+ */
+VLC_API void vout_Close(vout_thread_t *vout);
 
 /**
  * This function will handle a snapshot request.
@@ -96,21 +126,32 @@ VLC_API int vout_GetSnapshot( vout_thread_t *p_vout,
                               video_format_t *p_fmt,
                               const char *psz_format, vlc_tick_t i_timeout );
 
-VLC_API void vout_ChangeAspectRatio( vout_thread_t *p_vout,
-                                     unsigned int i_num, unsigned int i_den );
-
 /* */
 VLC_API picture_t * vout_GetPicture( vout_thread_t * );
 VLC_API void vout_PutPicture( vout_thread_t *, picture_t * );
 
 /* Subpictures channels ID */
-#define VOUT_SPU_CHANNEL_OSD            1 /* OSD channel is automatically cleared */
-#define VOUT_SPU_CHANNEL_AVAIL_FIRST    8 /* Registerable channels from this offset */
+#define VOUT_SPU_CHANNEL_INVALID      (-1) /* Always fails in comparison */
+#define VOUT_SPU_CHANNEL_OSD            0 /* OSD channel is automatically cleared */
+#define VOUT_SPU_CHANNEL_OSD_HSLIDER    1
+#define VOUT_SPU_CHANNEL_OSD_VSLIDER    2
+#define VOUT_SPU_CHANNEL_OSD_COUNT      3
 
 /* */
 VLC_API void vout_PutSubpicture( vout_thread_t *, subpicture_t * );
-VLC_API int vout_RegisterSubpictureChannel( vout_thread_t * );
-VLC_API void vout_FlushSubpictureChannel( vout_thread_t *, int );
+VLC_API ssize_t vout_RegisterSubpictureChannel( vout_thread_t * );
+VLC_API void vout_UnregisterSubpictureChannel( vout_thread_t *, size_t );
+VLC_API void vout_FlushSubpictureChannel( vout_thread_t *, size_t );
+/**
+ * This function will ensure that all ready/displayed pictures have at most
+ * the provided date.
+ */
+VLC_API void vout_Flush( vout_thread_t *p_vout, vlc_tick_t i_date );
+
+/**
+ * Empty all the pending pictures in the vout
+ */
+#define vout_FlushAll( vout )  vout_Flush( vout, VLC_TICK_INVALID )
 
 /**@}*/
 

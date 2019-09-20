@@ -4,7 +4,6 @@
  * It includes functions allowing to declare, get or set configuration options.
  *****************************************************************************
  * Copyright (C) 1999-2006 VLC authors and VideoLAN
- * $Id: d06f618349d0db71fa7c319ca94e79744a9716f0 $
  *
  * Authors: Gildas Bazin <gbazin@videolan.org>
  *
@@ -98,11 +97,8 @@ struct module_config_t
     {
         const char **psz; /**< Table of possible string choices */
         const int  *i; /**< Table of possible integer choices */
-        vlc_string_list_cb psz_cb; /**< Callback to enumerate string choices */
-        vlc_integer_list_cb i_cb; /**< Callback to enumerate integer choices */
     } list; /**< Possible choices */
     const char **list_text; /**< Human-readable names for list values */
-    const char *list_cb_name; /**< Symbol name of the enumeration callback */
     void *owner; /**< Origin run-time linker module handle */
 };
 
@@ -192,7 +188,7 @@ VLC_API void config_PutFloat(const char *name, float val);
  * thread.
  *
  * \warning The behaviour is undefined if the configuration item exists but is
- * not of floating point type.
+ * not of string type.
  *
  * \param name Configuration item name
  * \return Normally, a heap-allocated copy of the configuration item value.
@@ -346,7 +342,7 @@ struct config_chain_t
  *
  * The option names will be created by adding the psz_prefix prefix.
  */
-VLC_API void config_ChainParse( vlc_object_t *, const char *psz_prefix, const char *const *ppsz_options, config_chain_t * );
+VLC_API void config_ChainParse( vlc_object_t *, const char *psz_prefix, const char *const *ppsz_options, const config_chain_t * );
 #define config_ChainParse( a, b, c, d ) config_ChainParse( VLC_OBJECT(a), b, c, d )
 
 /**

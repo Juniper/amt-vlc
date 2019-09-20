@@ -2,7 +2,6 @@
  * interface_widgets.cpp : Custom widgets for the main interface
  ****************************************************************************
  * Copyright (C) 2006-2010 the VideoLAN team
- * $Id: 6eebd0ba8c2dbba8adc987cd4f84fbee707eb9e1 $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *          Jean-Baptiste Kempf <jb@videolan.org>
@@ -32,8 +31,6 @@
 #include "components/interface_widgets.hpp"
 #include "dialogs_provider.hpp"
 #include "util/customwidgets.hpp"               // qtEventToVLCKey, QVLCStackedWidget
-
-#include "menus.hpp"             /* Popup menu on bgWidget */
 
 #include <QLabel>
 #include <QToolButton>
@@ -70,8 +67,8 @@
 #include <math.h>
 #include <assert.h>
 
-#include <vlc_vout.h>
 #include <vlc_vout_window.h>
+#include <vlc_player.h>
 
 /**********************************************************************
  * Video Widget. A simple frame on which video is drawn
@@ -118,13 +115,9 @@ void VideoWidget::sync( void )
 /**
  * Request the video to avoid the conflicts
  **/
-bool VideoWidget::request( struct vout_window_t *p_wnd )
+void VideoWidget::request( struct vout_window_t *p_wnd )
 {
-    if( stable )
-    {
-        msg_Dbg( p_intf, "embedded video already in use" );
-        return false;
-    }
+    assert( stable == NULL );
     assert( !p_window );
 
     /* The owner of the video window needs a stable handle (WinId). Reparenting
@@ -143,11 +136,17 @@ bool VideoWidget::request( struct vout_window_t *p_wnd )
        management */
     /* This is currently disabled on X11 as it does not seem to improve
      * performance, but causes the video widget to be transparent... */
-#if !defined (QT5_HAS_X11)
-    stable->setAttribute( Qt::WA_PaintOnScreen, true );
-#else
+#if defined (QT5_HAS_X11)
     stable->setMouseTracking( true );
     setMouseTracking( true );
+#elif defined(_WIN32)
+    stable->setAttribute( Qt::WA_PaintOnScreen, true );
+    stable->setMouseTracking( true );
+    setMouseTracking( true );
+    stable->setWindowFlags( Qt::Tool | Qt::FramelessWindowHint | Qt::WindowDoesNotAcceptFocus );
+    stable->setAttribute( Qt::WA_ShowWithoutActivating );
+#else
+    stable->setAttribute( Qt::WA_PaintOnScreen, true );
 #endif
     layout->addWidget( stable );
 
@@ -191,7 +190,6 @@ bool VideoWidget::request( struct vout_window_t *p_wnd )
         default:
             vlc_assert_unreachable();
     }
-    return true;
 }
 
 QSize VideoWidget::physicalSize() const
@@ -434,10 +432,10 @@ BackgroundWidget::BackgroundWidget( intf_thread_t *_p_i )
     CONNECT( fadeAnimation, valueChanged( const QVariant & ),
              this, update() );
 
-    CONNECT( THEMIM->getIM(), artChanged( QString ),
-             this, updateArt( const QString& ) );
-    CONNECT( THEMIM->getIM(), nameChanged( const QString& ),
-             this, titleUpdated( const QString & ) );
+    connect( THEMIM, QOverload<QString>::of(&PlayerController::artChanged),
+             this, &BackgroundWidget::updateArt );
+    connect( THEMIM, &PlayerController::nameChanged,
+             this, &BackgroundWidget::titleUpdated );
 }
 
 void BackgroundWidget::updateArt( const QString& url )
@@ -668,13 +666,12 @@ SpeedLabel::SpeedLabel( intf_thread_t *_p_intf, QWidget *parent )
     speedControlMenu->addAction( widgetAction );
 
     /* Change the SpeedRate in the Label */
-    CONNECT( THEMIM->getIM(), rateChanged( float ), this, setRate( float ) );
+    connect( THEMIM, &PlayerController::rateChanged, this, &SpeedLabel::setRate );
 
-    DCONNECT( THEMIM, inputChanged( bool ),
-              speedControl, activateOnState() );
+    connect( THEMIM, &PlayerController::playingStateChanged, speedControl, &SpeedControlWidget::activateOnState );
 
     setContentsMargins(4, 0, 4, 0);
-    setRate( var_InheritFloat( THEPL, "rate" ) );
+    setRate( THEMIM->getRate() );
 }
 
 SpeedLabel::~SpeedLabel()
@@ -724,7 +721,8 @@ SpeedControlWidget::SpeedControlWidget( intf_thread_t *_p_i, QWidget *_parent )
     speedSlider->setPageStep( 1 );
     speedSlider->setTickInterval( 17 );
 
-    CONNECT( speedSlider, valueChanged( int ), this, updateRate( int ) );
+    connect( speedSlider, &QSlider::valueChanged, this, &SpeedControlWidget::updateRate );
+    connect( THEMIM, &PlayerController::rateChanged, this, &SpeedControlWidget::updateControls);
 
     QToolButton *normalSpeedButton = new QToolButton( this );
     normalSpeedButton->setMaximumSize( QSize( 26, 16 ) );
@@ -732,49 +730,38 @@ SpeedControlWidget::SpeedControlWidget( intf_thread_t *_p_i, QWidget *_parent )
     normalSpeedButton->setText( "1x" );
     normalSpeedButton->setToolTip( qtr( "Revert to normal play speed" ) );
 
-    CONNECT( normalSpeedButton, clicked(), this, resetRate() );
+    connect( normalSpeedButton, &QToolButton::clicked, this, &SpeedControlWidget::resetRate );
 
     QToolButton *slowerButton = new QToolButton( this );
     slowerButton->setMaximumSize( QSize( 26, 16 ) );
     slowerButton->setAutoRaise( true );
     slowerButton->setToolTip( tooltipL[SLOWER_BUTTON] );
     slowerButton->setIcon( QIcon( iconL[SLOWER_BUTTON] ) );
-    CONNECT( slowerButton, clicked(), THEMIM->getIM(), slower() );
+    connect( slowerButton, &QToolButton::clicked, THEMIM, &PlayerController::slower);
 
     QToolButton *fasterButton = new QToolButton( this );
     fasterButton->setMaximumSize( QSize( 26, 16 ) );
     fasterButton->setAutoRaise( true );
     fasterButton->setToolTip( tooltipL[FASTER_BUTTON] );
     fasterButton->setIcon( QIcon( iconL[FASTER_BUTTON] ) );
-    CONNECT( fasterButton, clicked(), THEMIM->getIM(), faster() );
-
-/*    spinBox = new QDoubleSpinBox();
-    spinBox->setDecimals( 2 );
-    spinBox->setMaximum( 32 );
-    spinBox->setMinimum( 0.03F );
-    spinBox->setSingleStep( 0.10F );
-    spinBox->setAlignment( Qt::AlignRight );
-
-    CONNECT( spinBox, valueChanged( double ), this, updateSpinBoxRate( double ) ); */
+    connect( fasterButton, &QToolButton::clicked, THEMIM, &PlayerController::faster );
 
     QGridLayout* speedControlLayout = new QGridLayout( this );
     speedControlLayout->addWidget( speedSlider, 0, 0, 1, 3 );
     speedControlLayout->addWidget( slowerButton, 1, 0 );
     speedControlLayout->addWidget( normalSpeedButton, 1, 1, 1, 1, Qt::AlignRight );
     speedControlLayout->addWidget( fasterButton, 1, 2, 1, 1, Qt::AlignRight );
-    //speedControlLayout->addWidget( spinBox );
     speedControlLayout->setContentsMargins( 0, 0, 0, 0 );
     speedControlLayout->setSpacing( 0 );
 
     lastValue = 0;
 
-    activateOnState();
+    activateOnState( THEMIM->getPlayingState() );
 }
 
-void SpeedControlWidget::activateOnState()
+void SpeedControlWidget::activateOnState( PlayerController::PlayingState state )
 {
-    speedSlider->setEnabled( THEMIM->getIM()->hasInput() );
-    //spinBox->setEnabled( THEMIM->getIM()->hasInput() );
+    speedSlider->setEnabled( state == PlayerController::PLAYING_STATE_PLAYING || state == PlayerController::PLAYING_STATE_PAUSED );
 }
 
 void SpeedControlWidget::updateControls( float rate )
@@ -809,28 +796,28 @@ void SpeedControlWidget::updateRate( int sliderValue )
     lastValue = sliderValue;
 
     double speed = pow( 2, (double)sliderValue / 17 );
-    int rate = INPUT_RATE_DEFAULT / speed;
 
-    THEMIM->getIM()->setRate(rate);
+
+    THEMIM->setRate(speed);
     //spinBox->setValue( var_InheritFloat( THEPL, "rate" ) );
 }
 
 void SpeedControlWidget::updateSpinBoxRate( double r )
 {
-    var_SetFloat( THEPL, "rate", r );
+    THEMIM->setRate(r);
 }
 
 void SpeedControlWidget::resetRate()
 {
-    THEMIM->getIM()->setRate( INPUT_RATE_DEFAULT );
+    THEMIM->normalRate();
 }
 
 CoverArtLabel::CoverArtLabel( QWidget *parent, intf_thread_t *_p_i )
     : QLabel( parent ), p_intf( _p_i ), p_item( NULL )
 {
     setContextMenuPolicy( Qt::ActionsContextMenu );
-    CONNECT( THEMIM->getIM(), artChanged( input_item_t * ),
-             this, showArtUpdate( input_item_t * ) );
+    connect( THEMIM, QOverload<QString>::of(&PlayerController::artChanged),
+             this, QOverload<const QString&>::of(&CoverArtLabel::showArtUpdate) );
 
     setMinimumHeight( 128 );
     setMinimumWidth( 128 );
@@ -845,7 +832,7 @@ CoverArtLabel::CoverArtLabel( QWidget *parent, intf_thread_t *_p_i )
     CONNECT( action, triggered(), this, setArtFromFile() );
     addAction( action );
 
-    p_item = THEMIM->currentInputItem();
+    p_item = THEMIM->getInput();
     if( p_item )
     {
         input_item_Hold( p_item );
@@ -893,13 +880,13 @@ void CoverArtLabel::showArtUpdate( input_item_t *_p_item )
         return;
 
     QString url;
-    if ( _p_item ) url = THEMIM->getIM()->decodeArtURL( _p_item );
+    if ( _p_item ) url = THEMIM->decodeArtURL( _p_item );
     showArtUpdate( url );
 }
 
 void CoverArtLabel::askForUpdate()
 {
-    THEMIM->getIM()->requestArtUpdate( p_item, true );
+    THEMIM->requestArtUpdate( p_item, true );
 }
 
 void CoverArtLabel::setArtFromFile()
@@ -913,7 +900,7 @@ void CoverArtLabel::setArtFromFile()
     if( fileUrl.isEmpty() )
         return;
 
-    THEMIM->getIM()->setArt( p_item, fileUrl.toString() );
+    THEMIM->setArt( p_item, fileUrl.toString() );
 }
 
 void CoverArtLabel::clear()
@@ -954,17 +941,14 @@ TimeLabel::TimeLabel( intf_thread_t *_p_intf, TimeLabel::Display _displayType  )
     }
     setAlignment( Qt::AlignRight | Qt::AlignVCenter );
 
-    CONNECT( THEMIM->getIM(), seekRequested( float ),
-             this, setDisplayPosition( float ) );
+    connect( THEMIM, &PlayerController::seekRequested,
+             this, QOverload<float>::of(&TimeLabel::setDisplayPosition) );
 
-    CONNECT( THEMIM->getIM(), positionUpdated( float, int64_t, int ),
-              this, setDisplayPosition( float, int64_t, int ) );
+    connect( THEMIM, &PlayerController::positionUpdated,
+              this, QOverload<float , vlc_tick_t, int>::of(&TimeLabel::setDisplayPosition) );
 
-    connect( this, SIGNAL( broadcastRemainingTime( bool ) ),
-         THEMIM->getIM(), SIGNAL( remainingTimeChanged( bool ) ) );
-
-    CONNECT( THEMIM->getIM(), remainingTimeChanged( bool ),
-              this, setRemainingTime( bool ) );
+    connect( p_intf->p_sys->p_mi, &MainInterface::showRemainingTimeChanged,
+              this, &TimeLabel::setRemainingTime );
 
     setStyleSheet( "QLabel { padding-left: 4px; padding-right: 4px; }" );
 }
@@ -983,7 +967,7 @@ void TimeLabel::refresh()
     setDisplayPosition( cachedPos, cachedTime, cachedLength );
 }
 
-void TimeLabel::setDisplayPosition( float pos, int64_t t, int length )
+void TimeLabel::setDisplayPosition( float pos, vlc_tick_t t, int length )
 {
     cachedPos = pos;
     if( pos == -1.f )
@@ -1052,14 +1036,12 @@ void TimeLabel::setDisplayPosition( float pos, int64_t t, int length )
 
 void TimeLabel::setDisplayPosition( float pos )
 {
-    int64_t time = pos * cachedLength * 1000000;
+    vlc_tick_t time = vlc_tick_from_sec(pos * cachedLength);
     setDisplayPosition( pos, time, cachedLength );
 }
 
 void TimeLabel::toggleTimeDisplay()
 {
     b_remainingTime = !b_remainingTime;
-    getSettings()->setValue( "MainWindow/ShowRemainingTime", b_remainingTime );
-    emit broadcastRemainingTime( b_remainingTime );
+    p_intf->p_sys->p_mi->setShowRemainingTime(b_remainingTime);
 }
-

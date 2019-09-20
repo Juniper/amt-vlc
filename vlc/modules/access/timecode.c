@@ -44,7 +44,7 @@ vlc_module_begin ()
     set_category (CAT_INPUT)
     set_subcategory (SUBCAT_INPUT_ACCESS)
     set_capability ("access", 0)
-    set_callbacks (Open, NULL)
+    set_callback(Open)
 
     add_string ("timecode-fps", "25/1", FPS_TEXT, FPS_TEXT, false)
         change_string_list (fps_values, fps_texts)
@@ -121,15 +121,15 @@ static int Control (demux_t *demux, int query, va_list args)
             break;
 
         case DEMUX_GET_LENGTH:
-            *va_arg (args, int64_t *) = INT64_C(0);
+            *va_arg (args, vlc_tick_t *) = INT64_C(0);
             break;
 
         case DEMUX_GET_TIME:
-            *va_arg (args, int64_t *) = date_Get (&sys->date);
+            *va_arg (args, vlc_tick_t *) = date_Get (&sys->date);
             break;
 
         case DEMUX_SET_TIME:
-            date_Set (&sys->date, va_arg (args, int64_t));
+            date_Set (&sys->date, va_arg (args, vlc_tick_t));
             break;
 
         case DEMUX_SET_NEXT_DEMUX_TIME:

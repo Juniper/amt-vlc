@@ -10,7 +10,6 @@
  * Functions prototyped are implemented in interface/mtime.c.
  *****************************************************************************
  * Copyright (C) 1996, 1997, 1998, 1999, 2000 VLC authors and VideoLAN
- * $Id: a8db0f19a365e0b808c77b1ccb1a1a148c9c42fd $
  *
  * Authors: Vincent Seguin <seguin@via.ecp.fr>
  *
@@ -90,6 +89,30 @@ static inline double secf_from_vlc_tick(vlc_tick_t vtk)
     return (double)vtk / (double)CLOCK_FREQ;
 }
 
+static inline vlc_tick_t vlc_tick_rate_duration(float frame_rate)
+{
+    return CLOCK_FREQ / frame_rate;
+}
+
+/*
+ * samples<>vlc_tick_t
+ */
+static inline vlc_tick_t vlc_tick_from_samples(int64_t samples, int samp_rate)
+{
+    return CLOCK_FREQ * samples / samp_rate;
+}
+static inline int64_t samples_from_vlc_tick(vlc_tick_t t, int samp_rate)
+{
+    return t * samp_rate / CLOCK_FREQ;
+}
+
+
+static inline vlc_tick_t vlc_tick_from_frac(uint64_t num, uint64_t den)
+{
+    lldiv_t d = lldiv (num, den);
+    return vlc_tick_from_sec( d.quot ) + vlc_tick_from_samples(d.rem, den);
+}
+
 
 /*
  * vlc_tick_t <> milliseconds (ms) conversions
@@ -165,17 +188,28 @@ struct timespec timespec_from_vlc_tick(vlc_tick_t date);
 
 
 /*****************************************************************************
- * MSTRTIME_MAX_SIZE: maximum possible size of mstrtime
+ * MSTRTIME_MAX_SIZE: maximum possible size of secstotimestr
  *****************************************************************************
  * This values is the maximal possible size of the string returned by the
- * mstrtime() function, including '-' and the final '\0'. It should be used to
- * allocate the buffer.
+ * secstotimestr() function, including '-' and the final '\0'. It should be
+ * used to allocate the buffer.
  *****************************************************************************/
 #define MSTRTIME_MAX_SIZE 22
 
 /*****************************************************************************
  * Prototypes
  *****************************************************************************/
+
+/**
+ * Convert seconds to a time in the format h:mm:ss.
+ *
+ * This function is provided for any interface function which need to print a
+ * time string in the format h:mm:ss
+ * date.
+ * \param secs  the date to be converted
+ * \param psz_buffer should be a buffer at least MSTRTIME_MAX_SIZE characters
+ * \return psz_buffer is returned so this can be used as printf parameter.
+ */
 VLC_API char * secstotimestr( char *psz_buffer, int32_t secs );
 
 /**
@@ -261,5 +295,8 @@ VLC_API vlc_tick_t date_Decrement(date_t *restrict date, uint32_t count);
 
 /** @} */
 
+/**
+ * @return NTP 64-bits timestamp in host byte order.
+ */
 VLC_API uint64_t NTPtime64( void );
 #endif /* !__VLC_MTIME_ */

@@ -2,7 +2,6 @@
  * media_list_player.c: libvlc new API media_list player functions
  *****************************************************************************
  * Copyright (C) 2007-2015 VLC authors and VideoLAN
- * $Id: 7f4d427f632098b26be956ec4289d15967ab4f7d $
  *
  * Authors: Pierre d'Herbemont <pdherbemont # videolan.org>
  *          Niles Bindel <zaggal69 # gmail.com>
@@ -29,6 +28,7 @@
 
 #include <vlc/libvlc.h>
 #include <vlc/libvlc_renderer_discoverer.h>
+#include <vlc/libvlc_picture.h>
 #include <vlc/libvlc_media.h>
 #include <vlc/libvlc_media_list.h>
 #include <vlc/libvlc_media_player.h>
@@ -74,12 +74,6 @@ struct libvlc_media_list_player_t
     vlc_thread_t                thread;
 };
 
-/* This is not yet exported by libvlccore */
-static inline void vlc_assert_locked(vlc_mutex_t *mutex)
-{
-    VLC_UNUSED(mutex);
-}
-
 /*
  * Forward declaration
  */
@@ -113,7 +107,8 @@ static inline void unlock(libvlc_media_list_player_t * p_mlp)
 
 static inline void assert_locked(libvlc_media_list_player_t * p_mlp)
 {
-    vlc_assert_locked(&p_mlp->mp_callback_lock);
+    vlc_mutex_assert(&p_mlp->mp_callback_lock);
+    (void) p_mlp;
 }
 
 static inline libvlc_event_manager_t * mlist_em(libvlc_media_list_player_t * p_mlp)
@@ -124,7 +119,6 @@ static inline libvlc_event_manager_t * mlist_em(libvlc_media_list_player_t * p_m
 
 static inline libvlc_event_manager_t * mplayer_em(libvlc_media_list_player_t * p_mlp)
 {
-    assert_locked(p_mlp);
     return libvlc_media_player_event_manager(p_mlp->p_mi);
 }
 
@@ -406,7 +400,6 @@ uninstall_playlist_observer(libvlc_media_list_player_t * p_mlp)
 static void
 install_media_player_observer(libvlc_media_list_player_t * p_mlp)
 {
-    assert_locked(p_mlp);
     libvlc_event_attach(mplayer_em(p_mlp), libvlc_MediaPlayerEndReached, media_player_reached_end, p_mlp);
 }
 
@@ -667,8 +660,7 @@ void libvlc_media_list_player_set_pause(libvlc_media_list_player_t * p_mlp,
 /**************************************************************************
  *        is_playing (Public)
  **************************************************************************/
-int
-libvlc_media_list_player_is_playing(libvlc_media_list_player_t * p_mlp)
+bool libvlc_media_list_player_is_playing(libvlc_media_list_player_t * p_mlp)
 {
     libvlc_state_t state = libvlc_media_player_get_state(p_mlp->p_mi);
     return (state == libvlc_Opening) || (state == libvlc_Playing);
@@ -738,7 +730,7 @@ static void stop(libvlc_media_list_player_t * p_mlp)
 
     /* We are not interested in getting media stop event now */
     uninstall_media_player_observer(p_mlp);
-    libvlc_media_player_stop(p_mlp->p_mi);
+    libvlc_media_player_stop_async(p_mlp->p_mi);
     install_media_player_observer(p_mlp);
 
     free(p_mlp->current_playing_item_path);
@@ -753,7 +745,7 @@ static void stop(libvlc_media_list_player_t * p_mlp)
 /**************************************************************************
  *       Stop (Public)
  **************************************************************************/
-void libvlc_media_list_player_stop(libvlc_media_list_player_t * p_mlp)
+void libvlc_media_list_player_stop_async(libvlc_media_list_player_t * p_mlp)
 {
     lock(p_mlp);
     stop(p_mlp);

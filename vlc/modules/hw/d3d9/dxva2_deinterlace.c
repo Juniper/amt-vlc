@@ -40,6 +40,9 @@
 
 #include "d3d9_filters.h"
 
+typedef picture_sys_d3d9_t VA_PICSYS;
+#include "../../codec/avcodec/va_surface.h"
+
 typedef struct
 {
     HINSTANCE                      hdecoder_dll;
@@ -84,6 +87,57 @@ static void Flush(filter_t *filter)
     FlushDeinterlacing(&p_sys->context);
 }
 
+static void FillExtendedFormat( const video_format_t *p_fmt,
+                                DXVA2_ExtendedFormat *out )
+{
+    out->NominalRange = p_fmt->color_range == COLOR_RANGE_FULL ?
+                DXVA2_NominalRange_0_255 : DXVA2_NominalRange_16_235;
+    switch (p_fmt->space)
+    {
+    case COLOR_SPACE_BT601:
+        out->VideoTransferMatrix = DXVA2_VideoTransferMatrix_BT601;
+        break;
+    case COLOR_SPACE_BT709:
+        out->VideoTransferMatrix = DXVA2_VideoTransferMatrix_BT709;
+        break;
+    default:
+        out->VideoTransferMatrix = DXVA2_VideoTransferMatrix_Unknown;
+        break;
+    }
+    out->VideoLighting = DXVA2_VideoLighting_Unknown;
+    switch (p_fmt->primaries)
+    {
+    case COLOR_PRIMARIES_BT709:
+        out->VideoPrimaries = DXVA2_VideoPrimaries_BT709;
+        break;
+    case COLOR_PRIMARIES_BT470_BG:
+        out->VideoPrimaries = DXVA2_VideoPrimaries_BT470_2_SysBG;
+        break;
+    case COLOR_PRIMARIES_SMTPE_170:
+        out->VideoPrimaries = DXVA2_VideoPrimaries_SMPTE170M;
+        break;
+    default:
+        out->VideoPrimaries = DXVA2_VideoPrimaries_Unknown;
+        break;
+    }
+    switch (p_fmt->transfer)
+    {
+    case TRANSFER_FUNC_BT709:
+        out->VideoTransferFunction = DXVA2_VideoTransFunc_709;
+        break;
+    case TRANSFER_FUNC_SMPTE_240:
+        out->VideoTransferFunction = DXVA2_VideoTransFunc_240M;
+        break;
+    case TRANSFER_FUNC_SRGB:
+        out->VideoTransferFunction = DXVA2_VideoTransFunc_sRGB;
+        break;
+    default:
+        out->VideoTransferFunction = DXVA2_VideoTransFunc_Unknown;
+        break;
+    }
+    out->VideoLighting = DXVA2_VideoLighting_dim;
+}
+
 static void FillSample( DXVA2_VideoSample *p_sample,
                         const struct deinterlace_ctx *p_context,
                         picture_t *p_pic,
@@ -91,14 +145,15 @@ static void FillSample( DXVA2_VideoSample *p_sample,
                         const RECT *p_area,
                         int i_field )
 {
-    picture_sys_t *p_sys_src = ActivePictureSys(p_pic);
+    picture_sys_d3d9_t *p_sys_src = ActivePictureSys(p_pic);
 
     p_sample->SrcSurface = p_sys_src->surface;
     p_sample->SampleFormat.SampleFormat = p_pic->b_top_field_first ?
                 DXVA2_SampleFieldInterleavedEvenFirst :
                 DXVA2_SampleFieldInterleavedOddFirst;
+    FillExtendedFormat(p_fmt, &p_sample->SampleFormat);
     p_sample->Start = 0;
-    p_sample->End = GetFieldDuration(p_context, p_fmt, p_pic) * 10;
+    p_sample->End = MSFTIME_FROM_VLC_TICK(GetFieldDuration(p_context, p_fmt, p_pic));
     p_sample->SampleData = DXVA2_SampleData_RFF_TFF_Present;
     if (!i_field)
         p_sample->SampleData |= DXVA2_SampleData_TFF;
@@ -110,7 +165,8 @@ static void FillSample( DXVA2_VideoSample *p_sample,
 
 static void FillBlitParams( filter_sys_t *sys,
                             DXVA2_VideoProcessBltParams *params, const RECT *area,
-                            const DXVA2_VideoSample *samples, int order )
+                            const DXVA2_VideoSample *samples, int order,
+                            const video_format_t *fmt)
 {
     memset(params, 0, sizeof(*params));
     params->TargetFrame = (samples->End - samples->Start) * order / 2;
@@ -118,6 +174,7 @@ static void FillBlitParams( filter_sys_t *sys,
     params->DestData    = 0;
     params->Alpha       = DXVA2_Fixed32OpaqueAlpha();
     params->DestFormat.SampleFormat = DXVA2_SampleProgressiveFrame;
+    FillExtendedFormat(fmt, &params->DestFormat);
     params->BackgroundColor.Alpha = 0xFFFF;
     params->ConstrictionSize.cx = params->TargetRect.right;
     params->ConstrictionSize.cy = params->TargetRect.bottom;
@@ -132,7 +189,7 @@ static int RenderPic( filter_t *filter, picture_t *p_outpic, picture_t *src,
                       int order, int i_field )
 {
     filter_sys_t *sys = filter->p_sys;
-    picture_sys_t *p_out_sys = p_outpic->p_sys;
+    picture_sys_d3d9_t *p_out_sys = p_outpic->p_sys;
     const int i_samples = sys->decoder_caps.NumBackwardRefSamples + 1 +
                           sys->decoder_caps.NumForwardRefSamples;
     HRESULT hr;
@@ -146,7 +203,7 @@ static int RenderPic( filter_t *filter, picture_t *p_outpic, picture_t *src,
     picture_t *p_cur  = sys->context.pp_history[1];
     picture_t *p_next = sys->context.pp_history[2];
 
-    picture_sys_t *p_sys_src = ActivePictureSys(src);
+    picture_sys_d3d9_t *p_sys_src = ActivePictureSys(src);
 
     hr = IDirect3DSurface9_GetDesc( p_sys_src->surface, &srcDesc );
     if (unlikely(FAILED(hr)))
@@ -184,7 +241,7 @@ static int RenderPic( filter_t *filter, picture_t *p_outpic, picture_t *src,
         }
     }
 
-    FillBlitParams( sys, &params, &area, samples, order );
+    FillBlitParams( sys, &params, &area, samples, order, &p_outpic->format );
 
     hr = IDirectXVideoProcessor_VideoProcessBlt( sys->processor,
                                                  sys->hw_surface,
@@ -232,7 +289,7 @@ static const struct filter_mode_t *GetFilterMode(const char *mode)
 static void d3d9_pic_context_destroy(struct picture_context_t *ctx)
 {
     struct va_pic_context *pic_ctx = (struct va_pic_context*)ctx;
-    ReleasePictureSys(&pic_ctx->picsys);
+    ReleaseD3D9PictureSys(&pic_ctx->picsys);
     free(pic_ctx);
 }
 
@@ -245,7 +302,7 @@ static struct picture_context_t *d3d9_pic_context_copy(struct picture_context_t 
     pic_ctx->s.destroy = d3d9_pic_context_destroy;
     pic_ctx->s.copy    = d3d9_pic_context_copy;
     pic_ctx->picsys = src_ctx->picsys;
-    AcquirePictureSys(&pic_ctx->picsys);
+    AcquireD3D9PictureSys(&pic_ctx->picsys);
     return &pic_ctx->s;
 }
 
@@ -253,7 +310,7 @@ picture_t *AllocPicture( filter_t *p_filter )
 {
     filter_sys_t *p_sys = p_filter->p_sys;
     picture_t *pic = filter_NewPicture( p_filter );
-    picture_sys_t *pic_sys = pic->p_sys;
+    picture_sys_d3d9_t *pic_sys = pic->p_sys;
     if ( !pic->context )
     {
         bool b_local_texture = false;
@@ -293,7 +350,7 @@ picture_t *AllocPicture( filter_t *p_filter )
             pic_ctx->s.destroy = d3d9_pic_context_destroy;
             pic_ctx->s.copy    = d3d9_pic_context_copy;
             pic_ctx->picsys = *pic_sys;
-            AcquirePictureSys( &pic_ctx->picsys );
+            AcquireD3D9PictureSys( &pic_ctx->picsys );
             pic->context = &pic_ctx->s;
         }
         if (b_local_texture)
@@ -366,6 +423,7 @@ int D3D9OpenDeinterlace(vlc_object_t *obj)
     }
     dsc.OutputFrameFreq = dsc.InputSampleFreq;
     dsc.SampleFormat.SampleFormat = DXVA2_SampleFieldInterleavedEvenFirst;
+    FillExtendedFormat(&filter->fmt_out.video, &dsc.SampleFormat);
 
     UINT count = 0;
     hr = IDirectXVideoProcessorService_GetVideoProcessorDeviceGuids( processor,

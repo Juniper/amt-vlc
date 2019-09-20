@@ -37,6 +37,10 @@
 #include <medialibrary/IPlaylist.h>
 #include <medialibrary/IAudioTrack.h>
 #include <medialibrary/IVideoTrack.h>
+#include <medialibrary/IFolder.h>
+#include <medialibrary/filesystem/IDevice.h>
+
+#include <algorithm>
 
 static auto const strdup_helper = []( std::string const& src, char*& dst )
 {
@@ -45,6 +49,40 @@ static auto const strdup_helper = []( std::string const& src, char*& dst )
         return false;
     return true;
 };
+
+static_assert( static_cast<uint32_t>( VLC_ML_THUMBNAIL_SMALL ) ==
+                static_cast<uint32_t>( medialibrary::ThumbnailSizeType::Thumbnail ) &&
+               static_cast<uint32_t>( VLC_ML_THUMBNAIL_BANNER ) ==
+                static_cast<uint32_t>( medialibrary::ThumbnailSizeType::Banner ) &&
+               static_cast<uint32_t>( VLC_ML_THUMBNAIL_SIZE_COUNT ) ==
+                static_cast<uint32_t>( medialibrary::ThumbnailSizeType::Count ),
+               "Mismatched thumbnail sizes" );
+
+template <typename T>
+static bool convertThumbnails( const T input, vlc_ml_thumbnail_t *output )
+{
+    for ( auto i = 0u; i < VLC_ML_THUMBNAIL_SIZE_COUNT; ++i )
+    {
+        auto sizeType = static_cast<medialibrary::ThumbnailSizeType>( i );
+        if ( input->isThumbnailGenerated( sizeType ) == false )
+        {
+            output[i].psz_mrl = nullptr;
+            output[i].b_generated = false;
+            continue;
+        }
+        output[i].b_generated = true;
+        const auto thumbnailMrl = input->thumbnailMrl( sizeType );
+        if ( thumbnailMrl.empty() == false )
+        {
+            output[i].psz_mrl = strdup( thumbnailMrl.c_str() );
+            if ( output[i].psz_mrl == nullptr )
+                return false;
+        }
+        else
+            output[i].psz_mrl = nullptr;
+    }
+    return true;
+}
 
 bool Convert( const medialibrary::IAlbumTrack* input, vlc_ml_album_track_t& output )
 {
@@ -106,6 +144,8 @@ static bool convertTracks( const medialibrary::IMedia* inputMedia, vlc_ml_media_
             return false;
         output->i_type = VLC_ML_TRACK_TYPE_VIDEO;
         output->i_bitrate = t->bitrate();
+        output->v.i_width = t->width();
+        output->v.i_height = t->height();
         output->v.i_fpsNum = t->fpsNum();
         output->v.i_fpsDen = t->fpsDen();
         output->v.i_sarNum = t->sarNum();
@@ -145,6 +185,9 @@ bool Convert( const medialibrary::IMedia* input, vlc_ml_media_t& output )
                         return false;
                     break;
                 }
+                case medialibrary::IMedia::SubType::Unknown:
+                    output.i_subtype = VLC_ML_MEDIA_SUBTYPE_UNKNOWN;
+                    break;
                 default:
                     vlc_assert_unreachable();
             }
@@ -209,14 +252,8 @@ bool Convert( const medialibrary::IMedia* input, vlc_ml_media_t& output )
     if ( convertTracks( input, output ) == false )
         return false;
 
-    if ( input->isThumbnailGenerated() == true )
-    {
-        output.psz_artwork_mrl = strdup( input->thumbnail().c_str() );
-        if ( unlikely( output.psz_artwork_mrl == nullptr ) )
-            return false;
-    }
-    else
-        output.psz_artwork_mrl = nullptr;
+    if ( convertThumbnails( input, output.thumbnails ) == false )
+        return false;
 
     return true;
 }
@@ -244,8 +281,18 @@ bool Convert( const medialibrary::IFile* input, vlc_ml_file_t& output )
             vlc_assert_unreachable();
     }
 
-    if( !strdup_helper( input->mrl(), output.psz_mrl ) )
-        return false;
+    output.b_removable = input->isRemovable();
+    output.b_present = true;
+    try
+    {
+        if( !strdup_helper( input->mrl(), output.psz_mrl ) )
+            return false;
+    }
+    catch ( const medialibrary::fs::DeviceRemovedException& )
+    {
+        output.psz_mrl = nullptr;
+        output.b_present = false;
+    }
 
     output.b_external = input->isExternal();
     return true;
@@ -259,8 +306,10 @@ bool Convert( const medialibrary::IAlbum* input, vlc_ml_album_t& output )
     output.i_year = input->releaseYear();
 
     if( !strdup_helper( input->title(), output.psz_title ) ||
-        !strdup_helper( input->shortSummary(), output.psz_summary ) ||
-        !strdup_helper( input->artworkMrl(), output.psz_artwork_mrl ) )
+        !strdup_helper( input->shortSummary(), output.psz_summary ) )
+        return false;
+
+    if ( convertThumbnails( input, output.thumbnails ) == false )
         return false;
 
     auto artist = input->albumArtist();
@@ -285,31 +334,33 @@ bool Convert( const medialibrary::IAlbum* input, vlc_ml_album_t& output )
     return true;
 }
 
+static const char* artistName( const medialibrary::IArtist* artist )
+{
+    switch ( artist->id() )
+    {
+        case medialibrary::UnknownArtistID:
+            return _( "Unknown Artist" );
+        case medialibrary::VariousArtistID:
+            return _( "Various Artist" );
+        default:
+            return artist->name().c_str();
+    }
+}
+
 bool Convert( const medialibrary::IArtist* input, vlc_ml_artist_t& output )
 {
     output.i_id = input->id();
     output.i_nb_album = input->nbAlbums();
     output.i_nb_tracks = input->nbTracks();
-    switch ( input->id() )
-    {
-        case medialibrary::UnknownArtistID:
-            output.psz_name = strdup( _( "Unknown Artist" ) );
-            break;
-        case medialibrary::VariousArtistID:
-            output.psz_name = strdup( _( "Various Artist" ) );
-            break;
-        default:
-            output.psz_name = strdup( input->name().c_str() );
-            break;
-    }
+    output.psz_name = strdup( artistName( input ) );
     if ( unlikely( output.psz_name == nullptr ) )
         return false;
 
     if( !strdup_helper( input->shortBio(), output.psz_shortbio ) ||
-        !strdup_helper( input->artworkMrl(), output.psz_artwork_mrl ) ||
         !strdup_helper( input->musicBrainzId(), output.psz_mb_id ) )
         return false;
-    return true;
+
+    return convertThumbnails( input, output.thumbnails );
 }
 
 bool Convert( const medialibrary::IGenre* input, vlc_ml_genre_t& output )
@@ -349,4 +400,100 @@ bool Convert( const medialibrary::IPlaylist* input, vlc_ml_playlist_t& output )
         !strdup_helper( input->artworkMrl(), output.psz_artwork_mrl ) )
         return false;
     return true;
+}
+
+bool Convert( const medialibrary::IFolder* input, vlc_ml_entry_point_t& output )
+{
+    try
+    {
+        if ( strdup_helper( input->mrl(), output.psz_mrl ) == false )
+            return false;
+        output.b_present = true;
+    }
+    catch ( const medialibrary::fs::DeviceRemovedException& )
+    {
+        output.psz_mrl = nullptr;
+        output.b_present = false;
+    }
+    output.b_banned = input->isBanned();
+    return true;
+}
+
+input_item_t* MediaToInputItem( const medialibrary::IMedia* media )
+{
+    if ( media == nullptr )
+        return nullptr;
+    auto files = media->files();
+    const auto it = std::find_if( files.cbegin(), files.cend(),
+                                  [](const medialibrary::FilePtr& f) {
+        return f->type() == medialibrary::IFile::Type::Main;
+    });
+    assert( it != files.cend() );
+    std::string mrl;
+    try
+    {
+        mrl = (*it)->mrl();
+    }
+    catch ( const medialibrary::fs::DeviceRemovedException& ex )
+    {
+        return nullptr;
+    }
+    auto inputItem = vlc::wrap_cptr<input_item_t>(
+                input_item_NewExt( mrl.c_str(), media->fileName().c_str(),
+                                   VLC_TICK_FROM_MS( media->duration() ),
+                                   ITEM_TYPE_FILE, ITEM_NET_UNKNOWN ),
+                &input_item_Release );
+    if ( media->isThumbnailGenerated( medialibrary::ThumbnailSizeType::Thumbnail ) == true )
+    {
+        auto thumbnail = media->thumbnailMrl( medialibrary::ThumbnailSizeType::Thumbnail );
+        if ( thumbnail.length() > 0 )
+            input_item_SetArtworkURL( inputItem.get(), thumbnail.c_str() );
+    }
+    switch ( media->type() )
+    {
+        case medialibrary::IMedia::Type::External:
+        case medialibrary::IMedia::Type::Stream:
+        case medialibrary::IMedia::Type::Unknown:
+            // Those types are not analyzed
+            break;
+        case medialibrary::IMedia::Type::Video:
+            break;
+        case medialibrary::IMedia::Type::Audio:
+        {
+            if ( media->subType() != medialibrary::IMedia::SubType::AlbumTrack )
+                break;
+            auto track = media->albumTrack();
+            if ( track == nullptr )
+                return nullptr;
+            auto album = track->album();
+            if ( album == nullptr )
+                return nullptr;
+            auto artist = track->artist();
+            if ( artist == nullptr )
+                return nullptr;
+            // From the track itself:
+            input_item_SetTitle( inputItem.get(), media->title().c_str() );
+            input_item_SetDiscNumber( inputItem.get(),
+                                      std::to_string( track->discNumber() ).c_str() );
+            input_item_SetTrackNumber( inputItem.get(),
+                                       std::to_string( track->trackNumber() ).c_str() );
+
+            // From the album:
+            input_item_SetTrackTotal( inputItem.get(),
+                                      std::to_string( album->nbTracks() ).c_str() );
+            auto albumTitle = album->title();
+            if ( albumTitle.empty() == true )
+                input_item_SetAlbum( inputItem.get(), _( "Unknown album" ) );
+            else
+                input_item_SetAlbum( inputItem.get(), albumTitle.c_str() );
+
+            // From the artist/albumArtist
+            input_item_SetArtist( inputItem.get(), artistName( artist.get() ) );
+            auto albumArtist = album->albumArtist();
+            if ( albumArtist != nullptr )
+                input_item_SetArtist( inputItem.get(), artistName( albumArtist.get() ) );
+        }
+    }
+
+    return inputItem.release();
 }

@@ -2,7 +2,6 @@
  * qvlcframe.hpp : A few helpers
  *****************************************************************************
  * Copyright (C) 2006-2007 the VideoLAN team
- * $Id: fc422c2e47d2d4b8f43f45da258e94bc4ed035f3 $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *

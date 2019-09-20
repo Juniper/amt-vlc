@@ -90,7 +90,7 @@ MRESULT EXPENTRY OS2Factory::OS2FrameProc( HWND hwnd, ULONG msg,
         // If closing parent window
         if( SHORT1FROMMP(mp1) == SC_CLOSE )
         {
-            libvlc_Quit( p_intf->obj.libvlc );
+            libvlc_Quit( vlc_object_instance(p_intf) );
 
             return 0;
         }
@@ -446,7 +446,7 @@ void OS2Factory::rmDir( const std::string &rPath )
 
         filename = rPath + "\\" + filename;
 
-        if( !stat( filename.c_str(), &statbuf ) && statbuf.st_mode & S_IFDIR )
+        if( !stat( filename.c_str(), &statbuf ) && S_ISDIR(statbuf.st_mode) )
         {
             rmDir( filename );
         }

@@ -2,7 +2,6 @@
  * stream_memory.c: stream_t wrapper around memory buffer
  *****************************************************************************
  * Copyright (C) 1999-2008 VLC authors and VideoLAN
- * $Id: e1b23531e33ad7ef8f4b91d5dff83e2d7ff0817f $
  *
  * Authors: Sigmund Augdal Helberg <dnumgis@videolan.org>
  *

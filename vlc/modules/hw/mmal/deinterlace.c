@@ -2,7 +2,6 @@
  * mmal.c: MMAL-based deinterlace plugin for Raspberry Pi
  *****************************************************************************
  * Copyright © 2014 jusst technologies GmbH
- * $Id: 9e6a9bf31c4d50e15712a7aa67b8d235c138ae7b $
  *
  * Authors: Julian Scheel <julian@jusst.de>
  *          Dennis Hamester <dennis.hamester@gmail.com>
@@ -88,8 +87,8 @@ static void flush(filter_t *filter);
 static int Open(filter_t *filter)
 {
     int32_t frame_duration = filter->fmt_in.video.i_frame_rate != 0 ?
-            CLOCK_FREQ * filter->fmt_in.video.i_frame_rate_base /
-            filter->fmt_in.video.i_frame_rate : 0;
+            vlc_tick_from_samples( filter->fmt_in.video.i_frame_rate_base,
+            filter->fmt_in.video.i_frame_rate ) : 0;
     bool use_qpu = var_InheritBool(filter, MMAL_DEINTERLACE_QPU);
 
     MMAL_PARAMETER_IMAGEFX_PARAMETERS_T imfx_param = {

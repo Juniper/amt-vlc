@@ -2,7 +2,6 @@
  * vlc_services_discovery.h : Services Discover functions
  *****************************************************************************
  * Copyright (C) 1999-2004 VLC authors and VideoLAN
- * $Id: 1f5305b788e521ca75b3c26f84a2b656240fbc9a $
  *
  * Authors: Pierre d'Herbemont <pdherbemont # videolan.org>
  *
@@ -58,7 +57,7 @@ struct services_discovery_owner_t
  */
 struct services_discovery_t
 {
-    struct vlc_common_members obj;
+    struct vlc_object_t obj;
     module_t *          p_module;             /**< Loaded module */
 
     char *psz_name;                           /**< Main name of the SD */
@@ -149,6 +148,8 @@ VLC_API char ** vlc_sd_GetNames( vlc_object_t *, char ***, int ** ) VLC_USED;
 VLC_API services_discovery_t *vlc_sd_Create(vlc_object_t *parent,
     const char *chain, const struct services_discovery_owner_t *owner)
 VLC_USED;
+#define vlc_sd_Create( obj, a, b ) \
+        vlc_sd_Create( VLC_OBJECT( obj ), a, b )
 
 VLC_API void vlc_sd_Destroy( services_discovery_t * );
 
@@ -222,7 +223,7 @@ VLC_API int vlc_sd_probe_Add(vlc_probe_t *, const char *, const char *, int cate
 #define VLC_SD_PROBE_SUBMODULE \
     add_submodule() \
         set_capability( "services probe", 100 ) \
-        set_callbacks( vlc_sd_probe_Open, NULL )
+        set_callback( vlc_sd_probe_Open )
 
 #define VLC_SD_PROBE_HELPER(name, longname, cat) \
 static int vlc_sd_probe_Open (vlc_object_t *obj) \

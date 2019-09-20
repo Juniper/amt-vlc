@@ -13,6 +13,12 @@
 /* Define to 1 if AltiVec inline assembly is available. */
 /* #undef CAN_COMPILE_ALTIVEC */
 
+/* Define to 1 if AVX inline assembly is available. */
+/* #undef CAN_COMPILE_AVX */
+
+/* Define to 1 if AVX2 inline assembly is available. */
+/* #undef CAN_COMPILE_AVX2 */
+
 /* Define to 1 if C AltiVec extensions are available. */
 /* #undef CAN_COMPILE_C_ALTIVEC */
 
@@ -44,13 +50,13 @@
 #define CAN_COMPILE_SSSE3 1
 
 /* The ./configure command line */
-#define CONFIGURE_LINE "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../configure  '--prefix=/Users/nlandsberg/Desktop/development/vlc/build/vlc_install_dir' '--enable-macosx' '--enable-merge-ffmpeg' '--enable-osx-notifications' '--enable-faad' '--enable-flac' '--enable-theora' '--enable-shout' '--enable-ncurses' '--enable-twolame' '--enable-libass' '--enable-macosx-qtkit' '--enable-macosx-avfoundation' '--disable-skins2' '--disable-xcb' '--disable-caca' '--disable-pulse' '--disable-sdl-image' '--disable-vnc' '--build=x86_64-apple-darwin16' '--host=x86_64-apple-darwin16' '--with-macosx-version-min=10.10' '--with-macosx-sdk=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk' 'build_alias=x86_64-apple-darwin16' 'host_alias=x86_64-apple-darwin16' 'CC=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang' 'CFLAGS=-g' 'LDFLAGS=' 'CXX=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++' 'CXXFLAGS=-g' 'OBJC=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang' 'OBJCFLAGS=-g'"
+#define CONFIGURE_LINE "../extras/package/macosx/../../../configure  '--prefix=/Users/nlandsberg/vlc/build/vlc_install_dir' '--enable-macosx' '--enable-merge-ffmpeg' '--enable-osx-notifications' '--enable-faad' '--enable-flac' '--enable-theora' '--enable-shout' '--enable-ncurses' '--enable-twolame' '--enable-libass' '--enable-macosx-avfoundation' '--disable-skins2' '--disable-xcb' '--disable-caca' '--disable-pulse' '--disable-sdl-image' '--disable-vnc' '--with-macosx-version-min=10.11' '--enable-debug' '--host=x86_64-apple-darwin15' '--with-macosx-sdk=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk' 'host_alias=x86_64-apple-darwin15' 'CFLAGS=' 'LDFLAGS='"
 
 /* Copyright string */
-#define COPYRIGHT_MESSAGE "Copyright © 1996-2018 the VideoLAN team"
+#define COPYRIGHT_MESSAGE "Copyright © 1996-2019 the VideoLAN team"
 
 /* The copyright years */
-#define COPYRIGHT_YEARS "1996-2018"
+#define COPYRIGHT_YEARS "1996-2019"
 
 /* Default font family */
 /* #undef DEFAULT_FAMILY */
@@ -79,6 +85,12 @@
 
 /* Define if you want the VideoLAN manager support */
 #define ENABLE_VLM 1
+
+/* Enable compile-time and run-time bounds-checking, and some warnings,
+   without upsetting glibc 2.15+ or toolchains predefining _FORTIFY_SOURCE */
+#if !defined _FORTIFY_SOURCE && defined __OPTIMIZE__ && __OPTIMIZE__
+# define _FORTIFY_SOURCE 2
+#endif
 
 /* Define to 1 if you have the <a52dec/a52.h> header file. */
 #define HAVE_A52DEC_A52_H 1
@@ -117,14 +129,18 @@
 /* Define to 1 if you have the <AudioToolbox/AudioToolbox.h> header file. */
 #define HAVE_AUDIOTOOLBOX_AUDIOTOOLBOX_H 1
 
-/* Define to 1 if you have the <audio_io.h> header file. */
-/* #undef HAVE_AUDIO_IO_H */
-
 /* Define if the d3d11va module is built */
 /* #undef HAVE_AVCODEC_D3D11VA */
 
+/* Define to 1 if AVX2 intrinsics are available. */
+#define HAVE_AVX2_INTRINSICS 1
+
 /* Define to 1 if you have the `backtrace' function. */
 #define HAVE_BACKTRACE 1
+
+/* Defined to 1 if the qsort_r() prototype contradicts the upcoming POSIX
+   standard. */
+#define HAVE_BROKEN_QSORT_R 1
 
 /* Define to 1 if you have the Mac OS X function CFLocaleCopyCurrent in the
    CoreFoundation framework. */
@@ -137,8 +153,8 @@
 /* Define if CSS engine is built */
 #define HAVE_CSS 1
 
-/* define if the compiler supports basic C++11 syntax */
-/* #undef HAVE_CXX11 */
+/* define if the compiler supports basic C++14 syntax */
+/* #undef HAVE_CXX14 */
 
 /* Define to 1 if C++ headers define locale_t */
 #define HAVE_CXX_LOCALE_T 1
@@ -158,9 +174,6 @@
 /* Define if the GNU dcgettext() function is already present or preinstalled.
    */
 #define HAVE_DCGETTEXT 1
-
-/* Define to 1 if you have the <ddraw.h> header file. */
-/* #undef HAVE_DDRAW_H */
 
 /* Define to 1 if you have the <DeckLinkAPIDispatch.cpp> header file. */
 /* #undef HAVE_DECKLINKAPIDISPATCH_CPP */
@@ -202,7 +215,7 @@
 #define HAVE_FLOCKFILE 1
 
 /* Define to 1 if you have the <fluidlite.h> header file. */
-/* #undef HAVE_FLUIDLITE_H */
+#define HAVE_FLUIDLITE_H 1
 
 /* Define to 1 if you have the `fork' function. */
 #define HAVE_FORK 1
@@ -239,6 +252,9 @@
 
 /* Defined if having OpenGL */
 /* #undef HAVE_GL */
+
+/* Define to 1 if you have the <GL/glew.h> header file. */
+/* #undef HAVE_GL_GLEW_H */
 
 /* Define to 1 if you have the <GL/wglew.h> header file. */
 /* #undef HAVE_GL_WGLEW_H */
@@ -289,7 +305,10 @@
 /* #undef HAVE_KVA_H */
 
 /* Define to 1 if you have the <lauxlib.h> header file. */
-#define HAVE_LAUXLIB_H 1
+/* #undef HAVE_LAUXLIB_H */
+
+/* Define to 1 if you have the `lfind' function. */
+#define HAVE_LFIND 1
 
 /* Define to 1 if you have the anl library */
 /* #undef HAVE_LIBANL */
@@ -331,7 +350,7 @@
 /* #undef HAVE_LIBMINGW32 */
 
 /* Define to 1 if libplacebo is enabled. */
-#define HAVE_LIBPLACEBO 1
+/* #undef HAVE_LIBPLACEBO */
 
 /* Define to 1 if you have the <libswscale/swscale.h> header file. */
 #define HAVE_LIBSWSCALE_SWSCALE_H 1
@@ -361,10 +380,10 @@
 #define HAVE_LRINTF 1
 
 /* Define to 1 if you have the <lualib.h> header file. */
-#define HAVE_LUALIB_H 1
+/* #undef HAVE_LUALIB_H */
 
 /* Define to 1 if you have the <lua.h> header file. */
-#define HAVE_LUA_H 1
+/* #undef HAVE_LUA_H */
 
 /* Define to 1 if you have the <mad.h> header file. */
 #define HAVE_MAD_H 1
@@ -385,7 +404,7 @@
 /* #undef HAVE_MEMRCHR */
 
 /* Define to 1 if you have the `mkostemp' function. */
-/* #undef HAVE_MKOSTEMP */
+#define HAVE_MKOSTEMP 1
 
 /* Define to 1 if you have the `mmap' function. */
 #define HAVE_MMAP 1
@@ -424,7 +443,7 @@
 #define HAVE_OPENAT 1
 
 /* Define to 1 if you have the `open_memstream' function. */
-/* #undef HAVE_OPEN_MEMSTREAM */
+#define HAVE_OPEN_MEMSTREAM 1
 
 /* Define to 1 if you have the `pathconf' function. */
 #define HAVE_PATHCONF 1
@@ -462,9 +481,6 @@
 
 /* Define to 1 if you have the <pthread.h> header file. */
 #define HAVE_PTHREAD_H 1
-
-/* Define to 1 if you have the <QTKit/QTKit.h> header file. */
-/* #undef HAVE_QTKIT_QTKIT_H */
 
 /* Define to 1 if you have realpath function */
 #define HAVE_REALPATH 1
@@ -533,9 +549,6 @@
 /* Define to 1 if you have the `strdup' function. */
 #define HAVE_STRDUP 1
 
-/* For dvdnav demux support */
-/* #undef HAVE_STREAM_CB_IN_DVDNAV_H */
-
 /* Define to 1 if you have the `stricmp' function. */
 /* #undef HAVE_STRICMP */
 
@@ -574,6 +587,9 @@
 
 /* Define to 1 if you have the `strtoll' function. */
 #define HAVE_STRTOLL 1
+
+/* Define to 1 if the system has the type `struct if_nameindex'. */
+#define HAVE_STRUCT_IF_NAMEINDEX 1
 
 /* Define to 1 if the system has the type `struct pollfd'. */
 #define HAVE_STRUCT_POLLFD 1
@@ -635,9 +651,6 @@
 /* Define to 1 if you have the `timespec_get' function. */
 /* #undef HAVE_TIMESPEC_GET */
 
-/* Define to 1 if vlc is built against Tizen SDK */
-/* #undef HAVE_TIZEN_SDK */
-
 /* Define to 1 if you have the <tremor/ivorbiscodec.h> header file. */
 /* #undef HAVE_TREMOR_IVORBISCODEC_H */
 
@@ -659,8 +672,14 @@
 /* Define to 1 if you have the `vmsplice' function. */
 /* #undef HAVE_VMSPLICE */
 
+/* Define to 1 if vulkan is enabled. */
+/* #undef HAVE_VULKAN */
+
 /* Define to 1 if you have the <X11/Xlib.h> header file. */
 /* #undef HAVE_X11_XLIB_H */
+
+/* Use external asm on x86. */
+#define HAVE_X86ASM 1
 
 /* Define to 1 if you have the <xlocale.h> header file. */
 #define HAVE_XLOCALE_H 1
@@ -677,12 +696,11 @@
 /* Dynamic object extension */
 #define LIBEXT ".dylib"
 
-/* Define to the sub-directory in which libtool stores uninstalled libraries.
-   */
+/* Define to the sub-directory where libtool stores uninstalled libraries. */
 #define LT_OBJDIR ".libs/"
 
 /* Define to 1 if debug code should NOT be compiled */
-#define NDEBUG 1
+/* #undef NDEBUG */
 
 /* Define if you want to optimize memory usage over performance */
 /* #undef OPTIMIZE_MEMORY */
@@ -758,7 +776,7 @@
 #define VERSION_MESSAGE "4.0.0-dev Otto Chriek"
 
 /* compiler */
-#define VLC_COMPILER "clang: warning: argument unused during compilation: '-mmacosx-version-min=10.10' [-Wunused-command-line-argument]"
+#define VLC_COMPILER "clang: warning: argument unused during compilation: '-mmacosx-version-min=10.11' [-Wunused-command-line-argument]"
 
 /* user who ran configure */
 #define VLC_COMPILE_BY "nlandsberg"
@@ -800,9 +818,6 @@
 /* Define to 64 for large files support. */
 #define _FILE_OFFSET_BITS 64
 
-/* Define to 2 to get glibc warnings. */
-#define _FORTIFY_SOURCE 2
-
 /* Extensions to ISO C99 from ISO C11. */
 /* #undef _ISOC11_SOURCE */
 
@@ -824,9 +839,6 @@
 
 /* ISO C, POSIX, and SVID things. */
 /* #undef _SVID_SOURCE */
-
-/* Define to 1 for Unicode (Wide Chars) APIs. */
-/* #undef _UNICODE */
 
 /* Define to '0x0600' for IE 6.0 (and shell) APIs. */
 /* #undef _WIN32_IE */

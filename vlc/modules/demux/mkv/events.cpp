@@ -2,7 +2,6 @@
  * events.cpp : matroska demuxer
  *****************************************************************************
  * Copyright (C) 2003-2004 VLC authors and VideoLAN
- * $Id: c8c68fefeb39cbea00b8f81cd64c98a91af30eb2 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Steve Lhomme <steve.lhomme@free.fr>
@@ -51,10 +50,11 @@ void event_thread_t::SetPci(const pci_t *data)
 {
     vlc_mutex_locker l(&lock);
 
-    pci_packet = *data;
+    memcpy(&pci_packet, data, sizeof(pci_packet));
 
 #ifndef WORDS_BIGENDIAN
-    for( uint8_t button = 1; button <= pci_packet.hli.hl_gi.btn_ns; button++) {
+    for( uint8_t button = 1; button <= pci_packet.hli.hl_gi.btn_ns &&
+            button < ARRAY_SIZE(pci_packet.hli.btnit); button++) {
         btni_t *button_ptr = &(pci_packet.hli.btnit[button-1]);
         binary *p_data = (binary*) button_ptr;
 
@@ -124,10 +124,11 @@ int event_thread_t::EventKey( vlc_object_t *p_this, char const *,
 
 void event_thread_t::EventThread()
 {
+    vlc_object_t *vlc = VLC_OBJECT(vlc_object_instance(p_demux));
     int canc = vlc_savecancel ();
 
     /* catch all key event */
-    var_AddCallback( p_demux->obj.libvlc, "key-action", EventKey, this );
+    var_AddCallback( vlc, "key-action", EventKey, this );
 
     for( vlc_mutex_locker guard( &lock );; )
     {
@@ -156,7 +157,7 @@ void event_thread_t::EventThread()
         }
     }
 
-    var_DelCallback( p_demux->obj.libvlc, "key-action", EventKey, this );
+    var_DelCallback( vlc, "key-action", EventKey, this );
     vlc_restorecancel (canc);
 }
 
@@ -334,7 +335,7 @@ void event_thread_t::HandleMouseEvent( EventInfo const& event )
     }
 }
 
-void event_thread_t::AddES( es_out_id_t* es, int category )
+bool event_thread_t::AddES( es_out_id_t* es, int category )
 {
     vlc_mutex_locker lock_guard( &lock );
 
@@ -348,9 +349,10 @@ void event_thread_t::AddES( es_out_id_t* es, int category )
         {
             msg_Warn( p_demux, "Unable to subscribe to mouse events" );
             es_list.erase( info );
-            return;
+            return false;
         }
     }
+    return true;
 }
 
 void event_thread_t::DelES( es_out_id_t* es )

@@ -2,7 +2,6 @@
  * skin_common.hpp
  *****************************************************************************
  * Copyright (C) 2003 the VideoLAN team
- * $Id: 13ac5470fe05035c919649552e071e598e6bd8ca $
  *
  * Authors: Cyril Deguet     <asmax@via.ecp.fr>
  *          Olivier Teulière <ipkiss@via.ecp.fr>
@@ -31,6 +30,8 @@
 
 #include <vlc_common.h>
 #include <vlc_interface.h>
+#include <vlc_playlist.h>
+#include <vlc_player.h>
 #include <vlc_charset.h>
 #include <vlc_fs.h>
 
@@ -85,9 +86,6 @@ static inline std::string sFromWide( const std::wstring &rWide )
 //---------------------------------------------------------------------------
 struct intf_sys_t
 {
-    /// The input thread
-    input_thread_t *p_input;
-
     // "Singleton" objects: MUST be initialized to NULL !
     /// Logger
     Logger *p_logger;
@@ -134,7 +132,8 @@ public:
     /// Getter (public because it is used in C callbacks in the win32
     /// interface)
     intf_thread_t *getIntf() const { return m_pIntf; }
-    playlist_t *getPL() const { return pl_Get(m_pIntf); }
+    vlc_playlist_t *getPL() const
+        { return vlc_intf_GetMainPlaylist( m_pIntf ); }
 
 private:
     intf_thread_t *m_pIntf;

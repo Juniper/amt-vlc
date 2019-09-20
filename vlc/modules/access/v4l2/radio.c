@@ -55,7 +55,7 @@ static int RadioControl (demux_t *demux, int query, va_list args)
             break;
 
         case DEMUX_GET_TIME:
-            *va_arg (args, int64_t *) = vlc_tick_now () - sys->start;
+            *va_arg (args, vlc_tick_t *) = vlc_tick_now () - sys->start;
             break;
 
         /* TODO implement others */
@@ -100,7 +100,7 @@ int RadioOpen (vlc_object_t *obj)
         goto error;
 
     sys->fd = fd;
-    sys->controls = ControlsInit (VLC_OBJECT(demux), fd);
+    sys->controls = ControlsInit(vlc_object_parent(obj), fd);
     sys->start = vlc_tick_now ();
 
     demux->p_sys = sys;
@@ -118,7 +118,7 @@ void RadioClose (vlc_object_t *obj)
     demux_t *demux = (demux_t *)obj;
     demux_sys_t *sys = demux->p_sys;
 
-    ControlsDeinit (obj, sys->controls);
+    ControlsDeinit(vlc_object_parent(obj), sys->controls);
     v4l2_close (sys->fd);
     free (sys);
 }

@@ -2,7 +2,6 @@
  * speex.c: speex decoder/packetizer/encoder module making use of libspeex.
  *****************************************************************************
  * Copyright (C) 2003-2009 VLC authors and VideoLAN
- * $Id: b863b416f7840a8bff44e1a3fdbd894d1fc3620a $
  *
  * Authors: Gildas Bazin <gbazin@videolan.org>
  *
@@ -30,7 +29,7 @@
 
 #include <vlc_common.h>
 #include <vlc_plugin.h>
-#include <vlc_input.h>
+#include <vlc_input_item.h>
 #include <vlc_codec.h>
 #include "../demux/xiph.h"
 
@@ -411,7 +410,7 @@ static int ProcessHeaders( decoder_t *p_dec )
     ogg_packet oggpacket;
 
     unsigned pi_size[XIPH_MAX_HEADER_COUNT];
-    void     *pp_data[XIPH_MAX_HEADER_COUNT];
+    const void *pp_data[XIPH_MAX_HEADER_COUNT];
     unsigned i_count;
     if( xiph_SplitHeaders( pi_size, pp_data, &i_count,
                            p_dec->fmt_in.i_extra, p_dec->fmt_in.p_extra) )
@@ -426,7 +425,7 @@ static int ProcessHeaders( decoder_t *p_dec )
     /* Take care of the initial Vorbis header */
     oggpacket.b_o_s = 1; /* yes this actually is a b_o_s packet :) */
     oggpacket.bytes  = pi_size[0];
-    oggpacket.packet = pp_data[0];
+    oggpacket.packet = (void *)pp_data[0];
     if( ProcessInitialHeader( p_dec, &oggpacket ) != VLC_SUCCESS )
     {
         msg_Err( p_dec, "initial Speex header is corrupted" );
@@ -436,7 +435,7 @@ static int ProcessHeaders( decoder_t *p_dec )
     /* The next packet in order is the comments header */
     oggpacket.b_o_s = 0;
     oggpacket.bytes  = pi_size[1];
-    oggpacket.packet = pp_data[1];
+    oggpacket.packet = (void *)pp_data[1];
     ParseSpeexComments( p_dec, &oggpacket );
 
     if( p_sys->b_packetizer )
@@ -822,6 +821,7 @@ static block_t *DecodePacket( decoder_t *p_dec, ogg_packet *p_oggpacket )
         {
             case -2:
                 msg_Err( p_dec, "decoding error: corrupted stream?" );
+                /* fall through */
             case -1: /* End of stream */
                 return NULL;
         }
@@ -1095,8 +1095,8 @@ static block_t *Encode( encoder_t *p_enc, block_t *p_aout_buf )
     int i_samples_delay = p_sys->i_samples_delay;
 
     vlc_tick_t i_pts = p_aout_buf->i_pts -
-                CLOCK_FREQ * (vlc_tick_t)p_sys->i_samples_delay /
-                (vlc_tick_t)p_enc->fmt_in.audio.i_rate;
+                vlc_tick_from_samples( p_sys->i_samples_delay,
+                            p_enc->fmt_in.audio.i_rate );
 
     p_sys->i_samples_delay += i_samples;
 
@@ -1154,9 +1154,9 @@ static block_t *Encode( encoder_t *p_enc, block_t *p_aout_buf )
         p_block = block_Alloc( i_out );
         memcpy( p_block->p_buffer, p_sys->p_buffer_out, i_out );
 
-        p_block->i_length = CLOCK_FREQ *
-            (vlc_tick_t)p_sys->i_frame_length * p_sys->header.frames_per_packet /
-            (vlc_tick_t)p_enc->fmt_in.audio.i_rate;
+        p_block->i_length = vlc_tick_from_samples(
+            p_sys->i_frame_length * p_sys->header.frames_per_packet,
+            p_enc->fmt_in.audio.i_rate );
 
         p_block->i_dts = p_block->i_pts = i_pts;
 

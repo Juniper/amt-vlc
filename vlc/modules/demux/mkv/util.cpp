@@ -2,7 +2,6 @@
  * util.cpp : matroska demuxer
  *****************************************************************************
  * Copyright (C) 2003-2004 VLC authors and VideoLAN
- * $Id: 64f6323eaab17f08a9567a379838e730354a38c5 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Steve Lhomme <steve.lhomme@free.fr>
@@ -89,6 +88,7 @@ int32_t zlib_decompress_extra( demux_t * p_demux, mkv_track_t & tk )
         msg_Err( p_demux, "Couldn't allocate buffer to inflate data, ignore track %u",
                  tk.i_number );
         inflateEnd( &d_stream );
+        tk.p_extra_data = NULL;
         return 1;
     }
 
@@ -179,6 +179,7 @@ void handle_real_audio(demux_t * p_demux, mkv_track_t * p_tk, block_t * p_blk, v
                 p_sys->p_subpackets[i] = NULL;
             }
         p_sys->i_subpacket = 0;
+        p_sys->i_subpackets = 0;
 
         if ( !( p_blk->i_flags & BLOCK_FLAG_TYPE_I) )
         {
@@ -192,7 +193,9 @@ void handle_real_audio(demux_t * p_demux, mkv_track_t * p_tk, block_t * p_blk, v
         p_tk->fmt.i_codec == VLC_CODEC_ATRAC3 )
     {
         const uint16_t i_num = p_sys->i_frame_size / p_sys->i_subpacket_size;
-        const size_t y = p_sys->i_subpacket / ( p_sys->i_frame_size / p_sys->i_subpacket_size );
+        if ( i_num == 0 )
+            return;
+        const size_t y = p_sys->i_subpacket / i_num;
 
         for( uint16_t i = 0; i < i_num; i++ )
         {
@@ -236,10 +239,11 @@ void handle_real_audio(demux_t * p_demux, mkv_track_t * p_tk, block_t * p_blk, v
             p_sys->p_subpackets[i] = NULL;
         }
         p_sys->i_subpacket = 0;
+        p_sys->i_subpackets = 0;
     }
 }
 
-void send_Block( demux_t * p_demux, mkv_track_t * p_tk, block_t * p_block, unsigned int i_number_frames, vlc_tick_t i_duration )
+void send_Block( demux_t * p_demux, mkv_track_t * p_tk, block_t * p_block, unsigned int i_number_frames, int64_t i_duration )
 {
     demux_sys_t *p_sys = (demux_sys_t *)p_demux->p_sys;
     matroska_segment_c *p_segment = p_sys->p_current_vsegment->CurrentSegment();
@@ -259,8 +263,8 @@ void send_Block( demux_t * p_demux, mkv_track_t * p_tk, block_t * p_block, unsig
 
     if( !p_tk->b_no_duration )
     {
-        p_block->i_length = i_duration * p_tk->f_timecodescale *
-            (double) p_segment->i_timescale / ( 1000.0 * i_number_frames );
+        p_block->i_length = VLC_TICK_FROM_NS(i_duration * p_tk->f_timecodescale *
+                                             p_segment->i_timescale) / i_number_frames;
     }
 
     if( p_tk->b_discontinuity )

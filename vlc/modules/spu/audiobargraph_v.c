@@ -391,8 +391,7 @@ static subpicture_t *FilterSub(filter_t *p_filter, vlc_tick_t date)
         goto exit;
 
     /* Create new SPU region */
-    memset(&fmt, 0, sizeof(video_format_t));
-    fmt.i_chroma = VLC_CODEC_YUVA;
+    video_format_Init(&fmt, VLC_CODEC_YUVA);
     fmt.i_sar_num = fmt.i_sar_den = 1;
     fmt.i_width = fmt.i_visible_width = p_pic->p[Y_PLANE].i_visible_pitch;
     fmt.i_height = fmt.i_visible_height = p_pic->p[Y_PLANE].i_visible_lines;
@@ -542,17 +541,17 @@ static int OpenCommon(vlc_object_t *p_this, bool b_sub)
     if (!b_sub && p_sys->i_pos_x >= 0 && p_sys->i_pos_y >= 0)
         p_sys->i_pos = 0;
 
+    vlc_object_t *vlc = VLC_OBJECT(vlc_object_instance(p_filter));
+
     vlc_mutex_init(&p_sys->lock);
-    var_Create(p_filter->obj.libvlc, CFG_PREFIX "alarm", VLC_VAR_BOOL);
-    var_Create(p_filter->obj.libvlc, CFG_PREFIX "i_values", VLC_VAR_STRING);
+    var_Create(vlc, CFG_PREFIX "alarm", VLC_VAR_BOOL);
+    var_Create(vlc, CFG_PREFIX "i_values", VLC_VAR_STRING);
 
-    var_AddCallback(p_filter->obj.libvlc, CFG_PREFIX "alarm",
-                    BarGraphCallback, p_sys);
-    var_AddCallback(p_filter->obj.libvlc, CFG_PREFIX "i_values",
-                    BarGraphCallback, p_sys);
+    var_AddCallback(vlc, CFG_PREFIX "alarm", BarGraphCallback, p_sys);
+    var_AddCallback(vlc, CFG_PREFIX "i_values", BarGraphCallback, p_sys);
 
-    var_TriggerCallback(p_filter->obj.libvlc, CFG_PREFIX "alarm");
-    var_TriggerCallback(p_filter->obj.libvlc, CFG_PREFIX "i_values");
+    var_TriggerCallback(vlc, CFG_PREFIX "alarm");
+    var_TriggerCallback(vlc, CFG_PREFIX "i_values");
 
     for (int i = 0; ppsz_filter_callbacks[i]; i++)
         var_AddCallback(p_filter, ppsz_filter_callbacks[i],
@@ -589,17 +588,16 @@ static void Close(vlc_object_t *p_this)
 {
     filter_t *p_filter = (filter_t *)p_this;
     filter_sys_t *p_sys = p_filter->p_sys;
+    vlc_object_t *vlc = VLC_OBJECT(vlc_object_instance(p_filter));
 
     for (int i = 0; ppsz_filter_callbacks[i]; i++)
         var_DelCallback(p_filter, ppsz_filter_callbacks[i],
                          BarGraphCallback, p_sys);
 
-    var_DelCallback(p_filter->obj.libvlc, CFG_PREFIX "i_values",
-                    BarGraphCallback, p_sys);
-    var_DelCallback(p_filter->obj.libvlc, CFG_PREFIX "alarm",
-                    BarGraphCallback, p_sys);
-    var_Destroy(p_filter->obj.libvlc, CFG_PREFIX "i_values");
-    var_Destroy(p_filter->obj.libvlc, CFG_PREFIX "alarm");
+    var_DelCallback(vlc, CFG_PREFIX "i_values", BarGraphCallback, p_sys);
+    var_DelCallback(vlc, CFG_PREFIX "alarm", BarGraphCallback, p_sys);
+    var_Destroy(vlc, CFG_PREFIX "i_values");
+    var_Destroy(vlc, CFG_PREFIX "alarm");
 
     if (p_sys->p_blend)
         filter_DeleteBlend(p_sys->p_blend);

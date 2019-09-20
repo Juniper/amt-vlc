@@ -280,25 +280,22 @@ static int Control (demux_t *demux, int query, va_list args)
 
         case DEMUX_GET_LENGTH:
         {
-            int64_t *v = va_arg (args, int64_t *);
-
             if (unlikely(sys->track_id >= sys->titlec)
              || (sys->titlev[sys->track_id]->i_length == 0))
                 break;
-            *v = sys->titlev[sys->track_id]->i_length;
+            *va_arg (args, vlc_tick_t *) = sys->titlev[sys->track_id]->i_length;
             return VLC_SUCCESS;
         }
 
         case DEMUX_GET_TIME:
         {
-            int64_t *v = va_arg (args, int64_t *);
-            *v = gme_tell (sys->emu) * INT64_C(1000);
+            *va_arg (args, vlc_tick_t *) = VLC_TICK_FROM_MS(gme_tell (sys->emu));
             return VLC_SUCCESS;
         }
 
         case DEMUX_SET_TIME:
         {
-            int64_t v = va_arg (args, int64_t) / 1000;
+            int64_t v = MS_FROM_VLC_TICK( va_arg (args, vlc_tick_t) );
             if (v > INT_MAX || gme_seek (sys->emu, v))
                 break;
             return VLC_SUCCESS;

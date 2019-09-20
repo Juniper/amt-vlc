@@ -1,137 +1,265 @@
-SUFFIXES += .xib
+SUFFIXES += .xib .nib
 
-libmacosx_plugin_la_OBJCFLAGS = $(AM_OBJCFLAGS) -fobjc-exceptions -fobjc-arc
+xib_verbose = $(xib_verbose_$(V))
+xib_verbose_ = $(xib_verbose__$(AM_DEFAULT_VERBOSITY))
+xib_verbose_0 = @echo "  XIB     " $@;
+xib_verbose__0 = $(xib_verbose_0)
+
+.xib.nib:
+	$(AM_V_at)mkdir -p -- gui/macosx/UI
+	$(xib_verbose)$(XIB) --errors --warnings --notices \
+	  --module VLC --auto-activate-custom-fonts --target-device mac \
+	  --minimum-deployment-target 10.11 --output-format human-readable-text \
+	  --compile $@ $<
+
+
+libmacosx_plugin_la_OBJCFLAGS = $(AM_OBJCFLAGS) -fobjc-exceptions -fobjc-arc -I$(srcdir)/gui/macosx
 libmacosx_plugin_la_LDFLAGS = $(AM_LDFLAGS) -rpath '$(guidir)' \
-	-Wl,-framework,Cocoa -Wl,-framework,Carbon -Wl,-framework,CoreServices \
+	-Wl,-framework,Cocoa -Wl,-framework,CoreServices \
 	-Wl,-framework,AVFoundation -Wl,-framework,CoreMedia -Wl,-framework,IOKit \
 	-Wl,-framework,AddressBook -Wl,-framework,WebKit -Wl,-framework,CoreAudio \
 	-Wl,-framework,SystemConfiguration -Wl,-framework,ScriptingBridge \
-	-Wl,-framework,QuartzCore -Wl,-framework,MediaPlayer
+	-Wl,-framework,QuartzCore -Wl,-weak_framework,MediaPlayer
 
 if HAVE_SPARKLE
 libmacosx_plugin_la_LDFLAGS += -Wl,-framework,Sparkle
 endif
 
 libmacosx_plugin_la_SOURCES = \
-	gui/macosx/helpers.h \
-	gui/macosx/VLCAboutWindowController.h gui/macosx/VLCAboutWindowController.m \
-	gui/macosx/VLCAddonListItem.h gui/macosx/VLCAddonListItem.m \
-	gui/macosx/VLCAddonsWindowController.h gui/macosx/VLCAddonsWindowController.m \
-	gui/macosx/applescript.h gui/macosx/applescript.m \
-	gui/macosx/AppleRemote.h gui/macosx/AppleRemote.m \
-	gui/macosx/CompatibilityFixes.h gui/macosx/CompatibilityFixes.m \
-	gui/macosx/VLCControlsBarCommon.m gui/macosx/VLCControlsBarCommon.h \
-	gui/macosx/VLCDocumentController.m gui/macosx/VLCDocumentController.h \
-	gui/macosx/VLCMainWindowControlsBar.m gui/macosx/VLCMainWindowControlsBar.h \
-	gui/macosx/VLCConvertAndSaveWindowController.h gui/macosx/VLCConvertAndSaveWindowController.m \
-	gui/macosx/VLCCoreInteraction.h gui/macosx/VLCCoreInteraction.m \
-	gui/macosx/VLCErrorWindowController.h gui/macosx/VLCErrorWindowController.m \
-	gui/macosx/VLCExtensionsDialogProvider.h gui/macosx/VLCExtensionsDialogProvider.m \
-	gui/macosx/VLCExtensionsManager.h gui/macosx/VLCExtensionsManager.m \
-	gui/macosx/VLCHelpWindowController.h gui/macosx/VLCHelpWindowController.m \
-	gui/macosx/VLCMain+OldPrefs.h gui/macosx/VLCMain+OldPrefs.m \
-	gui/macosx/VLCMain.h gui/macosx/VLCMain.m \
-	gui/macosx/VLCApplication.h gui/macosx/VLCApplication.m \
-	gui/macosx/iTunes.h \
-	gui/macosx/VLCKeyboardBacklightControl.h gui/macosx/VLCKeyboardBacklightControl.m \
-	gui/macosx/macosx.m \
-	gui/macosx/VLCMainMenu.h gui/macosx/VLCMainMenu.m \
-	gui/macosx/misc.h gui/macosx/misc.m \
-	gui/macosx/NSSound+VLCAdditions.h gui/macosx/NSSound+VLCAdditions.m \
-	gui/macosx/NSScreen+VLCAdditions.h gui/macosx/NSScreen+VLCAdditions.m \
-	gui/macosx/VLCOpenWindowController.h gui/macosx/VLCOpenWindowController.m \
-	gui/macosx/VLCOutput.h gui/macosx/VLCOutput.m \
-	gui/macosx/VLCPlaylistView.h gui/macosx/VLCPlaylistView.m \
-	gui/macosx/VLCPlaylist.h gui/macosx/VLCPlaylist.m \
-	gui/macosx/VLCPlaylistInfo.h gui/macosx/VLCPlaylistInfo.m \
-	gui/macosx/VLCPLItem.h gui/macosx/VLCPLItem.m \
-	gui/macosx/VLCPLModel.h gui/macosx/VLCPLModel.m \
-	gui/macosx/prefs.h gui/macosx/prefs.m \
-	gui/macosx/prefs_widgets.h gui/macosx/prefs_widgets.m \
-	gui/macosx/PXSourceList.h gui/macosx/PXSourceList.m \
-	gui/macosx/PXSourceListDataSource.h gui/macosx/PXSourceListDelegate.h \
-	gui/macosx/SideBarItem.h gui/macosx/SideBarItem.m \
-	gui/macosx/VLCPopupPanelController.h gui/macosx/VLCPopupPanelController.m \
-	gui/macosx/VLCTextfieldPanelController.h gui/macosx/VLCTextfieldPanelController.m \
-	gui/macosx/VLCSimplePrefsController.h gui/macosx/VLCSimplePrefsController.m \
-	gui/macosx/VLCSimplePrefsWindow.h gui/macosx/VLCSimplePrefsWindow.m \
-	gui/macosx/VLCHotkeyChangeWindow.h gui/macosx/VLCHotkeyChangeWindow.m \
-	gui/macosx/SPInvocationGrabbing.h gui/macosx/SPInvocationGrabbing.m \
-	gui/macosx/SPMediaKeyTap.h gui/macosx/SPMediaKeyTap.m \
-	gui/macosx/Spotify.h \
-	gui/macosx/VLCStringUtility.h gui/macosx/VLCStringUtility.m \
-	gui/macosx/VLCVoutView.h gui/macosx/VLCVoutView.m \
-	gui/macosx/VLCTimeSelectionPanelController.h gui/macosx/VLCTimeSelectionPanelController.m \
-	gui/macosx/VLCUIWidgets.h gui/macosx/VLCUIWidgets.m \
-	gui/macosx/VLCScrollingClipView.h gui/macosx/VLCScrollingClipView.m \
-	gui/macosx/VLCStatusBarIcon.h gui/macosx/VLCStatusBarIcon.m \
-	gui/macosx/VLCVideoOutputProvider.h gui/macosx/VLCVideoOutputProvider.m \
-	gui/macosx/VLCWindow.h gui/macosx/VLCWindow.m \
-	gui/macosx/VLCVideoWindowCommon.h gui/macosx/VLCVideoWindowCommon.m \
-	gui/macosx/VLCAudioEffectsWindowController.h gui/macosx/VLCAudioEffectsWindowController.m \
-	gui/macosx/VLCBookmarksWindowController.h gui/macosx/VLCBookmarksWindowController.m \
-	gui/macosx/VLCBottomBarView.h gui/macosx/VLCBottomBarView.m \
-	gui/macosx/VLCCoreDialogProvider.h gui/macosx/VLCCoreDialogProvider.m \
-	gui/macosx/VLCLogMessage.h gui/macosx/VLCLogMessage.m \
-	gui/macosx/VLCLogWindowController.h gui/macosx/VLCLogWindowController.m \
-	gui/macosx/VLCHUDOutlineView.h gui/macosx/VLCHUDOutlineView.m \
-	gui/macosx/VLCHUDTableView.h gui/macosx/VLCHUDTableView.m \
-	gui/macosx/VLCHUDTableCornerView.h gui/macosx/VLCHUDTableCornerView.m \
-	gui/macosx/VLCInputManager.h gui/macosx/VLCInputManager.m \
-	gui/macosx/VLCRemoteControlService.h gui/macosx/VLCRemoteControlService.m \
-	gui/macosx/VLCMainWindow.h gui/macosx/VLCMainWindow.m \
-	gui/macosx/VLCRendererDiscovery.h gui/macosx/VLCRendererDiscovery.m \
-	gui/macosx/VLCRendererItem.h gui/macosx/VLCRendererItem.m \
-	gui/macosx/VLCRendererMenuController.h gui/macosx/VLCRendererMenuController.m \
-	gui/macosx/VLCResumeDialogController.h gui/macosx/VLCResumeDialogController.m \
-	gui/macosx/VLCTrackSynchronizationWindowController.h gui/macosx/VLCTrackSynchronizationWindowController.m \
-	gui/macosx/VLCVideoEffectsWindowController.h gui/macosx/VLCVideoEffectsWindowController.m \
-	gui/macosx/VLCFSPanelController.h gui/macosx/VLCFSPanelController.m \
-	gui/macosx/VLCFSPanelDraggableView.h gui/macosx/VLCFSPanelDraggableView.m \
-	gui/macosx/VLCDefaultValueSlider.h gui/macosx/VLCDefaultValueSlider.m \
-	gui/macosx/VLCDefaultValueSliderCell.h gui/macosx/VLCDefaultValueSliderCell.m \
-	gui/macosx/VLCImageButton.h gui/macosx/VLCImageButton.m \
-	gui/macosx/VLCTimeField.h gui/macosx/VLCTimeField.m \
-	gui/macosx/VLCHexNumberFormatter.h gui/macosx/VLCHexNumberFormatter.m \
-	gui/macosx/VLCSlider.h gui/macosx/VLCSlider.m \
-	gui/macosx/VLCSliderCell.h gui/macosx/VLCSliderCell.m \
-	gui/macosx/VLCVolumeSlider.h gui/macosx/VLCVolumeSlider.m \
-	gui/macosx/VLCVolumeSliderCell.h gui/macosx/VLCVolumeSliderCell.m \
-	gui/macosx/VLCWrappableTextField.h gui/macosx/VLCWrappableTextField.m
+	gui/macosx/coreinteraction/VLCHotkeysController.h \
+	gui/macosx/coreinteraction/VLCHotkeysController.m \
+	gui/macosx/coreinteraction/VLCVideoFilterHelper.h \
+	gui/macosx/coreinteraction/VLCVideoFilterHelper.m \
+	gui/macosx/extensions/NSColor+VLCAdditions.h \
+	gui/macosx/extensions/NSColor+VLCAdditions.m \
+	gui/macosx/extensions/NSFont+VLCAdditions.h \
+	gui/macosx/extensions/NSFont+VLCAdditions.m \
+	gui/macosx/extensions/NSScreen+VLCAdditions.h \
+	gui/macosx/extensions/NSScreen+VLCAdditions.m \
+	gui/macosx/extensions/NSSound+VLCAdditions.h \
+	gui/macosx/extensions/NSSound+VLCAdditions.m \
+	gui/macosx/extensions/NSString+Helpers.h \
+	gui/macosx/extensions/NSString+Helpers.m \
+	gui/macosx/extensions/NSView+VLCAdditions.h \
+	gui/macosx/extensions/NSView+VLCAdditions.m \
+	gui/macosx/extensions/VLCHexNumberFormatter.h \
+	gui/macosx/extensions/VLCHexNumberFormatter.m \
+	gui/macosx/extensions/VLCPositionFormatter.h \
+	gui/macosx/extensions/VLCPositionFormatter.m \
+	gui/macosx/imported/AppleRemote/AppleRemote.h \
+	gui/macosx/imported/AppleRemote/AppleRemote.m \
+	gui/macosx/imported/SPMediaKeyTap/SPMediaKeyTap.h \
+	gui/macosx/imported/SPMediaKeyTap/SPMediaKeyTap.m \
+	gui/macosx/library/VLCInputItem.h \
+	gui/macosx/library/VLCInputItem.m \
+	gui/macosx/library/VLCLibraryAlbumTableCellView.h \
+	gui/macosx/library/VLCLibraryAlbumTableCellView.m \
+	gui/macosx/library/VLCLibraryAudioDataSource.h \
+	gui/macosx/library/VLCLibraryAudioDataSource.m \
+	gui/macosx/library/VLCLibraryCollectionViewItem.h \
+	gui/macosx/library/VLCLibraryCollectionViewItem.m \
+	gui/macosx/library/VLCLibraryCollectionViewSupplementaryElementView.h \
+	gui/macosx/library/VLCLibraryCollectionViewSupplementaryElementView.m \
+	gui/macosx/library/VLCLibraryController.h \
+	gui/macosx/library/VLCLibraryController.m \
+	gui/macosx/library/VLCLibraryDataTypes.h \
+	gui/macosx/library/VLCLibraryDataTypes.m \
+	gui/macosx/library/VLCLibraryMenuController.h \
+	gui/macosx/library/VLCLibraryMenuController.m \
+	gui/macosx/library/VLCLibraryModel.h \
+	gui/macosx/library/VLCLibraryModel.m \
+	gui/macosx/library/VLCLibrarySortingMenuController.h \
+	gui/macosx/library/VLCLibrarySortingMenuController.m \
+	gui/macosx/library/VLCLibraryTableCellView.h \
+	gui/macosx/library/VLCLibraryTableCellView.m \
+	gui/macosx/library/VLCLibraryVideoDataSource.h \
+	gui/macosx/library/VLCLibraryVideoDataSource.m \
+	gui/macosx/library/VLCLibraryWindow.h \
+	gui/macosx/library/VLCLibraryWindow.m \
+	gui/macosx/main/CompatibilityFixes.h \
+	gui/macosx/main/CompatibilityFixes.m \
+	gui/macosx/main/VLCApplication.h \
+	gui/macosx/main/VLCApplication.m \
+	gui/macosx/main/VLCMain+OldPrefs.h \
+	gui/macosx/main/VLCMain+OldPrefs.m \
+	gui/macosx/main/VLCMain.h \
+	gui/macosx/main/VLCMain.m \
+	gui/macosx/main/macosx.m \
+	gui/macosx/media-source/VLCMediaSource.h \
+	gui/macosx/media-source/VLCMediaSource.m \
+	gui/macosx/media-source/VLCMediaSourceBaseDataSource.h \
+	gui/macosx/media-source/VLCMediaSourceBaseDataSource.m \
+	gui/macosx/media-source/VLCMediaSourceCollectionViewItem.h \
+	gui/macosx/media-source/VLCMediaSourceCollectionViewItem.m \
+	gui/macosx/media-source/VLCMediaSourceDataSource.h \
+	gui/macosx/media-source/VLCMediaSourceDataSource.m \
+	gui/macosx/media-source/VLCMediaSourceDeviceCollectionViewItem.h \
+	gui/macosx/media-source/VLCMediaSourceDeviceCollectionViewItem.m \
+	gui/macosx/media-source/VLCMediaSourceProvider.h \
+	gui/macosx/media-source/VLCMediaSourceProvider.m \
+	gui/macosx/menus/VLCMainMenu.h \
+	gui/macosx/menus/VLCMainMenu.m \
+	gui/macosx/menus/VLCStatusBarIcon.h \
+	gui/macosx/menus/VLCStatusBarIcon.m \
+	gui/macosx/menus/renderers/VLCRendererDiscovery.h \
+	gui/macosx/menus/renderers/VLCRendererDiscovery.m \
+	gui/macosx/menus/renderers/VLCRendererItem.h \
+	gui/macosx/menus/renderers/VLCRendererItem.m \
+	gui/macosx/menus/renderers/VLCRendererMenuController.h \
+	gui/macosx/menus/renderers/VLCRendererMenuController.m \
+	gui/macosx/os-integration/Spotify.h \
+	gui/macosx/os-integration/VLCClickerManager.h \
+	gui/macosx/os-integration/VLCClickerManager.m \
+	gui/macosx/os-integration/VLCDocumentController.h \
+	gui/macosx/os-integration/VLCDocumentController.m \
+	gui/macosx/os-integration/VLCKeyboardBacklightControl.h \
+	gui/macosx/os-integration/VLCKeyboardBacklightControl.m \
+	gui/macosx/os-integration/VLCRemoteControlService.h \
+	gui/macosx/os-integration/VLCRemoteControlService.m \
+	gui/macosx/os-integration/applescript.h \
+	gui/macosx/os-integration/applescript.m \
+	gui/macosx/os-integration/iTunes.h \
+	gui/macosx/panels/VLCAudioEffectsWindowController.h \
+	gui/macosx/panels/VLCAudioEffectsWindowController.m \
+	gui/macosx/panels/VLCBookmarksWindowController.h \
+	gui/macosx/panels/VLCBookmarksWindowController.m \
+	gui/macosx/panels/VLCInformationWindowController.h \
+	gui/macosx/panels/VLCInformationWindowController.m \
+	gui/macosx/panels/VLCTimeSelectionPanelController.h \
+	gui/macosx/panels/VLCTimeSelectionPanelController.m \
+	gui/macosx/panels/VLCTrackSynchronizationWindowController.h \
+	gui/macosx/panels/VLCTrackSynchronizationWindowController.m \
+	gui/macosx/panels/VLCVideoEffectsWindowController.h \
+	gui/macosx/panels/VLCVideoEffectsWindowController.m \
+	gui/macosx/panels/dialogs/VLCCoreDialogProvider.h \
+	gui/macosx/panels/dialogs/VLCCoreDialogProvider.m \
+	gui/macosx/panels/dialogs/VLCCustomCropArWindowController.h \
+	gui/macosx/panels/dialogs/VLCCustomCropArWindowController.m \
+	gui/macosx/panels/dialogs/VLCPopupPanelController.h \
+	gui/macosx/panels/dialogs/VLCPopupPanelController.m \
+	gui/macosx/panels/dialogs/VLCResumeDialogController.h \
+	gui/macosx/panels/dialogs/VLCResumeDialogController.m \
+	gui/macosx/panels/dialogs/VLCTextfieldPanelController.h \
+	gui/macosx/panels/dialogs/VLCTextfieldPanelController.m \
+	gui/macosx/playlist/VLCPlaybackContinuityController.h \
+	gui/macosx/playlist/VLCPlaybackContinuityController.m \
+	gui/macosx/playlist/VLCPlayerController.h \
+	gui/macosx/playlist/VLCPlayerController.m \
+	gui/macosx/playlist/VLCPlaylistController.h \
+	gui/macosx/playlist/VLCPlaylistController.m \
+	gui/macosx/playlist/VLCPlaylistDataSource.h \
+	gui/macosx/playlist/VLCPlaylistDataSource.m \
+	gui/macosx/playlist/VLCPlaylistItem.h \
+	gui/macosx/playlist/VLCPlaylistItem.m \
+	gui/macosx/playlist/VLCPlaylistMenuController.h \
+	gui/macosx/playlist/VLCPlaylistMenuController.m \
+	gui/macosx/playlist/VLCPlaylistModel.h \
+	gui/macosx/playlist/VLCPlaylistModel.m \
+	gui/macosx/playlist/VLCPlaylistSortingMenuController.h \
+	gui/macosx/playlist/VLCPlaylistSortingMenuController.m \
+	gui/macosx/playlist/VLCPlaylistTableCellView.h \
+	gui/macosx/playlist/VLCPlaylistTableCellView.m \
+	gui/macosx/playlist/VLCPlaylistTableView.h \
+	gui/macosx/playlist/VLCPlaylistTableView.m \
+	gui/macosx/preferences/VLCHotkeyChangeWindow.h \
+	gui/macosx/preferences/VLCHotkeyChangeWindow.m \
+	gui/macosx/preferences/VLCSimplePrefsController.h \
+	gui/macosx/preferences/VLCSimplePrefsController.m \
+	gui/macosx/preferences/VLCSimplePrefsWindow.h \
+	gui/macosx/preferences/VLCSimplePrefsWindow.m \
+	gui/macosx/preferences/prefs.h \
+	gui/macosx/preferences/prefs.m \
+	gui/macosx/preferences/prefs_widgets.h \
+	gui/macosx/preferences/prefs_widgets.m \
+	gui/macosx/views/VLCBottomBarView.h \
+	gui/macosx/views/VLCBottomBarView.m \
+	gui/macosx/views/VLCDefaultValueSlider.h \
+	gui/macosx/views/VLCDefaultValueSlider.m \
+	gui/macosx/views/VLCDefaultValueSliderCell.h \
+	gui/macosx/views/VLCDefaultValueSliderCell.m \
+	gui/macosx/views/VLCDragDropView.h \
+	gui/macosx/views/VLCDragDropView.m \
+	gui/macosx/views/VLCFSPanelDraggableView.h \
+	gui/macosx/views/VLCFSPanelDraggableView.m \
+	gui/macosx/views/VLCHUDOutlineView.h \
+	gui/macosx/views/VLCHUDOutlineView.m \
+	gui/macosx/views/VLCHUDTableCornerView.h \
+	gui/macosx/views/VLCHUDTableCornerView.m \
+	gui/macosx/views/VLCHUDTableView.h \
+	gui/macosx/views/VLCHUDTableView.m \
+	gui/macosx/views/VLCImageButton.h \
+	gui/macosx/views/VLCImageButton.m \
+	gui/macosx/views/VLCImageView.h \
+	gui/macosx/views/VLCImageView.m \
+	gui/macosx/views/VLCLinearProgressIndicator.h \
+	gui/macosx/views/VLCLinearProgressIndicator.m \
+	gui/macosx/views/VLCRoundedCornerTextField.h \
+	gui/macosx/views/VLCRoundedCornerTextField.m \
+	gui/macosx/views/VLCScrollingClipView.h \
+	gui/macosx/views/VLCScrollingClipView.m \
+	gui/macosx/views/VLCSlider.h \
+	gui/macosx/views/VLCSlider.m \
+	gui/macosx/views/VLCSliderCell.h \
+	gui/macosx/views/VLCSliderCell.m \
+	gui/macosx/views/VLCTimeField.h \
+	gui/macosx/views/VLCTimeField.m \
+	gui/macosx/views/VLCTrackingView.h \
+	gui/macosx/views/VLCTrackingView.m \
+	gui/macosx/views/VLCVolumeSlider.h \
+	gui/macosx/views/VLCVolumeSlider.m \
+	gui/macosx/views/VLCVolumeSliderCell.h \
+	gui/macosx/views/VLCVolumeSliderCell.m \
+	gui/macosx/views/VLCWrappableTextField.h \
+	gui/macosx/views/VLCWrappableTextField.m \
+	gui/macosx/windows/VLCAboutWindowController.h \
+	gui/macosx/windows/VLCAboutWindowController.m \
+	gui/macosx/windows/VLCErrorWindowController.h \
+	gui/macosx/windows/VLCErrorWindowController.m \
+	gui/macosx/windows/VLCHelpWindowController.h \
+	gui/macosx/windows/VLCHelpWindowController.m \
+	gui/macosx/windows/VLCOpenInputMetadata.h \
+	gui/macosx/windows/VLCOpenInputMetadata.m \
+	gui/macosx/windows/VLCOpenWindowController.h \
+	gui/macosx/windows/VLCOpenWindowController.m \
+	gui/macosx/windows/addons/VLCAddonListItem.h \
+	gui/macosx/windows/addons/VLCAddonListItem.m \
+	gui/macosx/windows/addons/VLCAddonsWindowController.h \
+	gui/macosx/windows/addons/VLCAddonsWindowController.m \
+	gui/macosx/windows/convertandsave/VLCConvertAndSaveWindowController.h \
+	gui/macosx/windows/convertandsave/VLCConvertAndSaveWindowController.m \
+	gui/macosx/windows/convertandsave/VLCOutput.h \
+	gui/macosx/windows/convertandsave/VLCOutput.m \
+	gui/macosx/windows/extensions/VLCExtensionsDialogProvider.h \
+	gui/macosx/windows/extensions/VLCExtensionsDialogProvider.m \
+	gui/macosx/windows/extensions/VLCExtensionsManager.h \
+	gui/macosx/windows/extensions/VLCExtensionsManager.m \
+	gui/macosx/windows/extensions/VLCUIWidgets.h \
+	gui/macosx/windows/extensions/VLCUIWidgets.m \
+	gui/macosx/windows/logging/VLCLogMessage.h \
+	gui/macosx/windows/logging/VLCLogMessage.m \
+	gui/macosx/windows/logging/VLCLogWindowController.h \
+	gui/macosx/windows/logging/VLCLogWindowController.m \
+	gui/macosx/windows/mainwindow/VLCControlsBarCommon.h \
+	gui/macosx/windows/mainwindow/VLCControlsBarCommon.m \
+	gui/macosx/windows/mainwindow/VLCMainWindowControlsBar.h \
+	gui/macosx/windows/mainwindow/VLCMainWindowControlsBar.m \
+	gui/macosx/windows/video/VLCDetachedVideoWindow.h \
+	gui/macosx/windows/video/VLCDetachedVideoWindow.m \
+	gui/macosx/windows/video/VLCFSPanelController.h \
+	gui/macosx/windows/video/VLCFSPanelController.m \
+	gui/macosx/windows/video/VLCVideoOutputProvider.h \
+	gui/macosx/windows/video/VLCVideoOutputProvider.m \
+	gui/macosx/windows/video/VLCVideoWindowCommon.h \
+	gui/macosx/windows/video/VLCVideoWindowCommon.m \
+	gui/macosx/windows/video/VLCVoutView.h \
+	gui/macosx/windows/video/VLCVoutView.m \
+	gui/macosx/windows/video/VLCWindow.h \
+	gui/macosx/windows/video/VLCWindow.m
 
 
 # User interface compilation
 
-nodist_libmacosx_plugin_la_SOURCES = \
-	gui/macosx/UI/About.nib \
-	gui/macosx/UI/AddonManager.nib \
-	gui/macosx/UI/AudioEffects.nib \
-	gui/macosx/UI/Bookmarks.nib \
-	gui/macosx/UI/ConvertAndSave.nib \
-	gui/macosx/UI/CoreDialogs.nib \
-	gui/macosx/UI/DetachedVideoWindow.nib \
-	gui/macosx/UI/ErrorPanel.nib \
-	gui/macosx/UI/Help.nib \
-	gui/macosx/UI/LogMessageWindow.nib \
-	gui/macosx/UI/MainMenu.nib \
-	gui/macosx/UI/MainWindow.nib \
-	gui/macosx/UI/MediaInfo.nib \
-	gui/macosx/UI/Open.nib \
-	gui/macosx/UI/PlaylistAccessoryView.nib \
-	gui/macosx/UI/PlaylistMenu.nib \
-	gui/macosx/UI/PopupPanel.nib \
-	gui/macosx/UI/Preferences.nib \
-	gui/macosx/UI/ResumeDialog.nib \
-	gui/macosx/UI/SimplePreferences.nib \
-	gui/macosx/UI/StreamOutput.nib \
-	gui/macosx/UI/SyncTracks.nib \
-	gui/macosx/UI/TextfieldPanel.nib \
-	gui/macosx/UI/TimeSelectionPanel.nib \
-	gui/macosx/UI/VideoEffects.nib \
-	gui/macosx/UI/VLCFullScreenPanel.nib \
-	gui/macosx/UI/VLCStatusBarIconMainMenu.nib
-
-EXTRA_DIST += \
+libmacosx_plugin_la_XIB_SOURCES = \
 	gui/macosx/UI/About.xib \
 	gui/macosx/UI/AddonManager.xib \
 	gui/macosx/UI/AudioEffects.xib \
@@ -143,11 +271,17 @@ EXTRA_DIST += \
 	gui/macosx/UI/Help.xib \
 	gui/macosx/UI/LogMessageWindow.xib \
 	gui/macosx/UI/MainMenu.xib \
-	gui/macosx/UI/MainWindow.xib \
-	gui/macosx/UI/MediaInfo.xib \
+	gui/macosx/UI/VLCCustomCropARPanel.xib \
+	gui/macosx/UI/VLCLibraryAlbumTableCellView.xib \
+	gui/macosx/UI/VLCLibraryWindow.xib \
+	gui/macosx/UI/VLCLibraryTableCellView.xib \
+	gui/macosx/UI/VLCPlaylistTableCellView.xib \
+	gui/macosx/UI/VLCLibraryCollectionViewItem.xib \
+	gui/macosx/UI/VLCMediaSourceCollectionViewItem.xib \
+	gui/macosx/UI/VLCMediaSourceDeviceCollectionViewItem.xib \
+	gui/macosx/UI/VLCInformationWindow.xib \
 	gui/macosx/UI/Open.xib \
 	gui/macosx/UI/PlaylistAccessoryView.xib \
-	gui/macosx/UI/PlaylistMenu.xib \
 	gui/macosx/UI/PopupPanel.xib \
 	gui/macosx/UI/Preferences.xib \
 	gui/macosx/UI/ResumeDialog.xib \
@@ -160,21 +294,11 @@ EXTRA_DIST += \
 	gui/macosx/UI/VLCFullScreenPanel.xib \
 	gui/macosx/UI/VLCStatusBarIconMainMenu.xib
 
-xib_verbose = $(xib_verbose_$(V))
-xib_verbose_ = $(xib_verbose__$(AM_DEFAULT_VERBOSITY))
-xib_verbose_0 = @echo "  XIB   " $@;
-xib_verbose__0 = $(xib_verbose_0)
-
-.xib.nib:
-	$(AM_V_at)mkdir -p -- gui/macosx/UI
-	$(xib_verbose)$(XIB) --errors --warnings --notices \
-	  --module VLC --auto-activate-custom-fonts --target-device mac \
-	  --minimum-deployment-target 10.10 --output-format human-readable-text \
-	  --compile $@ $<
+libmacosx_plugin_la_SOURCES += $(libmacosx_plugin_la_XIB_SOURCES)
 
 if ENABLE_MACOSX_UI
 gui_LTLIBRARIES += libmacosx_plugin.la
-BUILT_SOURCES += $(nodist_libmacosx_plugin_la_SOURCES)
+BUILT_SOURCES += $(libmacosx_plugin_la_XIB_SOURCES:.xib=.nib)
 endif
 
 
@@ -201,6 +325,22 @@ libmacosx_plugin_la_RES = \
 	gui/macosx/Resources/File-Icons/wav.icns \
 	gui/macosx/Resources/File-Icons/wma.icns \
 	gui/macosx/Resources/File-Icons/wmv.icns \
+	gui/macosx/Resources/librarywindow/ellipsis.png \
+	gui/macosx/Resources/librarywindow/ellipsis@2x.png \
+	gui/macosx/Resources/librarywindow/note.png \
+	gui/macosx/Resources/librarywindow/note@2x.png \
+	gui/macosx/Resources/librarywindow/libraryPlay.png \
+	gui/macosx/Resources/librarywindow/libraryPlay@2x.png \
+	gui/macosx/Resources/librarywindow/repeatAll.png \
+	gui/macosx/Resources/librarywindow/repeatAll@2x.png \
+	gui/macosx/Resources/librarywindow/repeatOff.png \
+	gui/macosx/Resources/librarywindow/repeatOff@2x.png \
+	gui/macosx/Resources/librarywindow/repeatOne.png \
+	gui/macosx/Resources/librarywindow/repeatOne@2x.png \
+	gui/macosx/Resources/librarywindow/shuffleOff.png \
+	gui/macosx/Resources/librarywindow/shuffleOff@2x.png \
+	gui/macosx/Resources/librarywindow/shuffleOn.png \
+	gui/macosx/Resources/librarywindow/shuffleOn@2x.png \
 	gui/macosx/Resources/mainwindow/backward-3btns-pressed.png \
 	gui/macosx/Resources/mainwindow/backward-3btns-pressed@2x.png \
 	gui/macosx/Resources/mainwindow/backward-3btns.png \

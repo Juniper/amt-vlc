@@ -41,6 +41,9 @@
 #include "d3d11_processor.h"
 #include "../../video_chroma/d3d11_fmt.h"
 
+typedef picture_sys_d3d11_t VA_PICSYS;
+#include "../../codec/avcodec/va_surface.h"
+
 #ifdef __MINGW32__
 #define D3D11_VIDEO_PROCESSOR_FILTER_CAPS_BRIGHTNESS   0x1
 #define D3D11_VIDEO_PROCESSOR_FILTER_CAPS_CONTRAST     0x2
@@ -119,6 +122,9 @@ static bool ApplyFilter( filter_sys_t *p_sys,
                                                      filter,
                                                      TRUE,
                                                      level);
+    ID3D11VideoContext_VideoProcessorSetStreamAutoProcessingMode(p_sys->d3d_proc.d3dvidctx,
+                                                                 p_sys->d3d_proc.videoProcessor,
+                                                                 0, FALSE);
 
     RECT srcRect;
     srcRect.left   = fmt->i_x_offset;
@@ -190,7 +196,7 @@ static picture_t *Filter(filter_t *p_filter, picture_t *p_pic)
 {
     filter_sys_t *p_sys = p_filter->p_sys;
 
-    picture_sys_t *p_src_sys = ActivePictureSys(p_pic);
+    picture_sys_d3d11_t *p_src_sys = ActivePictureSys(p_pic);
     if (FAILED( D3D11_Assert_ProcessorInput(p_filter, &p_sys->d3d_proc, p_src_sys) ))
     {
         picture_Release( p_pic );
@@ -203,7 +209,7 @@ static picture_t *Filter(filter_t *p_filter, picture_t *p_pic)
         picture_Release( p_pic );
         return NULL;
     }
-    picture_sys_t *p_out_sys = p_outpic->p_sys;
+    picture_sys_d3d11_t *p_out_sys = p_outpic->p_sys;
     if (unlikely(!p_out_sys))
     {
         /* the output filter configuration may have changed since the filter
@@ -440,13 +446,13 @@ static int D3D11OpenAdjust(vlc_object_t *obj)
 
     hr = ID3D11Device_CreateTexture2D( sys->d3d_dev.d3ddevice, &texDesc, NULL, &sys->out[0].texture );
     if (FAILED(hr)) {
-        msg_Err(filter, "CreateTexture2D failed. (hr=0x%0lx)", hr);
+        msg_Err(filter, "CreateTexture2D failed. (hr=0x%lX)", hr);
         goto error;
     }
     hr = ID3D11Device_CreateTexture2D( sys->d3d_dev.d3ddevice, &texDesc, NULL, &sys->out[1].texture );
     if (FAILED(hr)) {
         ID3D11Texture2D_Release(sys->out[0].texture);
-        msg_Err(filter, "CreateTexture2D failed. (hr=0x%0lx)", hr);
+        msg_Err(filter, "CreateTexture2D failed. (hr=0x%lX)", hr);
         goto error;
     }
 

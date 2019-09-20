@@ -1,4 +1,4 @@
-prefix=/Users/nlandsberg/Desktop/development/vlc/build/vlc_install_dir
+prefix=/Users/nlandsberg/vlc/build/vlc_install_dir
 exec_prefix=${prefix}
 includedir=${prefix}/include
 datarootdir=${prefix}/share
@@ -18,5 +18,5 @@ Cflags: -I${includedir} -I${pkgincludedir}/plugins \
 	
 Libs: -L${libdir} -lvlccore
 Libs.private: -Wl,-framework,CoreFoundation,-framework,CoreServices  \
-	-L/Users/nlandsberg/Desktop/development/vlc/contrib/x86_64-apple-darwin16/lib -lintl -liconv -lc -Wl,-framework -Wl,CoreFoundation -liconv \
+	-L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lintl -liconv -lc -Wl,-framework -Wl,CoreFoundation -liconv \
 	  -lm

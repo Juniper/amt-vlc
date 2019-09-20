@@ -2,7 +2,6 @@
  * cdg.c : cdg file demux module for vlc
  *****************************************************************************
  * Copyright (C) 2007 Laurent Aimar
- * $Id: 92315af87555c184b80c36a468057ab41e9dc3fe $
  *
  * Authors: Laurent Aimar <fenrir # via.ecp.fr>
  *
@@ -43,7 +42,7 @@ vlc_module_begin ()
     set_category( CAT_INPUT )
     set_subcategory( SUBCAT_INPUT_DEMUX )
     set_capability( "demux", 3 )
-    set_callbacks( Open, NULL )
+    set_callback( Open )
     add_shortcut( "cdg", "subtitle" )
 vlc_module_end ()
 
@@ -63,6 +62,7 @@ typedef struct
 
 #define CDG_FRAME_SIZE (96)
 #define CDG_FRAME_RATE (75)
+#define CDG_FRAME_DELTA (CLOCK_FREQ / CDG_FRAME_RATE)
 
 /*****************************************************************************
  * Open: check file and initializes structures
@@ -108,6 +108,11 @@ static int Open( vlc_object_t * p_this )
     return VLC_SUCCESS;
 }
 
+static vlc_tick_t PosToDate( demux_t *p_demux )
+{
+    return vlc_stream_Tell( p_demux->s ) / CDG_FRAME_SIZE * CDG_FRAME_DELTA;
+}
+
 /*****************************************************************************
  * Demux: read packet and send them to decoders
  *****************************************************************************
@@ -118,9 +123,6 @@ static int Demux( demux_t *p_demux )
     demux_sys_t *p_sys = p_demux->p_sys;
     block_t     *p_block;
     vlc_tick_t  i_date;
-    vlc_tick_t  i_delta;
-
-    i_delta = CLOCK_FREQ / CDG_FRAME_RATE;
 
     p_block = vlc_stream_Block( p_demux->s, CDG_FRAME_SIZE );
     if( p_block == NULL )
@@ -129,8 +131,8 @@ static int Demux( demux_t *p_demux )
         return VLC_DEMUXER_EOF;
     }
 
-    i_date = vlc_stream_Tell( p_demux->s ) / CDG_FRAME_SIZE * i_delta;
-    if( i_date >= date_Get( &p_sys->pts ) + i_delta )
+    i_date = PosToDate( p_demux );
+    if( i_date >= date_Get( &p_sys->pts ) + CDG_FRAME_DELTA )
     {
         p_block->i_dts = p_block->i_pts = VLC_TICK_0 + i_date;
         date_Set( &p_sys->pts, VLC_TICK_0 + i_date );
@@ -158,8 +160,7 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
                                        i_query, args );
     if( !i_ret && ( i_query == DEMUX_SET_POSITION || i_query == DEMUX_SET_TIME ) )
     {
-        date_Set( &p_sys->pts, vlc_stream_Tell( p_demux->s ) / CDG_FRAME_SIZE *
-                    CLOCK_FREQ / CDG_FRAME_RATE );
+        date_Set( &p_sys->pts, PosToDate( p_demux ) );
         if ( i_old_offset > vlc_stream_Tell( p_demux->s ) )
             i_ret = vlc_stream_Seek( p_demux->s, 0 );
         else

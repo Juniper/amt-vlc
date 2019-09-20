@@ -2,7 +2,6 @@
  * vlc_subpicture.h: subpicture definitions
  *****************************************************************************
  * Copyright (C) 1999 - 2009 VLC authors and VideoLAN
- * $Id: f001df089425006583620098d24eb5070600e0b4 $
  *
  * Authors: Vincent Seguin <seguin@via.ecp.fr>
  *          Samuel Hocevar <sam@via.ecp.fr>
@@ -73,6 +72,9 @@ struct subpicture_region_t
     bool            b_balanced_text; /** try to balance wrapped text lines */
     int             i_max_width;     /** horizontal rendering/cropping target/limit */
     int             i_max_height;    /** vertical rendering/cropping target/limit */
+
+    vlc_rational_t  zoom_h;
+    vlc_rational_t  zoom_v;
 
     subpicture_region_t *p_next;                /**< next region in the list */
     subpicture_region_private_t *p_private;  /**< Private data for spu_t *only* */
@@ -163,7 +165,7 @@ struct subpicture_t
 {
     /** \name Channel ID */
     /**@{*/
-    int             i_channel;                    /**< subpicture channel ID */
+    ssize_t         i_channel;                    /**< subpicture channel ID */
     /**@}*/
 
     /** \name Type and flags

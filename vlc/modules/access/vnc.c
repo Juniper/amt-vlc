@@ -166,19 +166,25 @@ static rfbBool mallocFrameBufferHandler( rfbClient* p_client )
             break;
     }
 
-    if ( i_chroma != VLC_CODEC_RGB8 ) /* Palette based, no mask */
+    switch( i_chroma )
     {
-        video_format_t videofmt;
-        video_format_Init( &videofmt, i_chroma );
-        video_format_FixRgb( &videofmt );
-
-        p_client->format.redShift = videofmt.i_lrshift;
-        p_client->format.greenShift = videofmt.i_lgshift;
-        p_client->format.blueShift = videofmt.i_lbshift;
-        p_client->format.redMax = videofmt.i_rmask >> videofmt.i_lrshift;
-        p_client->format.greenMax = videofmt.i_gmask >> videofmt.i_lgshift;
-        p_client->format.blueMax = videofmt.i_bmask >> videofmt.i_lbshift;
-        video_format_Clean( &videofmt );
+        case VLC_CODEC_RGB16:
+            p_client->format.redShift   = 11;
+            p_client->format.greenShift =  5;
+            p_client->format.blueShift  =  0;
+            p_client->format.redMax     = 0x1f;
+            p_client->format.greenMax   = 0x3f;
+            p_client->format.blueMax    = 0x1f;
+            break;
+        case VLC_CODEC_RGB24:
+        case VLC_CODEC_RGB32:
+            p_client->format.redShift   = 16;
+            p_client->format.greenShift =  8;
+            p_client->format.blueShift  =  0;
+            p_client->format.redMax     = 0xff;
+            p_client->format.greenMax   = 0xff;
+            p_client->format.blueMax    = 0xff;
+            break;
     }
 
     /* Set up framebuffer */
@@ -278,7 +284,6 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
 {
     demux_sys_t *p_sys = p_demux->p_sys;
     bool *pb;
-    int64_t *pi64;
     double *p_dbl;
     vlc_meta_t *p_meta;
 
@@ -304,13 +309,11 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
             return VLC_SUCCESS;
 
         case DEMUX_GET_TIME:
-            pi64 = va_arg( args, int64_t * );
-            *pi64 = vlc_tick_now() - p_sys->i_starttime;
+            *va_arg( args, vlc_tick_t * ) = vlc_tick_now() - p_sys->i_starttime;
             return VLC_SUCCESS;
 
         case DEMUX_GET_LENGTH:
-            pi64 = va_arg( args, int64_t * );
-            *pi64 = 0;
+            *va_arg( args, vlc_tick_t * ) = 0;
             return VLC_SUCCESS;
 
         case DEMUX_GET_FPS:
@@ -395,7 +398,7 @@ static int Open( vlc_object_t *p_this )
 
     p_sys->f_fps = var_InheritFloat( p_demux, CFG_PREFIX "fps" );
     if ( p_sys->f_fps <= 0 ) p_sys->f_fps = 1.0;
-    p_sys->i_frame_interval = CLOCK_FREQ / p_sys->f_fps ;
+    p_sys->i_frame_interval = vlc_tick_rate_duration( p_sys->f_fps );
 
     char *psz_chroma = var_InheritString( p_demux, CFG_PREFIX "chroma" );
     vlc_fourcc_t i_chroma = vlc_fourcc_GetCodecFromString( VIDEO_ES, psz_chroma );
@@ -444,7 +447,7 @@ static int Open( vlc_object_t *p_this )
 
     /* Parse uri params */
     vlc_url_t url;
-    vlc_UrlParse( &url, p_demux->psz_location );
+    vlc_UrlParse( &url, p_demux->psz_url );
 
     if ( !EMPTY_STR(url.psz_host) )
         p_sys->p_client->serverHost = strdup( url.psz_host );

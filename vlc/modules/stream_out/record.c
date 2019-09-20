@@ -2,7 +2,6 @@
  * record.c: record stream output module
  *****************************************************************************
  * Copyright (C) 2008-2009 VLC authors and VideoLAN
- * $Id: 0b52c54be5681c680828b0a4f755966682c1dfc4 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *
@@ -145,7 +144,7 @@ static int Open( vlc_object_t *p_this )
         }
     }
 
-    p_sys->i_date_start = -1;
+    p_sys->i_date_start = VLC_TICK_INVALID;
     p_sys->i_size = 0;
 #ifdef OPTIMIZE_MEMORY
     p_sys->i_max_wait = VLC_TICK_FROM_SEC(5);
@@ -233,7 +232,7 @@ static int Send( sout_stream_t *p_stream, void *id, block_t *p_buffer )
 {
     sout_stream_sys_t *p_sys = p_stream->p_sys;
 
-    if( p_sys->i_date_start < 0 )
+    if( p_sys->i_date_start == VLC_TICK_INVALID )
         p_sys->i_date_start = vlc_tick_now();
     if( !p_sys->p_out &&
         ( vlc_tick_now() - p_sys->i_date_start > p_sys->i_max_wait ||
@@ -254,7 +253,7 @@ static int Send( sout_stream_t *p_stream, void *id, block_t *p_buffer )
  *****************************************************************************/
 typedef struct
 {
-    const char  psz_muxer[4];
+    const char  psz_muxer[19];
     const char  psz_extension[4];
     int         i_es_max;
     vlc_fourcc_t codec[128];
@@ -265,8 +264,8 @@ typedef struct
  * Do not do non native and non standard association !
  * Muxer will be probe if no entry found */
 static const muxer_properties_t p_muxers[] = {
-    M( "raw", "mp3", 1,         VLC_CODEC_MPGA ),
-    M( "raw", "a52", 1,         VLC_CODEC_A52 ),
+    M( "raw", "mp3", 1,         VLC_CODEC_MPGA, VLC_CODEC_MP2, VLC_CODEC_MP3 ),
+    M( "raw", "a52", 1,         VLC_CODEC_A52, VLC_CODEC_EAC3 ),
     M( "raw", "dts", 1,         VLC_CODEC_DTS ),
     M( "raw", "mpc", 1,         VLC_CODEC_MUSEPACK7, VLC_CODEC_MUSEPACK8 ),
     M( "raw", "ape", 1,         VLC_CODEC_APE ),
@@ -283,10 +282,11 @@ static const muxer_properties_t p_muxers[] = {
     M( "asf", "asf", 127,       VLC_CODEC_WMA1, VLC_CODEC_WMA2, VLC_CODEC_WMAP, VLC_CODEC_WMAL, VLC_CODEC_WMAS,
                                 VLC_CODEC_WMV1, VLC_CODEC_WMV2, VLC_CODEC_WMV3, VLC_CODEC_VC1 ),
 
-    M( "mp4", "mp4", INT_MAX,   VLC_CODEC_MP4A, VLC_CODEC_H264, VLC_CODEC_MP4V, VLC_CODEC_HEVC,
-                                VLC_CODEC_SUBT ),
+    M( "mp4", "mp4", INT_MAX,   VLC_CODEC_MP4A, VLC_CODEC_A52, VLC_CODEC_EAC3, VLC_CODEC_DTS,
+                                VLC_CODEC_H264, VLC_CODEC_MP4V, VLC_CODEC_HEVC, VLC_CODEC_AV1,
+                                VLC_CODEC_SUBT, VLC_CODEC_QTXT, VLC_CODEC_TX3G ),
 
-    M( "ps", "mpg", 16/* FIXME*/,VLC_CODEC_MPGV,
+    M( "ps", "mpg", 16/* FIXME*/, VLC_CODEC_MPGV, VLC_CODEC_MP2V, VLC_CODEC_MP1V,
                                 VLC_CODEC_MPGA, VLC_CODEC_DVD_LPCM, VLC_CODEC_A52,
                                 VLC_CODEC_DTS,
                                 VLC_CODEC_SPU ),
@@ -296,14 +296,20 @@ static const muxer_properties_t p_muxers[] = {
                                 VLC_CODEC_U8, VLC_CODEC_S16L, VLC_CODEC_S24L,
                                 VLC_CODEC_MP4V ),
 
-    M( "ts", "ts", 8000,        VLC_CODEC_MPGV,
+    M( "ts", "ts", 8000,        VLC_CODEC_MPGV, VLC_CODEC_MP2V, VLC_CODEC_MP1V,
                                 VLC_CODEC_H264, VLC_CODEC_HEVC,
-                                VLC_CODEC_MPGA, VLC_CODEC_DVD_LPCM, VLC_CODEC_A52,
+                                VLC_CODEC_MPGA, VLC_CODEC_MP2, VLC_CODEC_MP3,
+                                VLC_CODEC_DVD_LPCM, VLC_CODEC_A52, VLC_CODEC_EAC3,
                                 VLC_CODEC_DTS,  VLC_CODEC_MP4A,
                                 VLC_CODEC_DVBS, VLC_CODEC_TELETEXT ),
 
-    M( "mkv", "mkv", 32,        VLC_CODEC_H264, VLC_CODEC_HEVC, VLC_CODEC_VP8, VLC_CODEC_MP4V,
-                                VLC_CODEC_A52,  VLC_CODEC_MP4A, VLC_CODEC_VORBIS, VLC_CODEC_FLAC ),
+    M( "avformat{mux=webm}", "webm", 32,
+                                VLC_CODEC_VP8, VLC_CODEC_VP9,
+                                VLC_CODEC_VORBIS, VLC_CODEC_OPUS ),
+
+    M( "mkv", "mkv", 32,        VLC_CODEC_H264, VLC_CODEC_HEVC, VLC_CODEC_MP4V,
+                                VLC_CODEC_A52, VLC_CODEC_EAC3, VLC_CODEC_DTS, VLC_CODEC_MP4A,
+                                VLC_CODEC_VORBIS, VLC_CODEC_FLAC ),
 };
 #undef M
 
@@ -331,7 +337,7 @@ static int OutputNew( sout_stream_t *p_stream,
 
     if( asprintf( &psz_output,
                   "std{access=file{no-append,no-format,no-overwrite},"
-                  "mux='%s',dst='%s'}", psz_muxer, psz_file ) < 0 )
+                  "mux=%s,dst='%s'}", psz_muxer, psz_file ) < 0 )
     {
         psz_output = NULL;
         goto error;
@@ -357,7 +363,7 @@ static int OutputNew( sout_stream_t *p_stream,
     }
 
     if( psz_file && psz_extension )
-        var_SetString( p_stream->obj.libvlc, "record-file", psz_file );
+        var_SetString( vlc_object_instance(p_stream), "record-file", psz_file );
 
     free( psz_file );
     free( psz_output );
@@ -370,6 +376,16 @@ error:
     free( psz_output );
     return -1;
 
+}
+
+static vlc_tick_t BlockTick( const block_t *p_block )
+{
+    if( unlikely(!p_block) )
+        return VLC_TICK_INVALID;
+    else if( likely(p_block->i_dts != VLC_TICK_INVALID) )
+        return p_block->i_dts;
+    else
+        return p_block->i_pts;
 }
 
 static void OutputStart( sout_stream_t *p_stream )
@@ -513,7 +529,7 @@ static void OutputStart( sout_stream_t *p_stream )
             continue;
 
         const block_t *p_block = id->p_first;
-        vlc_tick_t i_dts = p_block->i_dts;
+        vlc_tick_t i_dts = BlockTick( p_block );
 
         if( i_dts > i_highest_head_dts &&
            ( id->fmt.i_cat == AUDIO_ES || id->fmt.i_cat == VIDEO_ES ) )
@@ -525,7 +541,7 @@ static void OutputStart( sout_stream_t *p_stream )
         {
             if( p_block->i_flags & BLOCK_FLAG_TYPE_I )
             {
-                i_dts = p_block->i_dts;
+                i_dts = BlockTick( p_block );
                 break;
             }
         }
@@ -538,10 +554,12 @@ static void OutputStart( sout_stream_t *p_stream )
         p_sys->i_dts_start = i_highest_head_dts;
 
     sout_stream_id_sys_t *p_cand;
+    vlc_tick_t canddts;
     do
     {
         /* dequeue candidate */
         p_cand = NULL;
+        canddts = VLC_TICK_INVALID;
 
         /* Send buffered data in dts order */
         for( int i = 0; i < p_sys->i_id; i++ )
@@ -551,8 +569,27 @@ static void OutputStart( sout_stream_t *p_stream )
             if( !id->id || id->p_first == NULL )
                 continue;
 
-            if( p_cand == NULL || id->p_first->i_dts < p_cand->p_first->i_dts )
+            block_t *p_id_block;
+            vlc_tick_t id_dts = VLC_TICK_INVALID;
+            for( p_id_block = id->p_first; p_id_block; p_id_block = p_id_block->p_next )
+            {
+                id_dts = BlockTick( p_id_block );
+                if( id_dts != VLC_TICK_INVALID )
+                    break;
+            }
+
+            if( id_dts == VLC_TICK_INVALID )
+            {
                 p_cand = id;
+                canddts = VLC_TICK_INVALID;
+                break;
+            }
+
+            if( p_cand == NULL || canddts > id_dts )
+            {
+                p_cand = id;
+                canddts = id_dts;
+            }
         }
 
         if( p_cand != NULL )
@@ -563,7 +600,7 @@ static void OutputStart( sout_stream_t *p_stream )
                 p_cand->pp_last = &p_cand->p_first;
             p_block->p_next = NULL;
 
-            if( p_block->i_dts >= p_sys->i_dts_start )
+            if( BlockTick( p_block ) >= p_sys->i_dts_start )
                 OutputSend( p_stream, p_cand, p_block );
             else
                 block_Release( p_block );

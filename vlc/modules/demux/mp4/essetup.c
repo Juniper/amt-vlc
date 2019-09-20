@@ -27,8 +27,8 @@
 #include "mp4.h"
 #include "avci.h"
 #include "../xiph.h"
-#include "../../packetizer/dts_header.h"
-#include "color_config.h"
+#include "../../packetizer/iso_color_tables.h"
+#include "mpeg4.h"
 
 #include <vlc_demux.h>
 #include <vlc_aout.h>
@@ -52,81 +52,8 @@ static void SetupGlobalExtensions( mp4_track_t *p_track, MP4_Box_t *p_sample )
 static void SetupESDS( demux_t *p_demux, mp4_track_t *p_track, const MP4_descriptor_decoder_config_t *p_decconfig )
 {
     /* First update information based on i_objectTypeIndication */
-    /* See 14496-1 and http://www.mp4ra.org/object.html */
     switch( p_decconfig->i_objectProfileIndication )
     {
-    case( 0x20 ): /* MPEG4 VIDEO */
-        p_track->fmt.i_codec = VLC_CODEC_MP4V;
-        break;
-    case( 0x21 ): /* H.264 */
-        p_track->fmt.i_codec = VLC_CODEC_H264;
-        break;
-    case( 0x40):
-    case( 0x41):
-        p_track->fmt.i_codec = VLC_CODEC_MP4A;
-        if( p_decconfig->i_decoder_specific_info_len >= 2 &&
-                p_decconfig->p_decoder_specific_info[0]       == 0xF8 &&
-                (p_decconfig->p_decoder_specific_info[1]&0xE0) == 0x80 )
-        {
-            p_track->fmt.i_codec = VLC_CODEC_ALS;
-        }
-        break;
-    case( 0x60):
-    case( 0x61):
-    case( 0x62):
-    case( 0x63):
-    case( 0x64):
-    case( 0x65): /* MPEG2 video */
-        p_track->fmt.i_codec = VLC_CODEC_MPGV;
-        break;
-        /* Theses are MPEG2-AAC */
-    case( 0x66): /* main profile */
-    case( 0x67): /* Low complexity profile */
-    case( 0x68): /* Scaleable Sampling rate profile */
-        p_track->fmt.i_codec = VLC_CODEC_MP4A;
-        break;
-        /* True MPEG 2 audio */
-    case( 0x69):
-        p_track->fmt.i_codec = VLC_CODEC_MPGA;
-        break;
-    case( 0x6a): /* MPEG1 video */
-        p_track->fmt.i_codec = VLC_CODEC_MPGV;
-        break;
-    case( 0x6b): /* MPEG1 audio */
-        p_track->fmt.i_codec = VLC_CODEC_MPGA;
-        break;
-    case( 0x6c ): /* jpeg */
-        p_track->fmt.i_codec = VLC_CODEC_JPEG;
-        break;
-    case( 0x6d ): /* png */
-        p_track->fmt.i_codec = VLC_CODEC_PNG;
-        break;
-    case( 0x6e ): /* jpeg2000 */
-        p_track->fmt.i_codec = VLC_FOURCC( 'M','J','2','C' );
-        break;
-    case( 0xa3 ): /* vc1 */
-        p_track->fmt.i_codec = VLC_CODEC_VC1;
-        break;
-    case( 0xa4 ):
-        p_track->fmt.i_codec = VLC_CODEC_DIRAC;
-        break;
-    case( 0xa5 ):
-        p_track->fmt.i_codec = VLC_CODEC_A52;
-        break;
-    case( 0xa6 ):
-        p_track->fmt.i_codec = VLC_CODEC_EAC3;
-        break;
-    case( 0xaa ): /* DTS-HD HRA */
-    case( 0xab ): /* DTS-HD Master Audio */
-        p_track->fmt.i_profile = PROFILE_DTS_HD;
-        /* fallthrough */
-    case( 0xa9 ): /* dts */
-        p_track->fmt.i_codec = VLC_CODEC_DTS;
-        break;
-    case( 0xDD ):
-        p_track->fmt.i_codec = VLC_CODEC_VORBIS;
-        break;
-
         /* Private ID */
     case( 0xe0 ): /* NeroDigital: dvd subs */
         if( p_track->fmt.i_cat == SPU_ES )
@@ -147,6 +74,12 @@ static void SetupESDS( demux_t *p_demux, mp4_track_t *p_track, const MP4_descrip
 
         /* Fallback */
     default:
+        if( MPEG4_Codec_By_ObjectType( p_decconfig->i_objectProfileIndication,
+                                       p_decconfig->p_decoder_specific_info,
+                                       p_decconfig->i_decoder_specific_info_len,
+                                       &p_track->fmt.i_codec,
+                                       &p_track->fmt.i_profile ) )
+            break;
         /* Unknown entry, but don't touch i_fourcc */
         msg_Warn( p_demux,
                   "unknown objectProfileIndication(0x%x) (Track[ID 0x%x])",
@@ -347,11 +280,23 @@ int SetupVideoES( demux_t *p_demux, mp4_track_t *p_track, MP4_Box_t *p_sample )
             p_track->fmt.video.orientation = ORIENT_ROTATED_90;
             break;
         case 180:
-            p_track->fmt.video.orientation = ORIENT_ROTATED_180;
+            if (p_track->i_flip == 1) {
+                p_track->fmt.video.orientation = ORIENT_VFLIPPED;
+            } else {
+                p_track->fmt.video.orientation = ORIENT_ROTATED_180;
+            }
             break;
         case 270:
             p_track->fmt.video.orientation = ORIENT_ROTATED_270;
             break;
+    }
+
+    /* Flip, unless already flipped */
+    if (p_track->i_flip == 1 && (int)p_track->f_rotation != 180) {
+        video_transform_t transform = (video_transform_t)p_track->fmt.video.orientation;
+        /* Flip first then rotate */
+        p_track->fmt.video.orientation = ORIENT_HFLIPPED;
+        video_format_TransformBy(&p_track->fmt.video, transform);
     }
 
     /* Set 360 video mode */
@@ -504,8 +449,11 @@ int SetupVideoES( demux_t *p_demux, mp4_track_t *p_track, MP4_Box_t *p_sample )
                     iso_23001_8_tc_to_vlc_xfer( BOXDATA( p_colr )->nclc.i_transfer_function_idx );
             p_track->fmt.video.space =
                     iso_23001_8_mc_to_vlc_coeffs( BOXDATA( p_colr )->nclc.i_matrix_idx );
-            p_track->fmt.video.b_color_range_full = BOXDATA(p_colr)->i_type == VLC_FOURCC( 'n', 'c', 'l', 'x' ) &&
-                    (BOXDATA(p_colr)->nclc.i_full_range >> 7) != 0;
+            if ( BOXDATA(p_colr)->i_type == VLC_FOURCC( 'n', 'c', 'l', 'x' ) &&
+                    (BOXDATA(p_colr)->nclc.i_full_range >> 7) != 0 )
+                p_track->fmt.video.color_range = COLOR_RANGE_FULL;
+            else
+                p_track->fmt.video.color_range = COLOR_RANGE_LIMITED;
         }
     }
 
@@ -605,14 +553,19 @@ int SetupVideoES( demux_t *p_demux, mp4_track_t *p_track, MP4_Box_t *p_sample )
         {
             static_assert(ATOM_av01 == VLC_CODEC_AV1, "VLC_CODEC_AV1 != ATOM_av01");
             MP4_Box_t *p_av1C = MP4_BoxGet( p_sample, "av1C" );
-            if( p_av1C && p_av1C->data.p_binary && p_av1C->data.p_binary->i_blob )
+            if( p_av1C && BOXDATA(p_av1C) )
             {
-                p_track->fmt.p_extra = malloc( p_av1C->data.p_binary->i_blob );
-                if( p_track->fmt.p_extra )
+                p_track->fmt.i_profile = BOXDATA(p_av1C)->i_profile;
+                p_track->fmt.i_level = BOXDATA(p_av1C)->i_level;
+                if( BOXDATA(p_av1C)->i_av1C )
                 {
-                    p_track->fmt.i_extra = p_av1C->data.p_binary->i_blob;
-                    memcpy( p_track->fmt.p_extra, p_av1C->data.p_binary->p_blob,
-                            p_av1C->data.p_binary->i_blob );
+                    p_track->fmt.p_extra = malloc( BOXDATA(p_av1C)->i_av1C );
+                    if( p_track->fmt.p_extra )
+                    {
+                        memcpy( p_track->fmt.p_extra, BOXDATA(p_av1C)->p_av1C,
+                                BOXDATA(p_av1C)->i_av1C );
+                        p_track->fmt.i_extra = BOXDATA(p_av1C)->i_av1C;
+                    }
                 }
             }
             break;
@@ -720,7 +673,7 @@ int SetupVideoES( demux_t *p_demux, mp4_track_t *p_track, MP4_Box_t *p_sample )
                             iso_23001_8_mc_to_vlc_coeffs( p_data->i_matrix_coeffs );
                 }
 
-                p_track->fmt.video.b_color_range_full = p_data->i_fullrange;
+                p_track->fmt.video.color_range = p_data->i_fullrange ? COLOR_RANGE_FULL : COLOR_RANGE_LIMITED;
                 p_track->fmt.video.i_bits_per_pixel = p_data->i_bit_depth;
 
                 if( p_data->i_codec_init_datasize )
@@ -735,6 +688,8 @@ int SetupVideoES( demux_t *p_demux, mp4_track_t *p_track, MP4_Box_t *p_sample )
                 }
 
                 const MP4_Box_t *p_SmDm = MP4_BoxGet( p_sample, "SmDm" );
+                if( !p_SmDm )
+                    p_SmDm = MP4_BoxGet( p_sample, "mdcv" );
                 if( p_SmDm && BOXDATA(p_SmDm) )
                 {
                     memcpy( p_track->fmt.video.mastering.primaries,
@@ -746,6 +701,8 @@ int SetupVideoES( demux_t *p_demux, mp4_track_t *p_track, MP4_Box_t *p_sample )
                 }
 
                 const MP4_Box_t *p_CoLL = MP4_BoxGet( p_sample, "CoLL" );
+                if( !p_CoLL )
+                    p_CoLL = MP4_BoxGet( p_sample, "clli" );
                 if( p_CoLL && BOXDATA(p_CoLL) )
                 {
                     p_track->fmt.video.lighting.MaxCLL = BOXDATA(p_CoLL)->i_maxCLL;
@@ -840,9 +797,12 @@ int SetupAudioES( demux_t *p_demux, mp4_track_t *p_track, MP4_Box_t *p_sample )
 
     p_track->fmt.audio.i_channels = p_soun->i_channelcount;
     p_track->fmt.audio.i_rate = p_soun->i_sampleratehi;
-    p_track->fmt.i_bitrate = p_soun->i_channelcount * p_soun->i_sampleratehi *
-                             p_soun->i_samplesize;
-    p_track->fmt.audio.i_bitspersample = p_soun->i_samplesize;
+    if( p_soun->i_qt_version == 0 ) /* otherwise defaults to meaningless 16 */
+    {
+        p_track->fmt.audio.i_bitspersample = p_soun->i_samplesize;
+        p_track->fmt.i_bitrate = p_soun->i_channelcount * p_soun->i_sampleratehi *
+                                 p_soun->i_samplesize;
+    }
 
     p_track->fmt.i_original_fourcc = p_sample->i_type;
 
@@ -936,7 +896,8 @@ int SetupAudioES( demux_t *p_demux, mp4_track_t *p_track, MP4_Box_t *p_sample )
         case( VLC_FOURCC( '.', 'm', 'p', '3' ) ):
         case( VLC_FOURCC( 'm', 's', 0x00, 0x55 ) ):
         {
-            p_track->fmt.i_codec = VLC_CODEC_MPGA;
+            p_track->fmt.i_codec = VLC_CODEC_MP3;
+            p_track->fmt.b_packetized = false;
             break;
         }
         case ATOM_XiVs:
@@ -1051,7 +1012,18 @@ int SetupAudioES( demux_t *p_demux, mp4_track_t *p_track, MP4_Box_t *p_sample )
             break;
         }
 
-        case ATOM_dtse: /* DTS‐HD Lossless formats */
+        case ATOM_dtsc: /* DTS */
+        {
+            p_track->fmt.i_codec = VLC_CODEC_DTS;
+            p_track->fmt.i_profile = PROFILE_DTS;
+            break;
+        }
+        case ATOM_dtse: /* DTS LBR */
+        {
+            p_track->fmt.i_codec = VLC_CODEC_DTS;
+            p_track->fmt.i_profile = PROFILE_DTS_EXPRESS;
+            break;
+        }
         case ATOM_dtsh: /* DTS‐HD audio formats */
         case ATOM_dtsl: /* DTS‐HD Lossless formats */
         {
@@ -1060,13 +1032,33 @@ int SetupAudioES( demux_t *p_demux, mp4_track_t *p_track, MP4_Box_t *p_sample )
             break;
         }
 
+        case VLC_FOURCC( 't', 'w', 'o', 's' ):
+            p_track->fmt.i_codec = VLC_CODEC_S16B;
+            p_track->fmt.i_original_fourcc = p_sample->i_type;
+            p_track->fmt.audio.i_bitspersample = 16;
+            break;
+
+        case VLC_FOURCC( 's', 'o', 'w', 't' ):
+            p_track->fmt.i_codec = VLC_CODEC_S16L;
+            p_track->fmt.i_original_fourcc = p_sample->i_type;
+            p_track->fmt.audio.i_bitspersample = 16;
+            break;
+
+        case 0x0000000:
         case( VLC_FOURCC( 'r', 'a', 'w', ' ' ) ):
         case( VLC_FOURCC( 'N', 'O', 'N', 'E' ) ):
         {
             if( (p_soun->i_samplesize+7)/8 == 1 )
+            {
                 p_track->fmt.i_codec = VLC_CODEC_U8;
+                p_track->fmt.audio.i_bitspersample = 8;
+            }
             else
-                p_track->fmt.i_codec = VLC_FOURCC( 't', 'w', 'o', 's' );
+            {
+                p_track->fmt.i_codec = VLC_CODEC_S16B;
+                p_track->fmt.audio.i_bitspersample = 16;
+            }
+            p_track->fmt.i_original_fourcc = p_track->fmt.i_codec;
 
             /* Buggy files workaround */
             if( (p_track->i_timescale != p_soun->i_sampleratehi) )
@@ -1084,18 +1076,22 @@ int SetupAudioES( demux_t *p_demux, mp4_track_t *p_track, MP4_Box_t *p_sample )
         }
 
         case ATOM_in24:
+            p_track->fmt.i_original_fourcc =
             p_track->fmt.i_codec = p_enda && BOXDATA(p_enda)->i_little_endian == 1 ?
                                     VLC_CODEC_S24L : VLC_CODEC_S24B;
             break;
         case ATOM_in32:
+            p_track->fmt.i_original_fourcc =
             p_track->fmt.i_codec = p_enda && BOXDATA(p_enda)->i_little_endian == 1 ?
                                     VLC_CODEC_S32L : VLC_CODEC_S32B;
             break;
         case ATOM_fl32:
+            p_track->fmt.i_original_fourcc =
             p_track->fmt.i_codec = p_enda && BOXDATA(p_enda)->i_little_endian == 1 ?
                                     VLC_CODEC_F32L : VLC_CODEC_F32B;
             break;
         case ATOM_fl64:
+            p_track->fmt.i_original_fourcc =
             p_track->fmt.i_codec = p_enda && BOXDATA(p_enda)->i_little_endian == 1 ?
                                     VLC_CODEC_F64L : VLC_CODEC_F64B;
             break;
@@ -1171,39 +1167,32 @@ int SetupAudioES( demux_t *p_demux, mp4_track_t *p_track, MP4_Box_t *p_sample )
     const MP4_Box_t *p_chan = MP4_BoxGet( p_sample, "chan" );
     if ( p_chan )
     {
-        if ( BOXDATA(p_chan)->layout.i_channels_layout_tag == MP4_CHAN_USE_CHANNELS_BITMAP )
+        uint16_t i_vlc_mapping = 0;
+        uint8_t i_channels = 0;
+        const uint32_t *p_rg_chans_order = NULL;
+
+        if ( CoreAudio_Layout_to_vlc( &BOXDATA(p_chan)->layout,
+                                      &i_vlc_mapping, &i_channels,
+                                      &p_rg_chans_order ) != VLC_SUCCESS )
         {
-            uint32_t rgi_chans_sequence[AOUT_CHAN_MAX + 1];
-            memset(rgi_chans_sequence, 0, sizeof(rgi_chans_sequence));
-            uint16_t i_vlc_mapping = 0;
-            uint8_t i_channels = 0;
-            const uint32_t i_bitmap = BOXDATA(p_chan)->layout.i_channels_bitmap;
-            for (uint8_t i=0;i<MP4_CHAN_BITMAP_MAPPING_COUNT;i++)
-            {
-                if ( chan_bitmap_mapping[i].i_bitmap & i_bitmap )
-                {
-                    if ( (chan_bitmap_mapping[i].i_vlc & i_vlc_mapping) ||
-                         i_channels >= AOUT_CHAN_MAX )
-                    {
-                        /* double mapping or unsupported number of channels */
-                        i_vlc_mapping = 0;
-                        msg_Warn( p_demux, "discarding chan mapping" );
-                        break;
-                    }
-                    i_vlc_mapping |= chan_bitmap_mapping[i].i_vlc;
-                    rgi_chans_sequence[i_channels++] = chan_bitmap_mapping[i].i_vlc;
-                }
-            }
-            rgi_chans_sequence[i_channels] = 0;
-            if( aout_CheckChannelReorder( rgi_chans_sequence, NULL, i_vlc_mapping,
-                                          p_track->rgi_chans_reordering ) &&
-                aout_BitsPerSample( p_track->fmt.i_codec ) )
-            {
+            msg_Warn( p_demux, "discarding chan mapping" );
+        }
+        else if( i_vlc_mapping )
+        {
+            const unsigned i_bps = aout_BitsPerSample( p_track->fmt.i_codec );
+            /* Uncompressed audio */
+            if( i_bps && aout_CheckChannelReorder( p_rg_chans_order, NULL,
+                                                   i_vlc_mapping,
+                                                   p_track->rgi_chans_reordering ) )
                 p_track->b_chans_reorder = true;
-                p_track->fmt.audio.i_channels = i_channels;
+
+            /* we can only set bitmap for VLC mapping or [re]mapped pcm audio
+             * as vlc can't enumerate channels for compressed content */
+            if( i_bps )
+            {
+                p_track->fmt.audio.i_channels = vlc_popcount(i_vlc_mapping);
                 p_track->fmt.audio.i_physical_channels = i_vlc_mapping;
             }
-
         }
     }
 
@@ -1327,7 +1316,7 @@ int SetupSpuES( demux_t *p_demux, mp4_track_t *p_track, MP4_Box_t *p_sample )
             else
                 p_track->fmt.i_codec = VLC_CODEC_TX3G;
 
-            if( GetDWBE(p_text->p_data) & 0xC0000000 )
+            if( p_text->i_data > 4 && GetDWBE(p_text->p_data) & 0xC0000000 )
             {
                 p_track->fmt.i_priority = ES_PRIORITY_SELECTABLE_MIN + 1;
                 p_track->b_forced_spu = true;

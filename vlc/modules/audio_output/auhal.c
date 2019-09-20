@@ -28,6 +28,7 @@
 
 #import <vlc_plugin.h>
 #import <vlc_dialog.h>                      // vlc_dialog_display_error
+#import <vlc_charset.h>                     // FromCFString
 
 #import <CoreAudio/CoreAudio.h>             // AudioDeviceID
 #import <CoreServices/CoreServices.h>
@@ -60,6 +61,7 @@ vlc_module_begin ()
     change_integer_range(0, AOUT_VOLUME_MAX)
     add_string("auhal-audio-device", "", DEVICE_TEXT, DEVICE_LONGTEXT, true)
     add_string("auhal-warned-devices", "", NULL, NULL, true)
+    change_private()
     add_obsolete_integer("macosx-audio-device") /* since 2.1.0 */
 vlc_module_end ()
 
@@ -393,7 +395,7 @@ AudioDeviceSupportsDigital(audio_output_t *p_aout, AudioDeviceID i_dev_id)
 }
 
 static void
-ReportDevice(audio_output_t *p_aout, UInt32 i_id, char *name)
+ReportDevice(audio_output_t *p_aout, UInt32 i_id, const char *name)
 {
     char deviceid[10];
     sprintf(deviceid, "%i", i_id);
@@ -408,6 +410,7 @@ ReportDevice(audio_output_t *p_aout, UInt32 i_id, char *name)
 static bool
 AudioDeviceIsAHeadphone(audio_output_t *p_aout, AudioDeviceID i_dev_id)
 {
+    VLC_UNUSED(p_aout);
     UInt32 defaultSize = sizeof(AudioDeviceID);
 
     const AudioObjectPropertyAddress defaultAddr = {
@@ -493,7 +496,6 @@ RebuildDeviceList(audio_output_t * p_aout, UInt32 *p_id_exists)
     {
         CFStringRef device_name_ref;
         char *psz_name;
-        CFIndex length;
         UInt32 i_id = p_devices[i];
 
         int ret = AO_GET1PROP(i_id, CFStringRef, &device_name_ref,
@@ -505,16 +507,7 @@ RebuildDeviceList(audio_output_t * p_aout, UInt32 *p_id_exists)
             continue;
         }
 
-        length = CFStringGetLength(device_name_ref);
-        length++;
-        psz_name = malloc(length);
-        if (!psz_name)
-        {
-            CFRelease(device_name_ref);
-            return;
-        }
-        CFStringGetCString(device_name_ref, psz_name, length,
-                           kCFStringEncodingUTF8);
+        psz_name = FromCFString(device_name_ref, kCFStringEncodingUTF8);
         CFRelease(device_name_ref);
 
         msg_Dbg(p_aout, "DevID: %i DevName: %s", i_id, psz_name);
@@ -1063,8 +1056,7 @@ WarnConfiguration(audio_output_t *p_aout)
  * StartAnalog: open and setup a HAL AudioUnit to do PCM audio output
  */
 static int
-StartAnalog(audio_output_t *p_aout, audio_sample_format_t *fmt,
-            vlc_tick_t i_latency_us)
+StartAnalog(audio_output_t *p_aout, audio_sample_format_t *fmt)
 {
     aout_sys_t                  *p_sys = p_aout->sys;
     OSStatus                    err = noErr;
@@ -1118,7 +1110,7 @@ StartAnalog(audio_output_t *p_aout, audio_sample_format_t *fmt,
 
     /* Do the last VLC aout setups */
     bool warn_configuration;
-    int ret = au_Initialize(p_aout, p_sys->au_unit, fmt, layout, i_latency_us,
+    int ret = au_Initialize(p_aout, p_sys->au_unit, fmt, layout, 0,
                             &warn_configuration);
     if (ret != VLC_SUCCESS)
         goto error;
@@ -1151,8 +1143,7 @@ error:
  * StartSPDIF: Setup an encoded digital stream (SPDIF) output
  */
 static int
-StartSPDIF(audio_output_t * p_aout, audio_sample_format_t *fmt,
-           vlc_tick_t i_latency_us)
+StartSPDIF(audio_output_t * p_aout, audio_sample_format_t *fmt)
 {
     aout_sys_t *p_sys = p_aout->sys;
     int ret;
@@ -1393,7 +1384,7 @@ StartSPDIF(audio_output_t * p_aout, audio_sample_format_t *fmt,
         return VLC_EGENERIC;
     }
 
-    ret = ca_Initialize(p_aout, fmt, i_latency_us);
+    ret = ca_Initialize(p_aout, fmt, 0);
     if (ret != VLC_SUCCESS)
     {
         AudioDeviceDestroyIOProcID(p_sys->i_selected_dev, p_sys->i_procID);
@@ -1607,14 +1598,19 @@ Start(audio_output_t *p_aout, audio_sample_format_t *restrict fmt)
 
     /* get device latency */
     UInt32 i_latency_samples;
-    AO_GET1PROP(p_sys->i_selected_dev, UInt32, &i_latency_samples,
-                kAudioDevicePropertyLatency, kAudioObjectPropertyScopeOutput);
-    vlc_tick_t i_latency_us = i_latency_samples * CLOCK_FREQ / fmt->i_rate;
+    vlc_tick_t i_latency_us = 0;
+    int ret = AO_GET1PROP(p_sys->i_selected_dev, UInt32, &i_latency_samples,
+                          kAudioDevicePropertyLatency,
+                          kAudioObjectPropertyScopeOutput);
+    if (ret == VLC_SUCCESS)
+        i_latency_us += vlc_tick_from_samples(i_latency_samples, fmt->i_rate);
+
+    msg_Dbg(p_aout, "Current device has a latency of %lld us", i_latency_us);
 
     /* Check for Digital mode or Analog output mode */
     if (do_spdif)
     {
-        if (StartSPDIF (p_aout, fmt, i_latency_us) == VLC_SUCCESS)
+        if (StartSPDIF(p_aout, fmt) == VLC_SUCCESS)
         {
             msg_Dbg(p_aout, "digital output successfully opened");
             return VLC_SUCCESS;
@@ -1622,7 +1618,7 @@ Start(audio_output_t *p_aout, audio_sample_format_t *restrict fmt)
     }
     else
     {
-        if (StartAnalog(p_aout, fmt, i_latency_us) == VLC_SUCCESS)
+        if (StartAnalog(p_aout, fmt) == VLC_SUCCESS)
         {
             msg_Dbg(p_aout, "analog output successfully opened");
             fmt->channel_type = AUDIO_CHANNEL_TYPE_BITMAP;
@@ -1698,9 +1694,16 @@ static void Close(vlc_object_t *obj)
 static int Open(vlc_object_t *obj)
 {
     audio_output_t *p_aout = (audio_output_t *)obj;
-    aout_sys_t *p_sys = calloc(1, sizeof (*p_sys));
+
+    aout_sys_t *p_sys = p_aout->sys = calloc(1, sizeof (*p_sys));
     if (unlikely(p_sys == NULL))
         return VLC_ENOMEM;
+
+    if (ca_Open(p_aout) != VLC_SUCCESS)
+    {
+        free(p_sys);
+        return VLC_EGENERIC;
+    }
 
     vlc_mutex_init(&p_sys->device_list_lock);
     vlc_mutex_init(&p_sys->selected_device_lock);
@@ -1710,7 +1713,6 @@ static int Open(vlc_object_t *obj)
     memset(&p_sys->sfmt_revert, 0, sizeof(p_sys->sfmt_revert));
     p_sys->i_stream_id = 0;
 
-    p_aout->sys = p_sys;
     p_aout->start = Start;
     p_aout->stop = Stop;
     p_aout->volume_set = VolumeSet;
@@ -1768,6 +1770,5 @@ static int Open(vlc_object_t *obj)
     p_sys->b_mute = var_InheritBool(p_aout, "mute");
     aout_MuteReport(p_aout, p_sys->b_mute);
 
-    ca_Open(p_aout);
     return VLC_SUCCESS;
 }

@@ -2,7 +2,6 @@
  * dispatcher.hpp : matroska demuxer
  *****************************************************************************
  * Copyright (C) 2016 VLC authors, VideoLAN, Videolabs SAS
- * $Id: 561c62160f4291d8424b58ce2d311cf303759e3d $
  *
  * Authors: Filip Roseen <filip@videolabs.io>
  *

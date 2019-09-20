@@ -112,7 +112,7 @@ extern int yydebug;
 
 union YYSTYPE
 {
-#line 49 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1915  */
+#line 49 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1915  */
 
     bool boolean;
     char character;

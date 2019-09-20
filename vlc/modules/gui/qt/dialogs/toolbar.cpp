@@ -2,7 +2,6 @@
  * toolbar.cpp : ToolbarEdit dialog
  ****************************************************************************
  * Copyright (C) 2008-2009 the VideoLAN team
- * $Id: 58a90f7c5b413718dd8b500d45afca08fa23ad88 $
  *
  * Authors: Jean-Baptiste Kempf <jb (at) videolan.org>
  *
@@ -37,8 +36,7 @@
 #include "util/imagehelper.hpp"
 
 #include "qt.hpp"
-#include "input_manager.hpp"
-#include <vlc_vout.h>                       /* vout_thread_t for aspect ratio combobox */
+#include "components/player_controller.hpp"
 
 #include <QGroupBox>
 #include <QLabel>
@@ -333,7 +331,7 @@ void PreviewWidget::paintEvent( QPaintEvent * )
             if ( !strcmp( item->widget()->metaObject()->className(), "QLabel" ) )
             {
                 QPainter eraser( &pixmaps[i] );
-                eraser.fillRect( item->geometry(), palette().background() );
+                eraser.fillRect( item->geometry(), palette().window() );
                 eraser.end();
             }
         }
@@ -501,18 +499,18 @@ WidgetListing::WidgetListing( intf_thread_t *p_intf, QWidget *_parent )
 
                 QToolButton *prevSectionButton = new QToolButton( discFrame );
                 prevSectionButton->setIcon( QIcon( ":/toolbar/dvd_prev.svg" ) );
-                prevSectionButton->setToolTip( qtr("Previous chapter") );
+                prevSectionButton->setToolTip( qtr("Previous Chapter/Title" ) );
                 discLayout->addWidget( prevSectionButton );
-
-                QToolButton *menuButton = new QToolButton( discFrame );
-                menuButton->setIcon( QIcon( ":/toolbar/dvd_menu.svg" ) );
-                menuButton->setToolTip( qtr("Go to the DVD menu") );
-                discLayout->addWidget( menuButton );
 
                 QToolButton *nextButton = new QToolButton( discFrame );
                 nextButton->setIcon( QIcon( ":/toolbar/dvd_next.svg" ) );
-                nextButton->setToolTip( qtr("Next chapter") );
+                nextButton->setToolTip( qtr("Next Chapter/Title" ) );
                 discLayout->addWidget( nextButton );
+
+                QToolButton *menuButton = new QToolButton( discFrame );
+                menuButton->setIcon( QIcon( ":/toolbar/dvd_menu.svg" ) );
+                menuButton->setToolTip( qtr( "Menu" ) );
+                discLayout->addWidget( menuButton );
 
                 widget = discFrame;
             }
@@ -561,7 +559,7 @@ WidgetListing::WidgetListing( intf_thread_t *p_intf, QWidget *_parent )
             widgetItem->setText( qtr("Playback Buttons") );
             break;
         case ASPECT_RATIO_COMBOBOX:
-            widget = new AspectRatioComboBox( p_intf );
+            widget = new AspectRatioComboBox( p_intf, THEMIM->getAspectRatio() );
             widgetItem->setText( qtr("Aspect ratio selector") );
             break;
         case SPEED_LABEL:

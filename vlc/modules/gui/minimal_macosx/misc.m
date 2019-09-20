@@ -2,7 +2,6 @@
  * misc.m: custom code
  *****************************************************************************
  * Copyright (C) 2012 VLC authors and VideoLAN
- * $Id: e57e9fe26165ed0b8355a016bb3482bae5302362 $
  *
  * Authors: Felix Paul Kühne <fkuehne at videolan dot org>
  *          David Fuhrmann <david dot fuhrmann at googlemail dot com>

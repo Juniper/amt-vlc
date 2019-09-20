@@ -33,8 +33,8 @@
 #include <vlc_plugin.h>
 #include <vlc_demux.h>
 #include <vlc_codec.h>
-#include "../packetizer/hevc_nal.h" /* definitions, inline helpers */
-#include "../packetizer/h264_nal.h" /* definitions, inline helpers */
+#include "../../packetizer/hevc_nal.h" /* definitions, inline helpers */
+#include "../../packetizer/h264_nal.h" /* definitions, inline helpers */
 
 /*****************************************************************************
  * Module descriptor
@@ -354,8 +354,11 @@ static int GenericOpen( demux_t *p_demux, const char *psz_module,
 
     /* Load the mpegvideo packetizer */
     es_format_Init( &fmt, VIDEO_ES, i_codec );
-    fmt.video.i_frame_rate = p_sys->dts.i_divider_num;
-    fmt.video.i_frame_rate_base = p_sys->dts.i_divider_den;
+    if( f_fps )
+    {
+        fmt.video.i_frame_rate = p_sys->dts.i_divider_num;
+        fmt.video.i_frame_rate_base = p_sys->dts.i_divider_den;
+    }
     p_sys->p_packetizer = demux_PacketizerNew( p_demux, &fmt, psz_module );
     if( !p_sys->p_packetizer )
     {
@@ -478,8 +481,8 @@ static int Demux( demux_t *p_demux)
                 unsigned i_nb_fields;
                 if( i_frame_length > 0 )
                 {
-                    i_nb_fields = i_frame_length * 2 * p_sys->frame_rate_num /
-                                  ( p_sys->frame_rate_den * CLOCK_FREQ );
+                    i_nb_fields = round( (double)i_frame_length * 2 * p_sys->frame_rate_num /
+                                  ( p_sys->frame_rate_den * CLOCK_FREQ ) );
                 }
                 else i_nb_fields = 2;
                 if( i_nb_fields <= 6 ) /* in the legit range */

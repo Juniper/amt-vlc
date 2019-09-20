@@ -2,7 +2,6 @@
  * directsound.c: DirectSound audio output plugin for VLC
  *****************************************************************************
  * Copyright (C) 2001-2009 VLC authors and VideoLAN
- * $Id: c687dc7b17fa5b7c6f9803a1ee9ece233311b3fb $
  *
  * Authors: Gildas Bazin <gbazin@videolan.org>
  *
@@ -47,8 +46,6 @@ static int  Open( vlc_object_t * );
 static void Close( vlc_object_t * );
 static HRESULT StreamStart( aout_stream_t *, audio_sample_format_t *,
                             const GUID * );
-static HRESULT StreamStop( aout_stream_t * );
-static int ReloadDirectXDevices( const char *, char ***, char *** );
 static void * PlayedDataEraser( void * );
 /* Speaker setup override options list */
 static const char *const speaker_list[] = { "Windows default", "Mono", "Stereo",
@@ -77,7 +74,6 @@ vlc_module_begin ()
 
     add_string( "directx-audio-device", NULL,
              DEVICE_TEXT, DEVICE_LONGTEXT, false )
-        change_string_cb( ReloadDirectXDevices )
     add_obsolete_string( "directx-audio-device-name")
     add_bool( "directx-audio-float32", true, FLOAT_TEXT,
               FLOAT_LONGTEXT, true )
@@ -92,7 +88,7 @@ vlc_module_begin ()
 
     add_submodule()
         set_capability( "aout stream", 30 )
-        set_callbacks( StreamStart, StreamStop )
+        set_callback( StreamStart )
 vlc_module_end ()
 
 typedef struct aout_stream_sys
@@ -138,7 +134,7 @@ typedef struct
     } volume;
 } aout_sys_t;
 
-static HRESULT Flush( aout_stream_sys_t *sys, bool drain);
+static HRESULT Flush( aout_stream_sys_t *sys );
 static HRESULT TimeGet( aout_stream_sys_t *sys, vlc_tick_t *delay )
 {
     DWORD read, status;
@@ -169,9 +165,9 @@ static HRESULT TimeGet( aout_stream_sys_t *sys, vlc_tick_t *delay )
 
     if( sys->i_data < 0 )
         /* underrun */
-        Flush(sys, false);
+        Flush(sys);
 
-    *delay = ( sys->i_data / sys->i_bytes_per_sample ) * CLOCK_FREQ / sys->i_rate;
+    *delay = vlc_tick_from_samples( sys->i_data / sys->i_bytes_per_sample, sys->i_rate );
 
     return DS_OK;
 }
@@ -286,7 +282,7 @@ static HRESULT Play( vlc_object_t *obj, aout_stream_sys_t *sys,
                                             0, 0, DSBPLAY_LOOPING );
     }
     if( dsresult != DS_OK )
-        msg_Err( obj, "cannot start playing buffer: (hr=0x%0lx)", dsresult );
+        msg_Err( obj, "cannot start playing buffer: (hr=0x%lX)", dsresult );
     else
     {
         vlc_mutex_lock( &sys->lock );
@@ -341,10 +337,10 @@ static void OutputPause( audio_output_t *aout, bool pause, vlc_tick_t date )
     (void) date;
 }
 
-static HRESULT Flush( aout_stream_sys_t *sys, bool drain)
+static HRESULT Flush( aout_stream_sys_t *sys )
 {
     HRESULT ret = IDirectSoundBuffer_Stop( sys->p_dsbuffer );
-    if( ret == DS_OK && !drain )
+    if( ret == DS_OK )
     {
         vlc_mutex_lock(&sys->lock);
         sys->i_data = 0;
@@ -358,13 +354,13 @@ static HRESULT Flush( aout_stream_sys_t *sys, bool drain)
 
 static HRESULT StreamFlush( aout_stream_t *s )
 {
-    return Flush( s->sys, false );
+    return Flush( s->sys );
 }
 
-static void OutputFlush( audio_output_t *aout, bool drain )
+static void OutputFlush( audio_output_t *aout )
 {
     aout_sys_t *sys = aout->sys;
-    Flush( &sys->s, drain );
+    Flush( &sys->s );
 }
 
 /**
@@ -577,13 +573,10 @@ static HRESULT Stop( aout_stream_sys_t *p_sys )
     return DS_OK;
 }
 
-static HRESULT StreamStop( aout_stream_t *s )
+static void StreamStop( aout_stream_t *s )
 {
-    HRESULT hr;
-
-    hr = Stop( s->sys );
+    Stop( s->sys );
     free( s->sys );
-    return hr;
 }
 
 static void OutputStop( audio_output_t *aout )
@@ -798,19 +791,8 @@ static HRESULT Start( vlc_object_t *obj, aout_stream_sys_t *sys,
         if( ret != ENOMEM )
             msg_Err( obj, "Couldn't start eraser thread" );
 
-        vlc_cond_destroy(&sys->cond);
-        vlc_mutex_destroy(&sys->lock);
-
-        if( sys->p_notify != NULL )
-        {
-            IDirectSoundNotify_Release( sys->p_notify );
-            sys->p_notify = NULL;
-        }
-        IDirectSoundBuffer_Release( sys->p_dsbuffer );
-        sys->p_dsbuffer = NULL;
-        IDirectSound_Release( sys->p_dsobject );
-        sys->p_dsobject = NULL;
-        return ret;
+        hr = E_FAIL;
+        goto error;
     }
 
     fmt.channel_type = AUDIO_CHANNEL_TYPE_BITMAP;
@@ -824,7 +806,21 @@ static HRESULT Start( vlc_object_t *obj, aout_stream_sys_t *sys,
     return DS_OK;
 
 error:
-    Stop( sys );
+    vlc_cond_destroy(&sys->cond);
+    vlc_mutex_destroy(&sys->lock);
+
+    if( sys->p_notify != NULL )
+    {
+        IDirectSoundNotify_Release( sys->p_notify );
+        sys->p_notify = NULL;
+    }
+    if( sys->p_dsbuffer != NULL )
+    {
+        IDirectSoundBuffer_Release( sys->p_dsbuffer );
+        sys->p_dsbuffer = NULL;
+    }
+    IDirectSound_Release( sys->p_dsobject );
+    sys->p_dsobject = NULL;
     return hr;
 }
 
@@ -870,6 +866,7 @@ static HRESULT StreamStart( aout_stream_t *s,
     s->play = StreamPlay;
     s->pause = StreamPause;
     s->flush = StreamFlush;
+    s->stop = StreamStop;
     return S_OK;
 error:
     free( sys );
@@ -1049,6 +1046,8 @@ static int ReloadDirectXDevices( char const *psz_name,
     return list.count;
 }
 
+VLC_CONFIG_STRING_ENUM(ReloadDirectXDevices)
+
 static int DeviceSelect (audio_output_t *aout, const char *id)
 {
     var_SetString(aout, "directx-audio-device", (id != NULL) ? id : "");
@@ -1117,6 +1116,7 @@ static void * PlayedDataEraser( void * data )
     unsigned long l_bytes1, l_bytes2;
     DWORD i_read;
     int64_t toerase, tosleep;
+    vlc_tick_t ticksleep;
     HRESULT dsresult;
 
     for(;;)
@@ -1129,6 +1129,7 @@ static void * PlayedDataEraser( void * data )
 
         toerase = 0;
         tosleep = 0;
+        ticksleep = VLC_TICK_FROM_MS(20);
 
         dsresult = IDirectSoundBuffer_GetCurrentPosition( p_sys->p_dsbuffer,
                                                           &i_read, NULL );
@@ -1141,10 +1142,10 @@ static void * PlayedDataEraser( void * data )
             else
                 tosleep += DS_BUF_SIZE;
             toerase = max;
-            tosleep = ( tosleep / p_sys->i_bytes_per_sample ) * CLOCK_FREQ / p_sys->i_rate;
+            ticksleep = vlc_tick_from_sec( tosleep / p_sys->i_bytes_per_sample ) / p_sys->i_rate;
         }
 
-        tosleep = __MAX( tosleep, VLC_TICK_FROM_MS(20) );
+        ticksleep = __MAX( ticksleep, VLC_TICK_FROM_MS(20) );
         dsresult = IDirectSoundBuffer_Lock( p_sys->p_dsbuffer,
                                             p_sys->i_write,
                                             toerase,
@@ -1176,7 +1177,7 @@ static void * PlayedDataEraser( void * data )
 wait:
         vlc_mutex_unlock(&p_sys->lock);
         vlc_restorecancel(canc);
-        vlc_tick_sleep(tosleep);
+        vlc_tick_sleep(ticksleep);
     }
     return NULL;
 }

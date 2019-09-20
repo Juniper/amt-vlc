@@ -54,7 +54,7 @@ vlc_module_begin ()
         set_description( N_("tx3g subtitles encoder") )
         set_shortname( N_("tx3g subtitles encoder") )
         set_capability( "encoder", 101 )
-        set_callbacks( OpenEncoder, NULL )
+        set_callback( OpenEncoder )
 #endif
 vlc_module_end ()
 
@@ -414,7 +414,7 @@ static int Decode( decoder_t *p_dec, block_t *p_block )
 
     p_spu->i_start    = p_block->i_pts;
     p_spu->i_stop     = p_block->i_pts + p_block->i_length;
-    p_spu->b_ephemer  = (p_block->i_length == 0);
+    p_spu->b_ephemer  = (p_block->i_length == VLC_TICK_INVALID);
     p_spu->b_absolute = false;
 
     p_spu_sys->region.align = SUBPICTURE_ALIGN_BOTTOM;
@@ -487,20 +487,36 @@ static void ParseExtradataTextMedia( decoder_t *p_dec )
         return;
 
     /* DF @0 */
+    uint32_t i_flags = GetDWBE(p_extra);
+    if(i_flags & 0x1000) /* drop shadow */
+    {
+        p_style->i_style_flags |= STYLE_SHADOW;
+        p_style->i_features    |= STYLE_HAS_SHADOW_COLOR|STYLE_HAS_FLAGS|STYLE_HAS_SHADOW_ALPHA;
+        p_style->i_shadow_color = 0xC0C0C0;
+        p_style->i_shadow_alpha = STYLE_ALPHA_OPAQUE;
+    }
+    if(i_flags & 0x4000) /* key text*/
+    {
+        /*Controls background color. If this flag is set to 1, the text media handler does not display the
+          background color, so that the text overlay background tracks.*/
+        p_style->i_style_flags &= ~STYLE_BACKGROUND;
+    }
+
     /* Just @4 */
 
     /* BGColor @8, read top of 16 bits */
     p_style->i_background_color = (p_extra[8]  << 16) |
                                   (p_extra[10] <<  8) |
                                    p_extra[12];
-    p_style->i_features |= STYLE_HAS_BACKGROUND_COLOR;
+    p_style->i_features |= STYLE_HAS_BACKGROUND_COLOR | STYLE_HAS_BACKGROUND_ALPHA;
+    p_style->i_background_alpha = STYLE_ALPHA_OPAQUE;
 
     /* BoxRecord @14 */
     /* Reserved 64 @22 */
     /* Font # @30 */
 
     /* Font Face @32 */
-    p_style->i_style_flags = ConvertToVLCFlags( GetWBE(&p_extra[32]) );
+    p_style->i_style_flags |= ConvertToVLCFlags( GetWBE(&p_extra[32]) );
     if( p_style->i_style_flags )
         p_style->i_features |= STYLE_HAS_FLAGS;
     /* Reserved 8 @34 */
@@ -535,6 +551,10 @@ static int OpenDecoder( vlc_object_t *p_this )
     p_dec->p_sys = text_style_Create( STYLE_NO_DEFAULTS );
     if( !p_dec->p_sys )
         return VLC_ENOMEM;
+
+    text_style_t *p_default_style = p_dec->p_sys;
+    p_default_style->i_style_flags |= STYLE_BACKGROUND;
+    p_default_style->i_features |= STYLE_HAS_FLAGS;
 
     if( p_dec->fmt_in.i_codec == VLC_CODEC_TX3G )
         ParseExtradataTx3g( p_dec );

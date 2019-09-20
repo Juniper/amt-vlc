@@ -2,7 +2,6 @@
  * omxil.h: helper functions
  *****************************************************************************
  * Copyright (C) 2010 VLC authors and VideoLAN
- * $Id: 616299db6f341a6f7a1fdf02d21045b7047576b7 $
  *
  * Authors: Gildas Bazin <gbazin@videolan.org>
  *

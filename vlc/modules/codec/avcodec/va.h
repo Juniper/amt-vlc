@@ -2,7 +2,6 @@
  * va.h: Video Acceleration API for avcodec
  *****************************************************************************
  * Copyright (C) 2009 Laurent Aimar
- * $Id: 178047ad16dc85cb143e11f05b462a99dae5f6b5 $
  *
  * Authors: Laurent Aimar <fenrir_AT_ videolan _DOT_ org>
  *
@@ -21,23 +20,36 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston MA 02110-1301, USA.
  *****************************************************************************/
 
-#include "avcommon_compat.h"
-
 #ifndef VLC_AVCODEC_VA_H
 #define VLC_AVCODEC_VA_H 1
+
+#include "avcommon_compat.h"
 
 typedef struct vlc_va_t vlc_va_t;
 typedef struct vlc_va_sys_t vlc_va_sys_t;
 
+struct vlc_va_operations {
+    int (*get)(vlc_va_t *, picture_t *pic, uint8_t **surface);
+    void (*close)(vlc_va_t *);
+};
+
 struct vlc_va_t {
-    struct vlc_common_members obj;
+    struct vlc_object_t obj;
 
     vlc_va_sys_t *sys;
-    module_t *module;
-    const char *description;
-
-    int  (*get)(vlc_va_t *, picture_t *pic, uint8_t **data);
+    const struct vlc_va_operations *ops;
 };
+
+typedef int (*vlc_va_open)(vlc_va_t *, AVCodecContext *, enum PixelFormat,
+                           const es_format_t *, void *);
+
+#define set_va_callback(activate, priority) \
+    { \
+        vlc_va_open open__ = activate; \
+        (void) open__; \
+        set_callback(activate) \
+    } \
+    set_capability( "hw decoder", priority )
 
 /**
  * Determines the VLC video chroma value for a pair of hardware acceleration
@@ -59,26 +71,32 @@ vlc_va_t *vlc_va_New(vlc_object_t *obj, AVCodecContext *,
                      void *p_sys);
 
 /**
- * Allocates a hardware video surface for a libavcodec frame.
+ * Get a hardware video surface for a libavcodec frame.
  * The surface will be used as output for the hardware decoder, and possibly
  * also as a reference frame to decode other surfaces.
  *
- * @param pic pointer to VLC picture being allocated [IN/OUT]
- * @param data pointer to the AVFrame data[0] and data[3] pointers [OUT]
+ * The type of the surface depends on the hardware pixel format:
+ * AV_PIX_FMT_D3D11VA_VLD - ID3D11VideoDecoderOutputView*
+ * AV_PIX_FMT_DXVA2_VLD   - IDirect3DSurface9*
+ * AV_PIX_FMT_VDPAU       - VdpVideoSurface
+ * AV_PIX_FMT_VAAPI_VLD   - VASurfaceID
+ *
+ * @param pic pointer to VLC picture containing the surface [IN/OUT]
+ * @param surface pointer to the AVFrame data[0] and data[3] pointers [OUT]
  *
  * @note This function needs not be reentrant.
  *
  * @return VLC_SUCCESS on success, otherwise an error code.
  */
-static inline int vlc_va_Get(vlc_va_t *va, picture_t *pic, uint8_t **data)
+static inline int vlc_va_Get(vlc_va_t *va, picture_t *pic, uint8_t **surface)
 {
-    return va->get(va, pic, data);
+    return va->ops->get(va, pic, surface);
 }
 
 /**
  * Destroys a libavcodec hardware acceleration back-end.
  * All allocated surfaces shall have been released beforehand.
  */
-void vlc_va_Delete(vlc_va_t *, void **);
+void vlc_va_Delete(vlc_va_t *);
 
 #endif

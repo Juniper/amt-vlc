@@ -1,7 +1,6 @@
 /*
  * media_list.c - libvlc smoke test
  *
- * $Id: 743390a2c8dbf73831ceca0bd6f274a6fc47ec9c $
  */
 
 /**********************************************************************
@@ -30,7 +29,7 @@ static void test_media_list (const char ** argv, int argc)
     libvlc_media_list_t *ml;
     int ret;
 
-    log ("Testing media_list\n");
+    test_log ("Testing media_list\n");
 
     vlc = libvlc_new (argc, argv);
     assert (vlc != NULL);

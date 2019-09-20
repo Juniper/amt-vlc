@@ -33,6 +33,8 @@
 #include <d3d11.h>
 
 #include "d3d11_filters.h"
+typedef picture_sys_d3d11_t VA_PICSYS;
+#include "../../codec/avcodec/va_surface.h"
 
 static vlc_mutex_t inst_lock = VLC_STATIC_MUTEX;
 static d3d11_device_t device = { .context_mutex = INVALID_HANDLE_VALUE };
@@ -45,7 +47,7 @@ void D3D11_FilterHoldInstance(filter_t *filter, d3d11_device_t *out, D3D11_TEXTU
     if (!pic)
         return;
 
-    picture_sys_t *p_sys = ActivePictureSys(pic);
+    picture_sys_d3d11_t *p_sys = ActivePictureSys(pic);
 
     vlc_mutex_lock(&inst_lock);
     if (p_sys)
@@ -54,8 +56,8 @@ void D3D11_FilterHoldInstance(filter_t *filter, d3d11_device_t *out, D3D11_TEXTU
         ID3D11DeviceContext_GetDevice(out->d3dcontext, &out->d3ddevice);
 
         UINT dataSize = sizeof(out->context_mutex);
-        HRESULT hr = ID3D11Device_GetPrivateData(out->d3ddevice, &GUID_CONTEXT_MUTEX,
-                                                 &dataSize, &out->context_mutex);
+        HRESULT hr = ID3D11DeviceContext_GetPrivateData(out->d3dcontext, &GUID_CONTEXT_MUTEX,
+                                                        &dataSize, &out->context_mutex);
         if (FAILED(hr) || dataSize != sizeof(out->context_mutex))
         {
             msg_Warn(filter, "No mutex found to lock the decoder");

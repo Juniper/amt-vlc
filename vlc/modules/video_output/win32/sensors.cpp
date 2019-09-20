@@ -25,8 +25,8 @@
 # include "config.h"
 #endif
 
-#include <vlc_vout_wrapper.h>
 #include "events.h"
+#include "common.h"
 
 #include <initguid.h>
 #include <propsys.h> /* stupid mingw headers don't include this */

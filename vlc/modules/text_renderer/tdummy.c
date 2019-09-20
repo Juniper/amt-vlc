@@ -2,7 +2,6 @@
  * tdummy.c : dummy text rendering functions
  *****************************************************************************
  * Copyright (C) 2000, 2001 VLC authors and VideoLAN
- * $Id: 38c1b807580da9e0da70aa55e8778fc6c522433a $
  *
  * Authors: Sigmund Augdal Helberg <dnumgis@videolan.org>
  *
@@ -35,7 +34,7 @@ vlc_module_begin ()
     set_shortname( N_("Dummy") )
     set_description( N_("Dummy font renderer") )
     set_capability( "text renderer", 1 )
-    set_callbacks( OpenRenderer, NULL )
+    set_callback( OpenRenderer )
 vlc_module_end ()
 
 

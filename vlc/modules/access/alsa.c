@@ -222,12 +222,12 @@ static void *Thread (void *data)
         if (snd_pcm_delay (pcm, &delay))
             delay = 0;
         delay += frames;
-        pts -= (CLOCK_FREQ * delay) / sys->rate;
+        pts -= vlc_tick_from_samples(delay,  sys->rate);
 
         block->i_buffer = snd_pcm_frames_to_bytes (pcm, frames);
         block->i_nb_samples = frames;
         block->i_pts = pts;
-        block->i_length = (CLOCK_FREQ * frames) / sys->rate;
+        block->i_length = vlc_tick_from_samples(frames, sys->rate);
 
         es_out_SetPCR(demux->out, block->i_pts);
         es_out_Send (demux->out, sys->es, block);
@@ -242,7 +242,7 @@ static int Control (demux_t *demux, int query, va_list ap)
     switch (query)
     {
         case DEMUX_GET_TIME:
-            *va_arg (ap, int64_t *) = vlc_tick_now () - sys->start;
+            *va_arg (ap, vlc_tick_t *) = vlc_tick_now () - sys->start;
             break;
 
         case DEMUX_GET_PTS_DELAY:
@@ -284,8 +284,8 @@ static const vlc_fourcc_t formats[] = {
     [SND_PCM_FORMAT_U32_BE]             = VLC_CODEC_U32B,
     [SND_PCM_FORMAT_FLOAT_LE]           = VLC_CODEC_F32L,
     [SND_PCM_FORMAT_FLOAT_BE]           = VLC_CODEC_F32B,
-    [SND_PCM_FORMAT_FLOAT64_LE]         = VLC_CODEC_F32L,
-    [SND_PCM_FORMAT_FLOAT64_BE]         = VLC_CODEC_F32B,
+    [SND_PCM_FORMAT_FLOAT64_LE]         = VLC_CODEC_F64L,
+    [SND_PCM_FORMAT_FLOAT64_BE]         = VLC_CODEC_F64B,
   //[SND_PCM_FORMAT_IEC958_SUBFRAME_LE] = VLC_CODEC_SPDIFL,
   //[SND_PCM_FORMAT_IEC958_SUBFRAME_BE] = VLC_CODEC_SPDIFB,
     [SND_PCM_FORMAT_MU_LAW]             = VLC_CODEC_MULAW,

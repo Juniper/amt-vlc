@@ -218,7 +218,6 @@ static inline int vlc_poll (struct pollfd *fds, unsigned nfds, int timeout)
 /* Unnamed POSIX semaphores not supported on Mac OS X */
 # include <mach/semaphore.h>
 # include <mach/task.h>
-# define LIBVLC_USE_PTHREAD           1
 # define LIBVLC_USE_PTHREAD_CLEANUP   1
 
 typedef pthread_t       vlc_thread_t;
@@ -438,6 +437,28 @@ VLC_API int vlc_mutex_trylock( vlc_mutex_t * ) VLC_USED;
  * \note This function is not a cancellation point.
  */
 VLC_API void vlc_mutex_unlock(vlc_mutex_t *);
+
+/**
+ * Checks if a mutex is locked.
+ *
+ * Do not use this function directly. Use vlc_mutex_assert() instead.
+ *
+ * @note
+ * This function has no effects.
+ * It is only meant to be use in run-time assertions.
+ *
+ * @retval false in debug builds of LibVLC,
+ *               if the mutex is not locked by the calling thread;
+ * @retval true in debug builds of LibVLC,
+ *              if the mutex is locked by the calling thread;
+ * @retval true in release builds of LibVLC.
+ */
+VLC_API bool vlc_mutex_marked(const vlc_mutex_t *) VLC_USED;
+
+/**
+ * Asserts that a mutex is locked by the calling thread.
+ */
+#define vlc_mutex_assert(m) assert(vlc_mutex_marked(m))
 
 /**
  * Initializes a condition variable.
@@ -1047,17 +1068,27 @@ struct vlc_cleanup_t
     void          *data;
 };
 
-/* This macros opens a code block on purpose. This is needed for multiple
- * calls within a single function. This also prevent Win32 developers from
- * writing code that would break on POSIX (POSIX opens a block as well). */
+# ifndef __cplusplus
+/* This macros opens a code block on purpose: It reduces the chance of
+ * not pairing the push and pop. It also matches the POSIX Thread internals.
+ * That way, Win32 developers will not accidentally break other platforms.
+ */
 # define vlc_cleanup_push( routine, arg ) \
     do { \
-        vlc_cleanup_t vlc_cleanup_data = { NULL, routine, arg, }; \
-        vlc_control_cancel (VLC_CLEANUP_PUSH, &vlc_cleanup_data)
+        vlc_control_cancel(VLC_CLEANUP_PUSH, \
+                           &(vlc_cleanup_t){ NULL, routine, arg })
 
-# define vlc_cleanup_pop( ) \
+#  define vlc_cleanup_pop( ) \
         vlc_control_cancel (VLC_CLEANUP_POP); \
     } while (0)
+# else
+/* Those macros do not work in C++. However common C/C++ helpers may call them
+ * anyway - this is fine if the code is never cancelled in C++ case.
+ * So define the macros to do nothing.
+ */
+#  define vlc_cleanup_push(routine, arg) do { (routine, arg)
+#  define vlc_cleanup_pop() } while (0)
+# endif
 
 #endif /* !LIBVLC_USE_PTHREAD_CLEANUP */
 
@@ -1099,6 +1130,7 @@ class vlc_mutex_locker
             vlc_mutex_unlock (lock);
         }
 };
+
 #endif
 
 enum

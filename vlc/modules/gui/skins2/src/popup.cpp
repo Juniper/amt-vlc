@@ -2,7 +2,6 @@
  * popup.cpp
  *****************************************************************************
  * Copyright (C) 2003 the VideoLAN team
- * $Id: 1001f3f36b489edaaba340168705311ff46d8b39 $
  *
  * Authors: Olivier Teulière <ipkiss@via.ecp.fr>
  *

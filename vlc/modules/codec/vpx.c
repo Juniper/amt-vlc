@@ -33,6 +33,7 @@
 
 #include <vpx/vpx_decoder.h>
 #include <vpx/vp8dx.h>
+#include <vpx/vpx_image.h>
 
 #ifdef ENABLE_SOUT
 # include <vpx/vpx_encoder.h>
@@ -116,18 +117,6 @@ static const struct
     { VLC_CODEC_I440, VPX_IMG_FMT_I440, 8, 0 },
 
     { VLC_CODEC_YV12, VPX_IMG_FMT_YV12, 8, 0 },
-    { VLC_CODEC_YUVA, VPX_IMG_FMT_444A, 8, 0 },
-    { VLC_CODEC_YUYV, VPX_IMG_FMT_YUY2, 8, 0 },
-    { VLC_CODEC_UYVY, VPX_IMG_FMT_UYVY, 8, 0 },
-    { VLC_CODEC_YVYU, VPX_IMG_FMT_YVYU, 8, 0 },
-
-    { VLC_CODEC_RGB15, VPX_IMG_FMT_RGB555, 8, 0 },
-    { VLC_CODEC_RGB16, VPX_IMG_FMT_RGB565, 8, 0 },
-    { VLC_CODEC_RGB24, VPX_IMG_FMT_RGB24, 8, 0 },
-    { VLC_CODEC_RGB32, VPX_IMG_FMT_RGB32, 8, 0 },
-
-    { VLC_CODEC_ARGB, VPX_IMG_FMT_ARGB, 8, 0 },
-    { VLC_CODEC_BGRA, VPX_IMG_FMT_ARGB_LE, 8, 0 },
 
     { VLC_CODEC_GBR_PLANAR, VPX_IMG_FMT_I444, 8, 1 },
     { VLC_CODEC_GBR_PLANAR_10L, VPX_IMG_FMT_I44416, 10, 1 },
@@ -141,6 +130,41 @@ static const struct
     { VLC_CODEC_I444_12L, VPX_IMG_FMT_I44416, 12, 0 },
 
     { VLC_CODEC_I444_16L, VPX_IMG_FMT_I44416, 16, 0 },
+};
+
+struct video_color
+{
+    video_color_primaries_t primaries;
+    video_transfer_func_t transfer;
+    video_color_space_t space;
+};
+
+const struct video_color vpx_color_mapping_table[] =
+{
+    [VPX_CS_UNKNOWN]   =  { COLOR_PRIMARIES_UNDEF,
+                            TRANSFER_FUNC_UNDEF,
+                            COLOR_SPACE_UNDEF },
+    [VPX_CS_BT_601]    =  { COLOR_PRIMARIES_BT601_525,
+                            TRANSFER_FUNC_BT709,
+                            COLOR_SPACE_BT601 },
+    [VPX_CS_BT_709]    =  { COLOR_PRIMARIES_BT709,
+                            TRANSFER_FUNC_BT709,
+                            COLOR_SPACE_BT709 },
+    [VPX_CS_SMPTE_170] =  { COLOR_PRIMARIES_SMTPE_170,
+                            TRANSFER_FUNC_BT709,
+                            COLOR_SPACE_BT601 },
+    [VPX_CS_SMPTE_240] =  { COLOR_PRIMARIES_SMTPE_240,
+                            TRANSFER_FUNC_SMPTE_240,
+                            COLOR_SPACE_UNDEF },
+    [VPX_CS_BT_2020]   =  { COLOR_PRIMARIES_BT2020,
+                            TRANSFER_FUNC_BT2020,
+                            COLOR_SPACE_BT2020 },
+    [VPX_CS_RESERVED]  =  { COLOR_PRIMARIES_UNDEF,
+                            TRANSFER_FUNC_UNDEF,
+                            COLOR_SPACE_UNDEF },
+    [VPX_CS_SRGB]      =  { COLOR_PRIMARIES_SRGB,
+                            TRANSFER_FUNC_SRGB,
+                            COLOR_SPACE_UNDEF },
 };
 
 static vlc_fourcc_t FindVlcChroma( struct vpx_image *img )
@@ -227,24 +251,13 @@ static int Decode(decoder_t *dec, block_t *block)
         dec->fmt_out.video.i_sar_den = 1;
     }
 
-    v->b_color_range_full = img->range == VPX_CR_FULL_RANGE;
-
-    switch( img->cs )
+    if(dec->fmt_in.video.primaries == COLOR_PRIMARIES_UNDEF &&
+       img->cs >= 0 && img->cs < ARRAY_SIZE(vpx_color_mapping_table))
     {
-        case VPX_CS_SRGB:
-        case VPX_CS_BT_709:
-            v->space = COLOR_SPACE_BT709;
-            break;
-        case VPX_CS_BT_601:
-        case VPX_CS_SMPTE_170:
-        case VPX_CS_SMPTE_240:
-            v->space = COLOR_SPACE_BT601;
-            break;
-        case VPX_CS_BT_2020:
-            v->space = COLOR_SPACE_BT2020;
-            break;
-        default:
-            break;
+        v->primaries = vpx_color_mapping_table[img->cs].primaries;
+        v->transfer = vpx_color_mapping_table[img->cs].transfer;
+        v->space = vpx_color_mapping_table[img->cs].space;
+        v->color_range = img->range == VPX_CR_FULL_RANGE ? COLOR_RANGE_FULL : COLOR_RANGE_LIMITED;
     }
 
     dec->fmt_out.video.projection_mode = dec->fmt_in.video.projection_mode;

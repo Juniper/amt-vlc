@@ -2,7 +2,6 @@
  * directory.c: expands a directory (directory: access_browser plug-in)
  *****************************************************************************
  * Copyright (C) 2002-2015 VLC authors and VideoLAN
- * $Id: 1cc93791cf07437c7919cab3bb8d98dd728cb5a2 $
  *
  * Authors: Derk-Jan Hartman <hartman at videolan dot org>
  *          Rémi Denis-Courmont
@@ -137,11 +136,13 @@ int DirRead (stream_t *access, input_item_node_t *node)
 #endif
         switch (st.st_mode & S_IFMT)
         {
+#ifdef S_IFBLK
             case S_IFBLK:
                 if (!special_files)
                     continue;
                 type = ITEM_TYPE_DISC;
                 break;
+#endif
             case S_IFCHR:
                 if (!special_files)
                     continue;

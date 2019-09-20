@@ -36,41 +36,9 @@
 #endif
 
 #include <vlc_common.h>
+#include <vlc_codec.h>
 #include <vlc_fourcc.h>
 #include <vlc_picture_pool.h>
-
-/**************************
- * VA instance management *
- **************************/
-
-typedef void (*vlc_vaapi_native_destroy_cb)(VANativeDisplay);
-struct vlc_vaapi_instance;
-
-/* Initializes the VADisplay and sets the reference counter to 1. If not NULL,
- * native_destroy_cb will be called when the instance is released in order to
- * destroy the native holder (that can be a drm/x11/wl). On error, dpy is
- * terminated and the destroy callback is called. */
-struct vlc_vaapi_instance *
-vlc_vaapi_InitializeInstance(vlc_object_t *o, VADisplay dpy,
-                             VANativeDisplay native,
-                             vlc_vaapi_native_destroy_cb native_destroy_cb);
-
-/* Get and Initializes a VADisplay from a DRM device. If device is NULL, this
- * function will try to open default devices. */
-struct vlc_vaapi_instance *
-vlc_vaapi_InitializeInstanceDRM(vlc_object_t *o,
-                                VADisplay (*pf_getDisplayDRM)(int),
-                                VADisplay *pdpy, const char *device);
-
-
-/* Increments the VAAPI instance refcount */
-VADisplay
-vlc_vaapi_HoldInstance(struct vlc_vaapi_instance *inst);
-
-/* Decrements the VAAPI instance refcount, and call vaTerminate if that counter
- * reaches 0 */
-void
-vlc_vaapi_ReleaseInstance(struct vlc_vaapi_instance *inst);
 
 /**************************
  * VAAPI create & destroy *
@@ -194,7 +162,7 @@ vlc_vaapi_CreateConfigChecked(vlc_object_t *o, VADisplay dpy,
 /* Create a pool backed by VASurfaceID. render_targets will destroyed once
  * the pool and every pictures are released. */
 picture_pool_t *
-vlc_vaapi_PoolNew(vlc_object_t *o, struct vlc_vaapi_instance *vainst,
+vlc_vaapi_PoolNew(vlc_object_t *o, vlc_decoder_device *dec_device,
                   VADisplay dpy, unsigned count, VASurfaceID **render_targets,
                   const video_format_t *restrict fmt, bool b_force_fourcc);
 
@@ -204,7 +172,7 @@ unsigned
 vlc_vaapi_PicSysGetRenderTargets(void *sys, VASurfaceID **render_targets);
 
 /* Get and hold the VADisplay instance attached to the picture sys */
-struct vlc_vaapi_instance *
+vlc_decoder_device *
 vlc_vaapi_PicSysHoldInstance(void *sys, VADisplay *dpy);
 
 /* Attachs the VASurface to the picture context, the picture must be allocated

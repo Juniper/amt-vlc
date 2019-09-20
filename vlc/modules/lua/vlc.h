@@ -2,7 +2,6 @@
  * vlc.h: VLC specific lua library functions.
  *****************************************************************************
  * Copyright (C) 2007-2008 the VideoLAN team
- * $Id: 71f381d334a07f5f9461a301b84c292a90ef844d $
  *
  * Authors: Antoine Cellerier <dionoea at videolan tod org>
  *          Pierre d'Herbemont <pdherbemont # videolan.org>
@@ -143,8 +142,8 @@ void vlclua_set_this( lua_State *, vlc_object_t * );
 #define vlclua_set_this(a, b) vlclua_set_this(a, VLC_OBJECT(b))
 vlc_object_t * vlclua_get_this( lua_State * );
 
-void vlclua_set_playlist_internal( lua_State *, playlist_t * );
-playlist_t * vlclua_get_playlist_internal( lua_State * );
+void vlclua_set_playlist_internal( lua_State *, vlc_playlist_t * );
+vlc_playlist_t * vlclua_get_playlist_internal( lua_State * );
 
 /*****************************************************************************
  * Lua function bridge

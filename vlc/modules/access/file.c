@@ -3,10 +3,9 @@
  *****************************************************************************
  * Copyright (C) 2001-2006 VLC authors and VideoLAN
  * Copyright © 2006-2007 Rémi Denis-Courmont
- * $Id: bb9eb6afce4f6ae0a1868319eaf953c1c61079cd $
  *
  * Authors: Christophe Massiot <massiot@via.ecp.fr>
- *          Rémi Denis-Courmont <rem # videolan # org>
+ *          Rémi Denis-Courmont
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published by
@@ -55,7 +54,6 @@
 
 #include <vlc_common.h>
 #include "fs.h"
-#include <vlc_input.h>
 #include <vlc_access.h>
 #ifdef _WIN32
 # include <vlc_charset.h>
@@ -129,7 +127,6 @@ static bool IsRemote (const char *path)
 
 static ssize_t Read (stream_t *, void *, size_t);
 static int FileSeek (stream_t *, uint64_t);
-static int NoSeek (stream_t *, uint64_t);
 static int FileControl (stream_t *, int, va_list);
 
 /*****************************************************************************
@@ -235,7 +232,7 @@ int FileOpen( vlc_object_t *p_this )
     }
     else
     {
-        p_access->pf_seek = NoSeek;
+        p_access->pf_seek = NULL;
         p_sys->b_pace_control = strcasecmp (p_access->psz_name, "stream");
     }
 
@@ -299,13 +296,6 @@ static int FileSeek (stream_t *p_access, uint64_t i_pos)
     return VLC_SUCCESS;
 }
 
-static int NoSeek (stream_t *p_access, uint64_t i_pos)
-{
-    /* vlc_assert_unreachable(); ?? */
-    (void) p_access; (void) i_pos;
-    return VLC_EGENERIC;
-}
-
 /*****************************************************************************
  * Control:
  *****************************************************************************/
@@ -320,7 +310,7 @@ static int FileControl( stream_t *p_access, int i_query, va_list args )
         case STREAM_CAN_SEEK:
         case STREAM_CAN_FASTSEEK:
             pb_bool = va_arg( args, bool * );
-            *pb_bool = (p_access->pf_seek != NoSeek);
+            *pb_bool = (p_access->pf_seek != NULL);
             break;
 
         case STREAM_CAN_PAUSE:

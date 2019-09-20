@@ -2,7 +2,6 @@
  * canvas.c : automatically resize and padd a video to fit in canvas
  *****************************************************************************
  * Copyright (C) 2008 VLC authors and VideoLAN
- * $Id: 4e53376a38a404b16a587dc2ec1e813ad2dd4bab $
  *
  * Authors: Antoine Cellerier <dionoea at videolan dot org>
  *
@@ -132,14 +131,17 @@ typedef struct
     filter_chain_t *p_chain;
 } filter_sys_t;
 
-static picture_t *video_new( filter_t *p_filter )
+static picture_t *video_chain_new( filter_t *p_filter )
 {
-    return filter_NewPicture( p_filter->owner.sys );
+    filter_t *p_chain_parent = p_filter->owner.sys;
+    // the last filter of the internal chain gets its pictures from the original
+    // filter source
+    return filter_NewPicture( p_chain_parent );
 }
 
 static const struct filter_video_callbacks canvas_cbs =
 {
-    .buffer_new = video_new,
+    video_chain_new,
 };
 
 /*****************************************************************************
@@ -345,7 +347,7 @@ static int Activate( vlc_object_t *p_this )
     {
         if ( !filter_chain_AppendFromString( p_sys->p_chain, psz_croppadd ) )
         {
-            msg_Err( p_filter, "Could not append cropadd filter" );
+            msg_Err( p_filter, "Could not append croppadd filter" );
             filter_chain_Delete( p_sys->p_chain );
             free( p_sys );
             return VLC_EGENERIC;

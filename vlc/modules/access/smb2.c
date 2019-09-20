@@ -58,8 +58,6 @@
 
 #include "smb_common.h"
 
-#define CIFS_PORT 445
-
 static int Open(vlc_object_t *);
 static void Close(vlc_object_t *);
 
@@ -105,17 +103,8 @@ smb2_check_status(stream_t *access, int status, const char *psz_func)
 
     if (status < 0)
     {
-        if (status != -EINTR)
-        {
-            const char *psz_error = vlc_strerror_c(-status);
-            msg_Err(access, "%s failed: %d, '%s'", psz_func, status, psz_error);
-            if (sys->error_status == 0)
-                vlc_dialog_display_error(access,
-                                         _("SMB2 operation failed"), "%s",
-                                         psz_error);
-        }
-        else
-            msg_Warn(access, "%s interrupted", psz_func);
+        const char *psz_error = smb2_get_error(sys->smb2);
+        msg_Warn(access, "%s failed: %d, '%s'", psz_func, status, psz_error);
         sys->error_status = status;
         return -1;
     }
@@ -146,17 +135,20 @@ smb2_set_generic_error(stream_t *access, const char *psz_func)
 static int
 vlc_smb2_mainloop(stream_t *access, bool teardown)
 {
+#define TEARDOWN_TIMEOUT 250 /* in ms */
     struct access_sys *sys = access->p_sys;
 
     int timeout = -1;
     int (*poll_func)(struct pollfd *, unsigned, int) = vlc_poll_i11e;
 
-    if (teardown && vlc_killed())
+    if (teardown)
     {
-        /* The thread is interrupted, so vlc_poll_i11e will return immediatly.
-         * Use poll() with a timeout instead for tear down. */
-        timeout = 500;
+        /* Don't use vlc_poll_i11e that will return immediately with the EINTR
+         * errno if VLC's input is interrupted. Use the posix poll with a
+         * timeout to let a chance for a clean teardown. */
+        timeout = TEARDOWN_TIMEOUT;
         poll_func = (void *)poll;
+        sys->error_status = 0;
     }
 
     sys->res_done = false;
@@ -170,11 +162,27 @@ vlc_smb2_mainloop(stream_t *access, bool teardown)
         if (p_fds[0].fd == -1 || (ret = poll_func(p_fds, 1, timeout)) < 0)
         {
             if (errno == EINTR)
+            {
                 msg_Warn(access, "vlc_poll_i11e interrupted");
+                if (poll_func != (void *) poll)
+                {
+                    /* Try again with a timeout to let the command complete.
+                     * Indeed, if this command is interrupted, every future
+                     * commands will fail and we won't be able to teardown. */
+                    timeout = TEARDOWN_TIMEOUT;
+                    poll_func = (void *) poll;
+                }
+                else
+                    sys->error_status = -errno;
+            }
             else
+            {
                 msg_Err(access, "vlc_poll_i11e failed");
-            sys->error_status = -errno;
+                sys->error_status = -errno;
+            }
         }
+        else if (ret == 0)
+            sys->error_status = -ETIMEDOUT;
         else if (ret > 0 && p_fds[0].revents
              && smb2_service(sys->smb2, p_fds[0].revents) < 0)
             VLC_SMB2_SET_GENERIC_ERROR(access, "smb2_service");
@@ -473,7 +481,8 @@ vlc_smb2_open_share(stream_t *access, const struct smb2_url *smb2_url,
     if (!username)
     {
         username = "Guest";
-        password = "";
+        /* A NULL password enable ntlmssp anonymous login */
+        password = NULL;
     }
 
     smb2_set_password(sys->smb2, password);
@@ -534,48 +543,45 @@ error:
     return -1;
 }
 
-static int
-vlc_smb2_resolve(stream_t *access, char **host, unsigned port)
+static char *
+vlc_smb2_resolve(stream_t *access, const char *host, unsigned port)
 {
     (void) access;
-    if (!*host)
-        return -1;
+    if (!host)
+        return NULL;
 
 #ifdef HAVE_DSM
     /* Test if the host is an IP */
     struct in_addr addr;
-    if (inet_pton(AF_INET, *host, &addr) == 1)
-        return 0;
+    if (inet_pton(AF_INET, host, &addr) == 1)
+        return NULL;
 
     /* Test if the host can be resolved */
     struct addrinfo *info = NULL;
-    if (vlc_getaddrinfo_i11e(*host, port, NULL, &info) == 0)
+    if (vlc_getaddrinfo_i11e(host, port, NULL, &info) == 0)
     {
         freeaddrinfo(info);
         /* Let smb2 resolve it */
-        return 0;
+        return NULL;
     }
 
     /* Test if the host is a netbios name */
+    char *out_host = NULL;
     netbios_ns *ns = netbios_ns_new();
+    if (!ns)
+        return NULL;
     uint32_t ip4_addr;
-    int ret = -1;
-    if (netbios_ns_resolve(ns, *host, NETBIOS_FILESERVER, &ip4_addr) == 0)
+    if (netbios_ns_resolve(ns, host, NETBIOS_FILESERVER, &ip4_addr) == 0)
     {
         char ip[] = "xxx.xxx.xxx.xxx";
         if (inet_ntop(AF_INET, &ip4_addr, ip, sizeof(ip)))
-        {
-            free(*host);
-            *host = strdup(ip);
-            if (*host)
-                ret = 0;
-        }
+            out_host = strdup(ip);
     }
     netbios_ns_destroy(ns);
-    return ret;
+    return out_host;
 #else
     (void) port;
-    return 0;
+    return NULL;
 #endif
 }
 
@@ -595,16 +601,6 @@ Open(vlc_object_t *p_obj)
     if (vlc_UrlParseFixup(&sys->encoded_url, access->psz_url) != 0)
         return VLC_ENOMEM;
 
-    if (sys->encoded_url.i_port != 0 && sys->encoded_url.i_port != CIFS_PORT)
-        goto error;
-    sys->encoded_url.i_port = 0;
-
-    if (vlc_smb2_resolve(access, &sys->encoded_url.psz_host, CIFS_PORT))
-        goto error;
-
-    if (sys->encoded_url.psz_path == NULL)
-        sys->encoded_url.psz_path = (char *) "/";
-
     sys->smb2 = smb2_init_context();
     if (sys->smb2 == NULL)
     {
@@ -612,9 +608,26 @@ Open(vlc_object_t *p_obj)
         goto error;
     }
 
+    smb2_set_security_mode(sys->smb2, SMB2_NEGOTIATE_SIGNING_ENABLED);
+
+    if (sys->encoded_url.psz_path == NULL)
+        sys->encoded_url.psz_path = (char *) "/";
+
+    char *resolved_host = vlc_smb2_resolve(access, sys->encoded_url.psz_host,
+                                           sys->encoded_url.i_port);
+
     /* smb2_* functions need a decoded url. Re compose the url from the
-     * modified sys->encoded_url (without port and with the resolved host). */
-    char *url = vlc_uri_compose(&sys->encoded_url);
+     * modified sys->encoded_url (with the resolved host). */
+    char *url;
+    if (resolved_host != NULL)
+    {
+        vlc_url_t resolved_url = sys->encoded_url;
+        resolved_url.psz_host = resolved_host;
+        url = vlc_uri_compose(&resolved_url);
+        free(resolved_host);
+    }
+    else
+        url = vlc_uri_compose(&sys->encoded_url);
     if (!vlc_uri_decode(url))
     {
         free(url);
@@ -655,7 +668,20 @@ Open(vlc_object_t *p_obj)
     vlc_credential_clean(&credential);
 
     if (ret != 0)
+    {
+        const char *error = smb2_get_error(sys->smb2);
+        if (error && *error)
+            vlc_dialog_display_error(access,
+                                     _("SMB2 operation failed"), "%s", error);
+        if (credential.i_get_order == GET_FROM_DIALOG)
+        {
+            /* Tell other smb modules (likely dsm) that we already requested
+             * credential to the users and that it it useless to try again.
+             * This avoid to show 2 login dialogs for the same access. */
+            var_Create(access, "smb-dialog-failed", VLC_VAR_VOID);
+        }
         goto error;
+    }
 
     if (sys->smb2fh != NULL)
     {

@@ -2,7 +2,6 @@
  * ft2_font.cpp
  *****************************************************************************
  * Copyright (C) 2003 the VideoLAN team
- * $Id: a2b148e402c45a91a02acdab4a1d38c81ad3bd59 $
  *
  * Authors: Cyril Deguet     <asmax@via.ecp.fr>
  *          Olivier Teulière <ipkiss@via.ecp.fr>
@@ -162,8 +161,10 @@ GenericBitmap *FT2Font::drawString( const UString &rString, uint32_t color,
     {
         pFribidiString = new uint32_t[len+1];
         FriBidiCharType baseDir = FRIBIDI_TYPE_ON;
-        fribidi_log2vis( (FriBidiChar*)pString, len, &baseDir,
-                         (FriBidiChar*)pFribidiString, 0, 0, 0 );
+        FriBidiLevel level = fribidi_log2vis(
+                        (FriBidiChar*)pString, len, &baseDir,
+                        (FriBidiChar*)pFribidiString, 0, 0, 0 );
+        (void)level;
         pString = pFribidiString;
     }
 #endif

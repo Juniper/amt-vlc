@@ -2,7 +2,6 @@
  * x11_loop.cpp
  *****************************************************************************
  * Copyright (C) 2003 the VideoLAN team
- * $Id: b9dc0d1b81be0955af63617842c63aca80463b25 $
  *
  * Authors: Cyril Deguet     <asmax@via.ecp.fr>
  *          Olivier Teulière <ipkiss@via.ecp.fr>
@@ -179,7 +178,7 @@ void X11Loop::handleX11Event()
                 (Atom)event.xclient.data.l[0] == wm_delete )
             {
                 msg_Dbg( getIntf(), "Received WM_DELETE_WINDOW message" );
-                libvlc_Quit( getIntf()->obj.libvlc );
+                libvlc_Quit( vlc_object_instance(getIntf()) );
             }
         }
         return;

@@ -2,7 +2,6 @@
  * vlc_arrays.h : Arrays and data structures handling
  *****************************************************************************
  * Copyright (C) 1999-2004 VLC authors and VideoLAN
- * $Id: b548ec2dc1ad3fbfc860821068b706e194384afd $
  *
  * Authors: Samuel Hocevar <sam@zoy.org>
  *          Clément Stenac <zorglub@videolan.org>
@@ -210,9 +209,9 @@ static inline void *realloc_or_free( void *p, size_t sz )
 #define ARRAY_INSERT(array,elem,pos)                                        \
   do {                                                                      \
     _ARRAY_GROW1(array);                                                    \
-    if( (array).i_size - pos ) {                                            \
-        memmove( (array).p_elems + pos + 1, (array).p_elems + pos,          \
-                 ((array).i_size-pos) * sizeof(*(array).p_elems) );         \
+    if( (array).i_size - (pos) ) {                                          \
+        memmove( (array).p_elems + (pos) + 1, (array).p_elems + (pos),      \
+                 ((array).i_size-(pos)) * sizeof(*(array).p_elems) );       \
     }                                                                       \
     (array).p_elems[pos] = elem;                                            \
     (array).i_size++;                                                       \
@@ -224,12 +223,15 @@ static inline void *realloc_or_free( void *p, size_t sz )
     }                                                                       \
 }
 
+#define ARRAY_FIND(array, p, idx)                                           \
+  TAB_FIND((array).i_size, (array).p_elems, p, idx)
+
 #define ARRAY_REMOVE(array,pos)                                             \
   do {                                                                      \
     if( (array).i_size - (pos) - 1 )                                        \
     {                                                                       \
-        memmove( (array).p_elems + pos, (array).p_elems + pos + 1,          \
-                 ( (array).i_size - pos - 1 ) *sizeof(*(array).p_elems) );  \
+        memmove( (array).p_elems + (pos), (array).p_elems + (pos) + 1,      \
+                 ( (array).i_size - (pos) - 1 ) *sizeof(*(array).p_elems) );\
     }                                                                       \
     (array).i_size--;                                                       \
     _ARRAY_SHRINK(array);                                                   \
@@ -240,13 +242,13 @@ static inline void *realloc_or_free( void *p, size_t sz )
 #define ARRAY_BSEARCH(array, elem, zetype, key, answer) \
     BSEARCH( (array).p_elems, (array).i_size, elem, zetype, key, answer)
 
-#define FOREACH_ARRAY( item, array ) { \
-    int fe_idx; \
-    for( fe_idx = 0 ; fe_idx < (array).i_size ; fe_idx++ ) \
-    { \
-        item = (array).p_elems[fe_idx];
-
-#define FOREACH_END() } }
+/* append ##item to index variable name to avoid variable shadowing warnings for
+ * nested loops */
+#define ARRAY_FOREACH(item, array) \
+    for (int array_index_##item = 0; \
+         array_index_##item < (array).i_size && \
+            ((item) = (array).p_elems[array_index_##item], 1); \
+         ++array_index_##item)
 
 
 /************************************************************************

@@ -2,7 +2,6 @@
  * vlc_mouse.h: mouse related structures and functions
  *****************************************************************************
  * Copyright (C) 2009 Laurent Aimar
- * $Id: dfdf99f680c6e0ea173f6447900d4fdece4a560b $
  *
  * Authors: Laurent Aimar <fenrir _AT_ videolan _DOT_ org>
  *
@@ -27,7 +26,7 @@
 /**
  * Mouse buttons
  */
-enum
+enum vlc_mouse_button
 {
     MOUSE_BUTTON_LEFT=0,
     MOUSE_BUTTON_CENTER,

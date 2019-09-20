@@ -2,7 +2,6 @@
  * darwinvlc.m: OS X specific main executable for VLC media player
  *****************************************************************************
  * Copyright (C) 2013-2015 VLC authors and VideoLAN
- * $Id: 3ba5c6547b1714bf18a13d46a389f7cbf4f1fa64 $
  *
  * Authors: Felix Paul Kühne <fkuehne at videolan dot org>
  *          David Fuhrmann <dfuhrmann at videolan dot org>
@@ -27,6 +26,9 @@
 #endif
 
 #include <vlc/vlc.h>
+#include <vlc_common.h>
+#include <vlc_charset.h>
+
 #include <stdlib.h>
 #include <locale.h>
 #include <signal.h>
@@ -130,6 +132,7 @@ int main(int i_argc, const char *ppsz_argv[])
 #ifdef TOP_BUILDDIR
     setenv("VLC_PLUGIN_PATH", TOP_BUILDDIR"/modules", 1);
     setenv("VLC_DATA_PATH", TOP_SRCDIR"/share", 1);
+    setenv("VLC_LIB_PATH", TOP_BUILDDIR"/modules", 1);
 #endif
 
 #ifndef ALLOW_RUN_AS_ROOT
@@ -244,21 +247,13 @@ int main(int i_argc, const char *ppsz_argv[])
         language = (CFStringRef)CFPreferencesCopyAppValue(CFSTR("language"),
                                                           kCFPreferencesCurrentApplication);
         if (language) {
-            CFIndex length = CFStringGetLength(language) + 1;
-            if (length > 0) {
-                CFIndex maxSize = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8);
-                lang = (char *)malloc(maxSize);
-                if(lang) {
-                    CFStringGetCString(language, lang, maxSize - 1, kCFStringEncodingUTF8);
-                    if (strncmp( lang, "auto", 4 )) {
-                        char tmp[11];
-                        snprintf(tmp, 11, "LANG=%s", lang);
-                        putenv(tmp);
-
-                    }
-                }
-                free(lang);
+            lang = FromCFString(language, kCFStringEncodingUTF8);
+            if (strncmp( lang, "auto", 4 )) {
+                char tmp[11];
+                snprintf(tmp, 11, "LANG=%s", lang);
+                putenv(tmp);
             }
+            free(lang);
             CFRelease(language);
         }
     }

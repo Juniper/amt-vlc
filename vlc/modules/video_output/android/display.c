@@ -51,24 +51,24 @@
     "Force use of a specific chroma for output. Default is RGB32."
 
 #define CFG_PREFIX "android-display-"
-static int  Open (vlc_object_t *);
-static int  OpenOpaque (vlc_object_t *);
-static void Close(vlc_object_t *);
+static int Open(vout_display_t *vd, const vout_display_cfg_t *cfg,
+                video_format_t *fmtp, vlc_video_context *context);
+static int OpenOpaque(vout_display_t *vd, const vout_display_cfg_t *cfg,
+                      video_format_t *fmtp, vlc_video_context *context);
+static void Close(vout_display_t *vd);
 static void SubpicturePrepare(vout_display_t *vd, subpicture_t *subpicture);
 
 vlc_module_begin()
     set_category(CAT_VIDEO)
     set_subcategory(SUBCAT_VIDEO_VOUT)
     set_description("Android video output")
-    set_capability("vout display", 260)
     add_shortcut("android-display")
     add_string(CFG_PREFIX "chroma", NULL, CHROMA_TEXT, CHROMA_LONGTEXT, true)
-    set_callbacks(Open, Close)
+    set_callback_display(Open, 260)
     add_submodule ()
         set_description("Android opaque video output")
-        set_capability("vout display", 280)
         add_shortcut("android-opaque")
-        set_callbacks(OpenOpaque, Close)
+        set_callback_display(OpenOpaque, 280)
 vlc_module_end()
 
 /*****************************************************************************
@@ -83,7 +83,7 @@ static const vlc_fourcc_t subpicture_chromas[] =
 
 static picture_pool_t   *Pool  (vout_display_t *, unsigned);
 static void             Prepare(vout_display_t *, picture_t *, subpicture_t *, vlc_tick_t);
-static void             Display(vout_display_t *, picture_t *, subpicture_t *);
+static void             Display(vout_display_t *, picture_t *);
 static int              Control(vout_display_t *, int, va_list);
 
 typedef struct android_window android_window;
@@ -93,7 +93,6 @@ struct android_window
     int i_android_hal;
     unsigned int i_angle;
     unsigned int i_pic_count;
-    unsigned int i_min_undequeued;
     bool b_opaque;
 
     enum AWindow_ID id;
@@ -121,6 +120,8 @@ struct vout_display_sys_t
 
     android_window *p_window;
     android_window *p_sub_window;
+
+    picture_t *p_prepared_pic; // local surface
 
     bool b_displayed;
     bool b_sub_invalid;
@@ -174,6 +175,11 @@ static int UpdateVideoSize(vout_display_sys_t *sys, video_format_t *p_fmt)
     return 0;
 }
 
+static void AndroidPicture_Destroy(picture_t *pic)
+{
+    free(pic->p_sys);
+}
+
 static picture_t *PictureAlloc(vout_display_sys_t *sys, video_format_t *fmt,
                                bool b_opaque)
 {
@@ -198,7 +204,10 @@ static picture_t *PictureAlloc(vout_display_sys_t *sys, video_format_t *fmt,
         rsc.pf_destroy = AndroidOpaquePicture_DetachVout;
     }
     else
+    {
         p_picsys->sw.p_vd_sys = sys;
+        rsc.pf_destroy = AndroidPicture_Destroy;
+    }
 
     p_pic = picture_NewFromResource(fmt, &rsc);
     if (!p_pic)
@@ -332,7 +341,7 @@ static int AndroidWindow_ConnectSurface(vout_display_sys_t *sys,
 }
 
 static android_window *AndroidWindow_New(vout_display_t *vd,
-                                         video_format_t *p_fmt,
+                                         const video_format_t *p_fmt,
                                          enum AWindow_ID id)
 {
     vout_display_sys_t *sys = vd->sys;
@@ -390,45 +399,40 @@ static void AndroidWindow_Destroy(vout_display_t *vd,
 }
 
 static int AndroidWindow_SetupANW(vout_display_sys_t *sys,
-                                  android_window *p_window,
-                                  bool b_java_configured)
+                                  android_window *p_window)
 {
     p_window->i_pic_count = 1;
-    p_window->i_min_undequeued = 0;
 
-    if (!b_java_configured && sys->anw->setBuffersGeometry)
-        return sys->anw->setBuffersGeometry(p_window->p_surface,
-                                            p_window->fmt.i_width,
-                                            p_window->fmt.i_height,
-                                            p_window->i_android_hal);
-    else
+    if (!sys->anw->setBuffersGeometry)
         return 0;
+    return sys->anw->setBuffersGeometry(p_window->p_surface,
+                                        p_window->fmt.i_width,
+                                        p_window->fmt.i_height,
+                                        p_window->i_android_hal);
 }
 
 static int AndroidWindow_Setup(vout_display_sys_t *sys,
                                android_window *p_window,
                                unsigned int i_pic_count)
 {
-    bool b_java_configured = false;
-
     if (i_pic_count != 0)
         p_window->i_pic_count = i_pic_count;
 
     if (!p_window->b_opaque) {
-        int align_pixels;
-        picture_t *p_pic = PictureAlloc(sys, &p_window->fmt, false);
+        const vlc_chroma_description_t *p_dsc =
+            vlc_fourcc_GetChromaDescription( p_window->fmt.i_chroma );
+        if (p_dsc)
+        {
+            assert(p_dsc->pixel_size != 0);
+            // For RGB (32 or 16) we need to align on 8 or 4 pixels, 16 pixels for YUV
+            unsigned align_pixels = (16 / p_dsc->pixel_size) - 1;
+            p_window->fmt.i_width = (p_window->fmt.i_width + align_pixels) & ~align_pixels;
+        }
 
-        // For RGB (32 or 16) we need to align on 8 or 4 pixels, 16 pixels for YUV
-        align_pixels = (16 / p_pic->p[0].i_pixel_pitch) - 1;
-        p_window->fmt.i_height = p_pic->format.i_height;
-        p_window->fmt.i_width = (p_pic->format.i_width + align_pixels) & ~align_pixels;
-        picture_Release(p_pic);
-
-        if (AndroidWindow_SetupANW(sys, p_window, b_java_configured) != 0)
+        if (AndroidWindow_SetupANW(sys, p_window) != 0)
             return -1;
     } else {
         sys->p_window->i_pic_count = 31; // TODO
-        sys->p_window->i_min_undequeued = 0;
     }
 
     return 0;
@@ -500,21 +504,17 @@ static void SetRGBMask(video_format_t *p_fmt)
     }
 }
 
-static int OpenCommon(vout_display_t *vd)
+static int OpenCommon(vout_display_t *vd, const vout_display_cfg_t *cfg,
+                      video_format_t *fmtp)
 {
     vout_display_sys_t *sys;
-    video_format_t sub_fmt;
+    video_format_t fmt, sub_fmt;
 
-    /* Fallback to normal projection in case of soft decoding/display (the
-     * openGL vout, with a higher priority, should be used when the projection
-     * need to be handled). */
-    if (vd->fmt.i_chroma == VLC_CODEC_ANDROID_OPAQUE
-     && vd->fmt.projection_mode != PROJECTION_MODE_RECTANGULAR)
+    vout_window_t *embed = cfg->window;
+    if (embed->type != VOUT_WINDOW_TYPE_ANDROID_NATIVE)
         return VLC_EGENERIC;
-    vd->fmt.projection_mode = PROJECTION_MODE_RECTANGULAR;
 
-    vout_window_t *embed =
-        vout_display_NewWindow(vd, VOUT_WINDOW_TYPE_ANDROID_NATIVE);
+    fmt = *fmtp;
 
     if (embed == NULL)
         return VLC_EGENERIC;
@@ -537,37 +537,37 @@ static int OpenCommon(vout_display_t *vd)
     sys->p_awh = p_awh;
     sys->anw = AWindowHandler_getANativeWindowAPI(sys->p_awh);
 
-    sys->i_display_width = vd->cfg->display.width;
-    sys->i_display_height = vd->cfg->display.height;
+    sys->i_display_width = cfg->display.width;
+    sys->i_display_height = cfg->display.height;
 
-    if (vd->fmt.i_chroma != VLC_CODEC_ANDROID_OPAQUE) {
+    if (fmt.i_chroma != VLC_CODEC_ANDROID_OPAQUE) {
         /* Setup chroma */
         char *psz_fcc = var_InheritString(vd, CFG_PREFIX "chroma");
         if (psz_fcc) {
-            vd->fmt.i_chroma = vlc_fourcc_GetCodecFromString(VIDEO_ES, psz_fcc);
+            fmt.i_chroma = vlc_fourcc_GetCodecFromString(VIDEO_ES, psz_fcc);
             free(psz_fcc);
         } else
-            vd->fmt.i_chroma = VLC_CODEC_RGB32;
+            fmt.i_chroma = VLC_CODEC_RGB32;
 
-        switch(vd->fmt.i_chroma) {
+        switch(fmt.i_chroma) {
             case VLC_CODEC_YV12:
                 /* avoid swscale usage by asking for I420 instead since the
                  * vout already has code to swap the buffers */
-                vd->fmt.i_chroma = VLC_CODEC_I420;
+                fmt.i_chroma = VLC_CODEC_I420;
             case VLC_CODEC_I420:
                 break;
             case VLC_CODEC_RGB16:
             case VLC_CODEC_RGB32:
             case VLC_CODEC_RGBA:
-                SetRGBMask(&vd->fmt);
-                video_format_FixRgb(&vd->fmt);
+                SetRGBMask(&fmt);
+                video_format_FixRgb(&fmt);
                 break;
             default:
                 goto error;
         }
     }
 
-    sys->p_window = AndroidWindow_New(vd, &vd->fmt, AWindow_Video);
+    sys->p_window = AndroidWindow_New(vd, &fmt, AWindow_Video);
     if (!sys->p_window)
         goto error;
 
@@ -576,11 +576,11 @@ static int OpenCommon(vout_display_t *vd)
 
     /* use software rotation if we don't do opaque */
     if (!sys->p_window->b_opaque)
-        video_format_TransformTo(&vd->fmt, ORIENT_NORMAL);
+        video_format_TransformTo(&fmt, ORIENT_NORMAL);
 
     msg_Dbg(vd, "using %s", sys->p_window->b_opaque ? "opaque" : "ANW");
 
-    video_format_ApplyRotation(&sub_fmt, &vd->fmt);
+    video_format_ApplyRotation(&sub_fmt, &fmt);
     sub_fmt.i_chroma = subpicture_chromas[0];
     SetRGBMask(&sub_fmt);
     video_format_FixRgb(&sub_fmt);
@@ -601,44 +601,69 @@ static int OpenCommon(vout_display_t *vd)
     }
 
     /* Setup vout_display */
-    vd->pool    = Pool;
+    if (sys->p_window->b_opaque)
+        vd->pool    = Pool;
+    else
+    {
+        if (AndroidWindow_Setup(sys, sys->p_window, 1) != 0)
+            goto error;
+
+        sys->p_prepared_pic = PictureAlloc(sys, &sys->p_window->fmt, false);
+        if (sys->p_prepared_pic == NULL)
+        {
+            msg_Err(vd, "cannot allocate prepare surface");
+            goto error;
+        }
+        msg_Dbg(vd, "PictureAlloc: got a frame");
+
+        UpdateVideoSize(sys, &sys->p_window->fmt);
+    }
+
     vd->prepare = Prepare;
     vd->display = Display;
     vd->control = Control;
-    vd->info.is_slow = !sys->p_window->b_opaque;
+    vd->close = Close;
+
+    *fmtp = fmt;
 
     return VLC_SUCCESS;
 
 error:
-    Close(VLC_OBJECT(vd));
+    Close(vd);
     return VLC_EGENERIC;
 }
 
-static int Open(vlc_object_t *p_this)
+static int Open(vout_display_t *vd, const vout_display_cfg_t *cfg,
+                video_format_t *fmtp, vlc_video_context *context)
 {
-    vout_display_t *vd = (vout_display_t*)p_this;
-
-    if (vd->fmt.i_chroma == VLC_CODEC_ANDROID_OPAQUE)
+    if (fmtp->i_chroma == VLC_CODEC_ANDROID_OPAQUE)
         return VLC_EGENERIC;
 
-    /* At this point, gles2 vout failed (old Android device) */
-    vd->fmt.projection_mode = PROJECTION_MODE_RECTANGULAR;
-    return OpenCommon(vd);
+    /* There are two cases:
+     * 1. the projection_mode is PROJECTION_MODE_RECTANGULAR
+     * 2. gles2 vout failed */
+    fmtp->projection_mode = PROJECTION_MODE_RECTANGULAR;
+
+    (void) context;
+    return OpenCommon(vd, cfg, fmtp);
 }
 
-static int OpenOpaque(vlc_object_t *p_this)
+static int OpenOpaque(vout_display_t *vd, const vout_display_cfg_t *cfg,
+                      video_format_t *fmtp, vlc_video_context *context)
 {
-    vout_display_t *vd = (vout_display_t*)p_this;
+    if (fmtp->i_chroma != VLC_CODEC_ANDROID_OPAQUE)
+        return VLC_EGENERIC;
 
-    if (vd->fmt.i_chroma != VLC_CODEC_ANDROID_OPAQUE
-     || vd->fmt.projection_mode != PROJECTION_MODE_RECTANGULAR
-     || vd->fmt.orientation != ORIENT_NORMAL)
+    if (!vd->obj.force
+        && (fmtp->projection_mode != PROJECTION_MODE_RECTANGULAR
+            || fmtp->orientation != ORIENT_NORMAL))
     {
         /* Let the gles2 vout handle orientation and projection */
         return VLC_EGENERIC;
     }
 
-    return OpenCommon(vd);
+    (void) context;
+    return OpenCommon(vd, cfg, fmtp);
 }
 
 static void ClearSurface(vout_display_t *vd)
@@ -649,7 +674,7 @@ static void ClearSurface(vout_display_t *vd)
     {
         /* Clear the surface to black with OpenGL ES 2 */
         char *modlist = var_InheritString(sys->embed, "gles2");
-        vlc_gl_t *gl = vlc_gl_Create(sys->embed, VLC_OPENGL_ES2, modlist);
+        vlc_gl_t *gl = vlc_gl_Create(vd->cfg, VLC_OPENGL_ES2, modlist);
         free(modlist);
         if (gl == NULL)
             return;
@@ -683,9 +708,8 @@ end:
     }
 }
 
-static void Close(vlc_object_t *p_this)
+static void Close(vout_display_t *vd)
 {
-    vout_display_t *vd = (vout_display_t *)p_this;
     vout_display_sys_t *sys = vd->sys;
 
     /* Check if SPU regions have been properly cleared, and clear them if they
@@ -706,6 +730,8 @@ static void Close(vlc_object_t *p_this)
         AndroidWindow_Destroy(vd, sys->p_window);
     }
 
+    if (sys->p_prepared_pic)
+        picture_Release(sys->p_prepared_pic);
     if (sys->p_sub_pic)
         picture_Release(sys->p_sub_pic);
     if (sys->p_spu_blend)
@@ -774,8 +800,7 @@ static picture_pool_t *PoolAlloc(vout_display_t *vd, unsigned requested_count)
 
     for (i = 0; i < requested_count; i++)
     {
-        picture_t *p_pic = PictureAlloc(sys, &sys->p_window->fmt,
-                                        sys->p_window->b_opaque);
+        picture_t *p_pic = PictureAlloc(sys, &sys->p_window->fmt, true);
         if (!p_pic)
             goto error;
 
@@ -786,16 +811,8 @@ static picture_pool_t *PoolAlloc(vout_display_t *vd, unsigned requested_count)
     memset(&pool_cfg, 0, sizeof(pool_cfg));
     pool_cfg.picture_count = requested_count;
     pool_cfg.picture       = pp_pics;
-    if (sys->p_window->b_opaque)
-    {
-        pool_cfg.lock      = PoolLockOpaquePicture;
-        pool_cfg.unlock    = PoolUnlockOpaquePicture;
-    }
-    else
-    {
-        pool_cfg.lock      = PoolLockPicture;
-        pool_cfg.unlock    = PoolUnlockPicture;
-    }
+    pool_cfg.lock      = PoolLockOpaquePicture;
+    pool_cfg.unlock    = PoolUnlockOpaquePicture;
     pool = picture_pool_NewExtended(&pool_cfg);
 
 error:
@@ -944,7 +961,15 @@ static void Prepare(vout_display_t *vd, picture_t *picture,
                     subpicture_t *subpicture, vlc_tick_t date)
 {
     vout_display_sys_t *sys = vd->sys;
-    VLC_UNUSED(picture);
+
+    if (!sys->p_window->b_opaque)
+    {
+        if (PoolLockPicture(sys->p_prepared_pic) == 0)
+        {
+            picture_Copy(sys->p_prepared_pic, picture);
+            PoolUnlockPicture(sys->p_prepared_pic);
+        }
+    }
 
     if (subpicture && sys->p_sub_window) {
         if (sys->b_sub_invalid) {
@@ -999,23 +1024,15 @@ static void Prepare(vout_display_t *vd, picture_t *picture,
     }
 }
 
-static void Display(vout_display_t *vd, picture_t *picture,
-                    subpicture_t *subpicture)
+static void Display(vout_display_t *vd, picture_t *picture)
 {
     vout_display_sys_t *sys = vd->sys;
 
     if (sys->p_window->b_opaque)
         AndroidOpaquePicture_Release(picture->p_sys, true);
-    else
-        AndroidWindow_UnlockPicture(sys, sys->p_window, picture);
-
-    picture_Release(picture);
 
     if (sys->p_sub_pic)
         AndroidWindow_UnlockPicture(sys, sys->p_sub_window, sys->p_sub_pic);
-
-    if (subpicture)
-        subpicture_Delete(subpicture);
 
     sys->b_displayed = true;
 }
@@ -1061,8 +1078,9 @@ static int Control(vout_display_t *vd, int query, va_list args)
         vlc_assert_unreachable();
     default:
         msg_Warn(vd, "Unknown request in android-display: %d", query);
+        return VLC_EGENERIC;
     case VOUT_DISPLAY_CHANGE_ZOOM:
     case VOUT_DISPLAY_CHANGE_DISPLAY_FILLED:
-        return VLC_EGENERIC;
+        return VLC_SUCCESS;
     }
 }

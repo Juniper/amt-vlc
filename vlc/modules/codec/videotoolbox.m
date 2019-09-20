@@ -61,14 +61,8 @@
 
 #endif
 
-// Define stuff for older SDKs
-#if (TARGET_OS_OSX && MAC_OS_X_VERSION_MAX_ALLOWED < 101100) || \
-    (TARGET_OS_IPHONE && __IPHONE_OS_VERSION_MAX_ALLOWED < 90000) || \
-    (TARGET_OS_TV && __TV_OS_VERSION_MAX_ALLOWED < 90000)
-enum { kCMVideoCodecType_HEVC = 'hvc1' };
-#endif
 
-#if (!TARGET_OS_OSX || MAC_OS_X_VERSION_MAX_ALLOWED < 1090)
+#if (!TARGET_OS_OSX)
 const CFStringRef kVTVideoDecoderSpecification_EnableHardwareAcceleratedVideoDecoder = CFSTR("EnableHardwareAcceleratedVideoDecoder");
 const CFStringRef kVTVideoDecoderSpecification_RequireHardwareAcceleratedVideoDecoder = CFSTR("RequireHardwareAcceleratedVideoDecoder");
 #endif
@@ -128,8 +122,8 @@ struct frame_info_t
     picture_t *p_picture;
     int i_poc;
     int i_foc;
-    bool b_forced;
     bool b_flush;
+    bool b_eos;
     bool b_keyframe;
     bool b_field;
     bool b_progressive;
@@ -484,7 +478,7 @@ static bool ConfigureVoutH264(decoder_t *p_dec)
         video_color_primaries_t primaries;
         video_transfer_func_t transfer;
         video_color_space_t colorspace;
-        bool full_range;
+        video_color_range_t full_range;
         if (hxxx_helper_get_colorimetry(&p_sys->hh,
                                         &primaries,
                                         &transfer,
@@ -494,7 +488,7 @@ static bool ConfigureVoutH264(decoder_t *p_dec)
             p_dec->fmt_out.video.primaries = primaries;
             p_dec->fmt_out.video.transfer = transfer;
             p_dec->fmt_out.video.space = colorspace;
-            p_dec->fmt_out.video.b_color_range_full = full_range;
+            p_dec->fmt_out.video.color_range = full_range;
         }
     }
 
@@ -674,6 +668,11 @@ static bool FillReorderInfoHEVC(decoder_t *p_dec, const block_t *p_block,
             }
 
             p_info->b_keyframe = i_nal_type >= HEVC_NAL_BLA_W_LP;
+            enum hevc_slice_type_e slice_type;
+            if(hevc_get_slice_type(p_sli, &slice_type))
+            {
+                p_info->b_keyframe |= (slice_type == HEVC_SLICE_TYPE_I);
+            }
 
             hevc_sequence_parameter_set_t *p_sps;
             hevc_picture_parameter_set_t *p_pps;
@@ -931,7 +930,7 @@ static frame_info_t * CreateReorderInfo(decoder_t *p_dec, const block_t *p_block
     p_info->i_length = p_block->i_length;
 
     /* required for still pictures/menus */
-    p_info->b_forced = (p_block->i_flags & BLOCK_FLAG_END_OF_SEQUENCE);
+    p_info->b_eos = (p_block->i_flags & BLOCK_FLAG_END_OF_SEQUENCE);
 
     if (date_Get(&p_sys->pts) == VLC_TICK_INVALID)
         date_Set(&p_sys->pts, p_block->i_dts);
@@ -1134,15 +1133,8 @@ static CFMutableDictionaryRef CreateSessionDescriptionFormat(decoder_t *p_dec,
             yuvmatrix = kCVImageBufferYCbCrMatrix_ITU_R_601_4;
             break;
         case COLOR_SPACE_BT2020:
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wpartial-availability"
-            if (&kCVImageBufferColorPrimaries_ITU_R_2020 != nil)
-            {
-                yuvmatrix = kCVImageBufferColorPrimaries_ITU_R_2020;
-                break;
-            }
-#pragma clang diagnostic pop
-            /* fall through */
+            yuvmatrix = kCVImageBufferColorPrimaries_ITU_R_2020;
+            break;
         case COLOR_SPACE_BT709:
         default:
             yuvmatrix = kCVImageBufferColorPrimaries_ITU_R_709_2;
@@ -1150,9 +1142,6 @@ static CFMutableDictionaryRef CreateSessionDescriptionFormat(decoder_t *p_dec,
     }
     CFDictionarySetValue(decoderConfiguration, kCVImageBufferYCbCrMatrixKey,
                          yuvmatrix);
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wpartial-availability"
 
     /* enable HW accelerated playback, since this is optional on OS X
      * note that the backend may still fallback on software mode if no
@@ -1167,8 +1156,6 @@ static CFMutableDictionaryRef CreateSessionDescriptionFormat(decoder_t *p_dec,
         CFDictionarySetValue(decoderConfiguration,
                              kVTVideoDecoderSpecification_RequireHardwareAcceleratedVideoDecoder,
                              kCFBooleanTrue);
-
-#pragma clang diagnostic pop
 
     CFDictionarySetValue(decoderConfiguration,
                          kVTDecompressionPropertyKey_FieldMode,
@@ -1282,12 +1269,10 @@ static int StartVideoToolbox(decoder_t *p_dec)
     if (HandleVTStatus(p_dec, status, NULL) != VLC_SUCCESS)
         return VLC_EGENERIC;
 
-    PtsInit(p_dec);
-
     return VLC_SUCCESS;
 }
 
-static void StopVideoToolbox(decoder_t *p_dec)
+static void StopVideoToolbox(decoder_t *p_dec, bool closing)
 {
     decoder_sys_t *p_sys = p_dec->p_sys;
 
@@ -1305,7 +1290,7 @@ static void StopVideoToolbox(decoder_t *p_dec)
          * will reallocate frames while previous frames are still used by the
          * vout (and not released). To work-around this issue, we force a vout
          * change. */
-        if (p_dec->fmt_out.i_codec == VLC_CODEC_CVPX_BGRA
+        if (!closing && p_dec->fmt_out.i_codec == VLC_CODEC_CVPX_BGRA
          && p_dec->fmt_out.video.i_width * p_dec->fmt_out.video.i_height >= 8000000)
         {
             const video_format_t orig = p_dec->fmt_out.video;
@@ -1456,11 +1441,14 @@ static int OpenDecoder(vlc_object_t *p_this)
     }
 
     int i_ret = StartVideoToolbox(p_dec);
-    if (i_ret == VLC_SUCCESS)
+    if (i_ret == VLC_SUCCESS) {
+        PtsInit(p_dec);
         msg_Info(p_dec, "Using Video Toolbox to decode '%4.4s'",
                         (char *)&p_dec->fmt_in.i_codec);
-    else
+    } else {
         CloseDecoder(p_this);
+    }
+
     return i_ret;
 }
 
@@ -1476,7 +1464,7 @@ static void CloseDecoder(vlc_object_t *p_this)
     decoder_t *p_dec = (decoder_t *)p_this;
     decoder_sys_t *p_sys = p_dec->p_sys;
 
-    StopVideoToolbox(p_dec);
+    StopVideoToolbox(p_dec, true);
 
     if(p_sys->pf_codec_clean)
         p_sys->pf_codec_clean(p_dec);
@@ -1501,17 +1489,9 @@ static void CloseDecoder(vlc_object_t *p_this)
 
 static BOOL deviceSupportsHEVC()
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wpartial-availability"
-
-#if (TARGET_OS_OSX && MAC_OS_X_VERSION_MAX_ALLOWED >= 101300) || \
-    (TARGET_OS_IPHONE && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000) || \
-    (TARGET_OS_TV && __TV_OS_VERSION_MAX_ALLOWED >= 110000)
-    if (VTIsHardwareDecodeSupported != nil)
+    if (@available(macOS 10.13, iOS 11.0, tvOS 11.0, *))
         return VTIsHardwareDecodeSupported(kCMVideoCodecType_HEVC);
     else
-#endif
-#pragma clang diagnostic pop
         return NO;
 }
 
@@ -1865,7 +1845,7 @@ static int DecodeBlock(decoder_t *p_dec, block_t *p_block)
 
                 /* Drain before stopping */
                 Drain(p_dec, false);
-                StopVideoToolbox(p_dec);
+                StopVideoToolbox(p_dec, false);
 
                 vlc_mutex_lock(&p_sys->lock);
             }
@@ -1900,7 +1880,7 @@ static int DecodeBlock(decoder_t *p_dec, block_t *p_block)
             vlc_mutex_unlock(&p_sys->lock);
 
             /* Session will be started by Late Start code block */
-            StopVideoToolbox(p_dec);
+            StopVideoToolbox(p_dec, false);
 
             vlc_mutex_lock(&p_sys->lock);
             p_sys->vtsession_status = VTSESSION_STATUS_OK;
@@ -1956,7 +1936,7 @@ static int DecodeBlock(decoder_t *p_dec, block_t *p_block)
             msg_Dbg(p_dec, "parameters sets changed: draining decoder");
             Drain(p_dec, false);
             msg_Dbg(p_dec, "parameters sets changed: restarting decoder");
-            StopVideoToolbox(p_dec);
+            StopVideoToolbox(p_dec, false);
         }
 
         if(!p_sys->session)
@@ -2227,7 +2207,8 @@ static void DecoderCallback(void *decompressionOutputRefCon,
         p_info->p_picture = p_pic;
 
         p_pic->date = pts.value;
-        p_pic->b_force = p_info->b_forced;
+        p_pic->b_force = p_info->b_eos;
+        p_pic->b_still = p_info->b_eos;
         p_pic->b_progressive = p_info->b_progressive;
         if(!p_pic->b_progressive)
         {

@@ -2,7 +2,6 @@
  * dmo.h : DirectMedia Object codec module for vlc
  *****************************************************************************
  * Copyright (C) 2002, 2003 VLC authors and VideoLAN
- * $Id: d69b97065288bf67407d7e5bf93c56da027513e4 $
  *
  * Author: Gildas Bazin <gbazin@videolan.org>
  *

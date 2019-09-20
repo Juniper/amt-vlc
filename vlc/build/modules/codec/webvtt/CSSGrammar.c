@@ -62,7 +62,7 @@
 
 
 /* Copy the first part of user declarations.  */
-#line 36 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:339  */
+#line 36 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:339  */
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -177,7 +177,7 @@ extern int yydebug;
 
 union YYSTYPE
 {
-#line 49 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:355  */
+#line 49 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:355  */
 
     bool boolean;
     char character;
@@ -208,10 +208,11 @@ int yyparse (yyscan_t scanner, vlc_css_parser_t *css_parser);
 #endif /* !YY_YY_CODEC_WEBVTT_CSSGRAMMAR_H_INCLUDED  */
 
 /* Copy the second part of user declarations.  */
-#line 65 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:358  */
+#line 65 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:358  */
 
 /* See bison pure calling */
-int yylex(union YYSTYPE *, yyscan_t, vlc_css_parser_t *);
+#define YY_DECL int yylex(union YYSTYPE *, yyscan_t, vlc_css_parser_t *)
+YY_DECL;
 
 static int yyerror(yyscan_t scanner, vlc_css_parser_t *p, const char *msg)
 {
@@ -220,7 +221,7 @@ static int yyerror(yyscan_t scanner, vlc_css_parser_t *p, const char *msg)
 }
 
 
-#line 224 "codec/webvtt/CSSGrammar.c" /* yacc.c:358  */
+#line 225 "codec/webvtt/CSSGrammar.c" /* yacc.c:358  */
 
 #ifdef short
 # undef short
@@ -520,20 +521,20 @@ static const yytype_uint8 yytranslate[] =
   /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_uint16 yyrline[] =
 {
-       0,   176,   176,   180,   181,   184,   186,   187,   190,   192,
-     198,   199,   203,   207,   210,   216,   221,   226,   228,   235,
-     236,   240,   245,   246,   250,   255,   258,   264,   265,   266,
-     270,   271,   275,   276,   280,   291,   296,   309,   316,   322,
-     325,   329,   339,   348,   355,   359,   371,   377,   378,   382,
-     385,   395,   402,   407,   415,   416,   417,   421,   428,   434,
-     438,   451,   454,   457,   460,   463,   466,   472,   473,   477,
-     481,   486,   495,   509,   519,   522,   527,   530,   533,   536,
-     539,   545,   548,   552,   556,   559,   562,   570,   573,   579,
-     588,   593,   602,   609,   614,   620,   626,   634,   640,   641,
-     645,   650,   655,   659,   663,   670,   673,   676,   682,   683,
-     687,   688,   690,   691,   692,   693,   694,   695,   696,   698,
-     701,   707,   708,   709,   710,   711,   712,   716,   722,   727,
-     732,   742,   760,   761,   765,   766
+       0,   177,   177,   181,   182,   185,   187,   188,   191,   193,
+     199,   200,   204,   208,   211,   217,   222,   227,   229,   236,
+     237,   241,   246,   247,   251,   256,   259,   265,   266,   267,
+     271,   272,   276,   277,   281,   292,   297,   310,   317,   323,
+     326,   330,   340,   349,   356,   360,   372,   378,   379,   383,
+     386,   396,   403,   408,   416,   417,   418,   422,   429,   435,
+     439,   452,   455,   458,   461,   464,   467,   473,   474,   478,
+     482,   487,   496,   510,   520,   523,   528,   531,   534,   537,
+     540,   546,   549,   553,   557,   560,   563,   571,   574,   580,
+     589,   594,   603,   610,   615,   621,   627,   635,   641,   642,
+     646,   651,   656,   660,   664,   671,   674,   677,   683,   684,
+     688,   689,   691,   692,   693,   694,   695,   696,   697,   699,
+     702,   708,   709,   710,   711,   712,   713,   717,   723,   728,
+     733,   743,   761,   762,   766,   767
 };
 #endif
 
@@ -1263,249 +1264,249 @@ yydestruct (const char *yymsg, int yytype, YYSTYPE *yyvaluep, yyscan_t scanner, 
   switch (yytype)
     {
           case 12: /* STRING  */
-#line 171 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 172 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { free(((*yyvaluep).string)); }
-#line 1269 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1270 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 13: /* IDENT  */
-#line 171 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 172 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { free(((*yyvaluep).string)); }
-#line 1275 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1276 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 14: /* IDSEL  */
-#line 171 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 172 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { free(((*yyvaluep).string)); }
-#line 1281 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1282 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 15: /* HASH  */
-#line 171 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 172 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { free(((*yyvaluep).string)); }
-#line 1287 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1288 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 26: /* LENGTH  */
-#line 119 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 120 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_term_Clean(((*yyvaluep).term)); }
-#line 1293 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1294 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 27: /* ANGLE  */
-#line 119 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 120 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_term_Clean(((*yyvaluep).term)); }
-#line 1299 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1300 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 28: /* TIME  */
-#line 119 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 120 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_term_Clean(((*yyvaluep).term)); }
-#line 1305 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1306 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 29: /* FREQ  */
-#line 119 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 120 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_term_Clean(((*yyvaluep).term)); }
-#line 1311 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1312 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 30: /* DIMEN  */
-#line 119 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 120 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_term_Clean(((*yyvaluep).term)); }
-#line 1317 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1318 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 31: /* PERCENTAGE  */
-#line 119 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 120 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_term_Clean(((*yyvaluep).term)); }
-#line 1323 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1324 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 32: /* NUMBER  */
-#line 119 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 120 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_term_Clean(((*yyvaluep).term)); }
-#line 1329 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1330 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 33: /* URI  */
-#line 171 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 172 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { free(((*yyvaluep).string)); }
-#line 1335 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1336 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 34: /* FUNCTION  */
-#line 171 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 172 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { free(((*yyvaluep).string)); }
-#line 1341 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1342 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 35: /* UNICODERANGE  */
-#line 171 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 172 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { free(((*yyvaluep).string)); }
-#line 1347 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1348 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 56: /* charset  */
-#line 134 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 135 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_rules_Delete(((*yyvaluep).rule)); }
-#line 1353 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1354 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 57: /* ignored_charset  */
-#line 134 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 135 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_rules_Delete(((*yyvaluep).rule)); }
-#line 1359 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1360 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 59: /* valid_rule  */
-#line 134 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 135 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_rules_Delete(((*yyvaluep).rule)); }
-#line 1365 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1366 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 60: /* rule  */
-#line 134 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 135 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_rules_Delete(((*yyvaluep).rule)); }
-#line 1371 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1372 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 61: /* font_face  */
-#line 134 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 135 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_rules_Delete(((*yyvaluep).rule)); }
-#line 1377 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1378 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 65: /* ruleset  */
-#line 134 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 135 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_rules_Delete(((*yyvaluep).rule)); }
-#line 1383 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1384 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 66: /* selector_list  */
-#line 148 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 149 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_selectors_Delete(((*yyvaluep).selectorList)); }
-#line 1389 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1390 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 67: /* selector_with_trailing_whitespace  */
-#line 148 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 149 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_selectors_Delete(((*yyvaluep).selector)); }
-#line 1395 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1396 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 68: /* selector  */
-#line 148 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 149 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_selectors_Delete(((*yyvaluep).selector)); }
-#line 1401 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1402 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 69: /* simple_selector  */
-#line 148 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 149 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_selectors_Delete(((*yyvaluep).selector)); }
-#line 1407 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1408 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 70: /* element_name  */
-#line 171 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 172 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { free(((*yyvaluep).string)); }
-#line 1413 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1414 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 71: /* specifier_list  */
-#line 148 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 149 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_selectors_Delete(((*yyvaluep).selector)); }
-#line 1419 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1420 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 72: /* specifier  */
-#line 148 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 149 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_selectors_Delete(((*yyvaluep).selector)); }
-#line 1425 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1426 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 73: /* class  */
-#line 148 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 149 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_selectors_Delete(((*yyvaluep).selector)); }
-#line 1431 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1432 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 74: /* attr_name  */
-#line 171 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 172 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { free(((*yyvaluep).string)); }
-#line 1437 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1438 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 75: /* attrib  */
-#line 148 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 149 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_selectors_Delete(((*yyvaluep).selector)); }
-#line 1443 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1444 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 77: /* ident_or_string  */
-#line 171 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 172 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { free(((*yyvaluep).string)); }
-#line 1449 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1450 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 78: /* pseudo  */
-#line 148 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 149 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_selectors_Delete(((*yyvaluep).selector)); }
-#line 1455 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1456 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 79: /* declaration_list  */
-#line 153 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 154 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_declarations_Delete(((*yyvaluep).declarationList)); }
-#line 1461 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1462 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 80: /* decl_list  */
-#line 153 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 154 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_declarations_Delete(((*yyvaluep).declarationList)); }
-#line 1467 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1468 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 81: /* declaration  */
-#line 153 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 154 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_declarations_Delete(((*yyvaluep).declaration)); }
-#line 1473 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1474 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 82: /* property  */
-#line 171 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 172 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { free(((*yyvaluep).string)); }
-#line 1479 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1480 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 84: /* expr  */
-#line 166 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 167 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_expression_Delete(((*yyvaluep).expr)); }
-#line 1485 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1486 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 86: /* term  */
-#line 119 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 120 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_term_Clean(((*yyvaluep).term)); }
-#line 1491 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1492 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 87: /* unary_term  */
-#line 119 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 120 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_term_Clean(((*yyvaluep).term)); }
-#line 1497 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1498 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 88: /* function  */
-#line 119 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 120 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_term_Clean(((*yyvaluep).term)); }
-#line 1503 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1504 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
     case 89: /* invalid_rule  */
-#line 134 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
+#line 135 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1257  */
       { vlc_css_rules_Delete(((*yyvaluep).rule)); }
-#line 1509 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
+#line 1510 "codec/webvtt/CSSGrammar.c" /* yacc.c:1257  */
         break;
 
 
@@ -1771,144 +1772,144 @@ yyreduce:
   switch (yyn)
     {
         case 9:
-#line 192 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 193 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
     vlc_css_rules_Delete((yyvsp[0].rule));
   }
-#line 1779 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1780 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 12:
-#line 203 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 204 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
       free( (yyvsp[-2].string) );
       (yyval.rule) = 0;
   }
-#line 1788 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1789 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 13:
-#line 207 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 208 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
       (yyval.rule) = 0;
   }
-#line 1796 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1797 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 14:
-#line 210 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 211 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
       (yyval.rule) = 0;
   }
-#line 1804 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1805 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 15:
-#line 216 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 217 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         // Ignore any @charset rule not at the beginning of the style sheet.
         free( (yyvsp[-2].string) );
         (yyval.rule) = 0;
     }
-#line 1814 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1815 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 16:
-#line 221 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 222 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.rule) = 0;
     }
-#line 1822 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1823 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 18:
-#line 228 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 229 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
      if( (yyvsp[-1].rule) )
          vlc_css_parser_AddRule( css_parser, (yyvsp[-1].rule) );
  }
-#line 1831 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1832 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 21:
-#line 240 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 241 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.rule) = (yyvsp[0].rule);
         if((yyval.rule))
             (yyval.rule)->b_valid = true;
     }
-#line 1841 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1842 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 24:
-#line 251 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 252 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         vlc_css_declarations_Delete( (yyvsp[-1].declarationList) );
         (yyval.rule) = NULL;
     }
-#line 1850 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1851 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 25:
-#line 255 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 256 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.rule) = NULL;
     }
-#line 1858 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1859 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 26:
-#line 258 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 259 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.rule) = NULL;
     }
-#line 1866 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1867 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 27:
-#line 264 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 265 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { (yyval.relation) = RELATION_DIRECTADJACENT; }
-#line 1872 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1873 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 28:
-#line 265 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 266 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { (yyval.relation) = RELATION_INDIRECTADJACENT; }
-#line 1878 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1879 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 29:
-#line 266 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 267 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { (yyval.relation) = RELATION_CHILD; }
-#line 1884 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1885 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 30:
-#line 270 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 271 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { (yyval.integer) = (yyvsp[0].integer); }
-#line 1890 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1891 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 31:
-#line 271 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 272 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { (yyval.integer) = 1; }
-#line 1896 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1897 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 32:
-#line 275 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 276 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { (yyval.integer) = -1; }
-#line 1902 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1903 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 33:
-#line 276 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 277 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { (yyval.integer) = 1; }
-#line 1908 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1909 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 34:
-#line 280 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 281 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.rule) = vlc_css_rule_New();
         if((yyval.rule))
@@ -1917,21 +1918,21 @@ yyreduce:
             (yyval.rule)->p_declarations = (yyvsp[-1].declarationList);
         }
     }
-#line 1921 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1922 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 35:
-#line 291 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 292 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         if ((yyvsp[0].selector)) {
             (yyval.selectorList) = (yyvsp[0].selector);
         }
     }
-#line 1931 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1932 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 36:
-#line 296 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 297 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         if ((yyvsp[-3].selectorList) && (yyvsp[0].selector) )
         {
@@ -1945,44 +1946,44 @@ yyreduce:
             (yyval.selectorList) = NULL;
         }
     }
-#line 1949 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1950 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 37:
-#line 309 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 310 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         vlc_css_selectors_Delete( (yyvsp[-1].selectorList) );
         (yyval.selectorList) = NULL;
     }
-#line 1958 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1959 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 38:
-#line 316 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 317 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.selector) = (yyvsp[-1].selector);
     }
-#line 1966 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1967 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 39:
-#line 322 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 323 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.selector) = (yyvsp[0].selector);
     }
-#line 1974 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1975 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 40:
-#line 326 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 327 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.selector) = (yyvsp[0].selector);
     }
-#line 1982 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1983 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 41:
-#line 330 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 331 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.selector) = (yyvsp[-1].selector);
         if ((yyval.selector))
@@ -1992,11 +1993,11 @@ yyreduce:
         }
         else (yyval.selector) = (yyvsp[0].selector);
     }
-#line 1996 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 1997 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 42:
-#line 339 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 340 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.selector) = (yyvsp[-2].selector);
         if ((yyval.selector))
@@ -2006,29 +2007,29 @@ yyreduce:
         }
         else (yyval.selector) = (yyvsp[0].selector);
     }
-#line 2010 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2011 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 43:
-#line 348 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 349 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         vlc_css_selectors_Delete( (yyvsp[-1].selector) );
         (yyval.selector) = NULL;
     }
-#line 2019 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2020 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 44:
-#line 355 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 356 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.selector) = vlc_css_selector_New( SELECTOR_SIMPLE, (yyvsp[0].string) );
         free( (yyvsp[0].string) );
     }
-#line 2028 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2029 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 45:
-#line 359 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 360 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.selector) = vlc_css_selector_New( SELECTOR_SIMPLE, (yyvsp[-1].string) );
         if( (yyval.selector) && (yyvsp[0].selector) )
@@ -2041,33 +2042,33 @@ yyreduce:
         }
         free( (yyvsp[-1].string) );
     }
-#line 2045 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2046 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 46:
-#line 371 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 372 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.selector) = (yyvsp[0].selector);
     }
-#line 2053 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2054 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 48:
-#line 378 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 379 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { (yyval.string) = strdup("*"); }
-#line 2059 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2060 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 49:
-#line 382 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 383 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.selector) = (yyvsp[0].selector);
     }
-#line 2067 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2068 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 50:
-#line 385 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 386 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         if( (yyvsp[-1].selector) )
         {
@@ -2078,29 +2079,29 @@ yyreduce:
         }
         else (yyval.selector) = (yyvsp[0].selector);
     }
-#line 2082 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2083 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 51:
-#line 395 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 396 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         vlc_css_selectors_Delete( (yyvsp[-1].selector) );
         (yyval.selector) = NULL;
     }
-#line 2091 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2092 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 52:
-#line 402 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 403 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.selector) = vlc_css_selector_New( SPECIFIER_ID, (yyvsp[0].string) );
         free( (yyvsp[0].string) );
     }
-#line 2100 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2101 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 53:
-#line 407 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 408 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         if ((yyvsp[0].string)[0] >= '0' && (yyvsp[0].string)[0] <= '9') {
             (yyval.selector) = NULL;
@@ -2109,37 +2110,37 @@ yyreduce:
         }
         free( (yyvsp[0].string) );
     }
-#line 2113 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2114 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 57:
-#line 421 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 422 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.selector) = vlc_css_selector_New( SPECIFIER_CLASS, (yyvsp[0].string) );
         free( (yyvsp[0].string) );
     }
-#line 2122 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2123 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 58:
-#line 428 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 429 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.string) = (yyvsp[-1].string);
     }
-#line 2130 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2131 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 59:
-#line 434 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 435 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.selector) = vlc_css_selector_New( SPECIFIER_ATTRIB, (yyvsp[-1].string) );
         free( (yyvsp[-1].string) );
     }
-#line 2139 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2140 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 60:
-#line 438 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 439 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.selector) = vlc_css_selector_New( SPECIFIER_ATTRIB, (yyvsp[-5].string) );
         if( (yyval.selector) )
@@ -2150,77 +2151,77 @@ yyreduce:
         free( (yyvsp[-5].string) );
         free( (yyvsp[-2].string) );
     }
-#line 2154 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2155 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 61:
-#line 451 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 452 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.integer) = MATCH_EQUALS;
     }
-#line 2162 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2163 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 62:
-#line 454 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 455 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.integer) = MATCH_INCLUDES;
     }
-#line 2170 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2171 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 63:
-#line 457 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 458 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.integer) = MATCH_DASHMATCH;
     }
-#line 2178 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2179 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 64:
-#line 460 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 461 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.integer) = MATCH_BEGINSWITH;
     }
-#line 2186 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2187 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 65:
-#line 463 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 464 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.integer) = MATCH_ENDSWITH;
     }
-#line 2194 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2195 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 66:
-#line 466 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 467 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.integer) = MATCH_CONTAINS;
     }
-#line 2202 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2203 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 69:
-#line 477 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 478 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.selector) = vlc_css_selector_New( SELECTOR_PSEUDOCLASS, (yyvsp[0].string) );
         free( (yyvsp[0].string) );
     }
-#line 2211 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2212 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 70:
-#line 481 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 482 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.selector) = vlc_css_selector_New( SELECTOR_PSEUDOELEMENT, (yyvsp[0].string) );
         free( (yyvsp[0].string) );
     }
-#line 2220 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2221 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 71:
-#line 486 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 487 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         if(*(yyvsp[-5].string) != 0)
             (yyvsp[-5].string)[strlen((yyvsp[-5].string)) - 1] = 0;
@@ -2229,11 +2230,11 @@ yyreduce:
         free( (yyvsp[-5].string) );
         vlc_css_term_Clean( (yyvsp[-2].term) );
     }
-#line 2233 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2234 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 72:
-#line 495 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 496 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         if(*(yyvsp[-4].string) != 0)
             (yyvsp[-4].string)[strlen((yyvsp[-4].string)) - 1] = 0;
@@ -2247,11 +2248,11 @@ yyreduce:
         else
             vlc_css_selectors_Delete( (yyvsp[-2].selector) );
     }
-#line 2251 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2252 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 73:
-#line 509 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 510 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         if(*(yyvsp[-4].string) != 0)
             (yyvsp[-4].string)[strlen((yyvsp[-4].string)) - 1] = 0;
@@ -2259,111 +2260,111 @@ yyreduce:
         free( (yyvsp[-4].string) );
         free( (yyvsp[-2].string) );
     }
-#line 2263 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2264 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 74:
-#line 519 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 520 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.declarationList) = (yyvsp[0].declaration);
     }
-#line 2271 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2272 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 75:
-#line 522 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 523 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.declarationList) = (yyvsp[-1].declarationList);
         if( (yyval.declarationList) )
             vlc_css_declarations_Append( (yyval.declarationList), (yyvsp[0].declaration) );
     }
-#line 2281 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2282 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 76:
-#line 527 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 528 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.declarationList) = (yyvsp[0].declarationList);
     }
-#line 2289 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2290 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 77:
-#line 530 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 531 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.declarationList) = NULL;
     }
-#line 2297 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2298 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 78:
-#line 533 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 534 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.declarationList) = NULL;
     }
-#line 2305 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2306 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 79:
-#line 536 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 537 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.declarationList) = (yyvsp[-1].declarationList);
     }
-#line 2313 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2314 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 80:
-#line 539 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 540 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.declarationList) = (yyvsp[-1].declarationList);
     }
-#line 2321 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2322 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 81:
-#line 545 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 546 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.declarationList) = (yyvsp[-2].declaration);
     }
-#line 2329 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2330 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 82:
-#line 548 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 549 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         vlc_css_declarations_Delete( (yyvsp[-2].declaration) );
         (yyval.declarationList) = NULL;
     }
-#line 2338 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2339 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 83:
-#line 552 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 553 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         vlc_css_declarations_Delete( (yyvsp[-3].declaration) );
         (yyval.declarationList) = NULL;
     }
-#line 2347 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2348 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 84:
-#line 556 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 557 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.declarationList) = NULL;
     }
-#line 2355 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2356 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 85:
-#line 559 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 560 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.declarationList) = NULL;
     }
-#line 2363 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2364 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 86:
-#line 562 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 563 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         if( (yyvsp[-3].declarationList) )
         {
@@ -2372,27 +2373,27 @@ yyreduce:
         }
         else (yyval.declarationList) = (yyvsp[-2].declaration);
     }
-#line 2376 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2377 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 87:
-#line 570 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 571 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.declarationList) = (yyvsp[-3].declarationList);
     }
-#line 2384 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2385 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 88:
-#line 573 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 574 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.declarationList) = (yyvsp[-5].declarationList);
     }
-#line 2392 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2393 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 89:
-#line 579 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 580 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.declaration) = vlc_css_declaration_New( (yyvsp[-4].string) );
         if( (yyval.declaration) )
@@ -2401,20 +2402,20 @@ yyreduce:
             vlc_css_expression_Delete( (yyvsp[-1].expr) );
         free( (yyvsp[-4].string) );
     }
-#line 2405 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2406 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 90:
-#line 588 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 589 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         free( (yyvsp[-1].string) );
         (yyval.declaration) = NULL;
     }
-#line 2414 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2415 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 91:
-#line 593 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 594 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         free( (yyvsp[-5].string) );
         vlc_css_expression_Delete( (yyvsp[-1].expr) );
@@ -2423,286 +2424,286 @@ yyreduce:
         up and deleting the shifted expr.  */
         (yyval.declaration) = NULL;
     }
-#line 2427 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2428 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 92:
-#line 602 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 603 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         free( (yyvsp[-5].string) );
         vlc_css_expression_Delete( (yyvsp[-2].expr) );
         /* When we encounter something like p {color: red !important fail;} we should drop the declaration */
         (yyval.declaration) = NULL;
     }
-#line 2438 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2439 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 93:
-#line 609 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 610 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         /* Handle this case: div { text-align: center; !important } Just reduce away the stray !important. */
         (yyval.declaration) = NULL;
     }
-#line 2447 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2448 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 94:
-#line 614 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 615 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         free( (yyvsp[-2].string) );
         /* div { font-family: } Just reduce away this property with no value. */
         (yyval.declaration) = NULL;
     }
-#line 2457 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2458 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 95:
-#line 620 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 621 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         free( (yyvsp[-3].string) );
         /* if we come across rules with invalid values like this case: p { weight: *; }, just discard the rule */
         (yyval.declaration) = NULL;
     }
-#line 2467 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2468 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 96:
-#line 626 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 627 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         /* if we come across: div { color{;color:maroon} }, ignore everything within curly brackets */
         free( (yyvsp[-1].string) );
         (yyval.declaration) = NULL;
     }
-#line 2477 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2478 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 97:
-#line 634 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 635 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.string) = (yyvsp[-1].string);
     }
-#line 2485 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2486 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 98:
-#line 640 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 641 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { (yyval.boolean) = true; }
-#line 2491 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2492 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 99:
-#line 641 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 642 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { (yyval.boolean) = false; }
-#line 2497 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2498 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 100:
-#line 645 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 646 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.expr) = vlc_css_expression_New( (yyvsp[0].term) );
         if( !(yyval.expr) )
             vlc_css_term_Clean( (yyvsp[0].term) );
     }
-#line 2507 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2508 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 101:
-#line 650 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 651 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.expr) = (yyvsp[-2].expr);
         if( !(yyvsp[-2].expr) || !vlc_css_expression_AddTerm((yyvsp[-2].expr), (yyvsp[-1].character), (yyvsp[0].term)) )
             vlc_css_term_Clean( (yyvsp[0].term) );
     }
-#line 2517 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2518 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 102:
-#line 655 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 656 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         vlc_css_expression_Delete( (yyvsp[-1].expr) );
         (yyval.expr) = NULL;
     }
-#line 2526 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2527 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 103:
-#line 659 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 660 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         vlc_css_expression_Delete( (yyvsp[-2].expr) );
         (yyval.expr) = NULL;
     }
-#line 2535 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2536 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 104:
-#line 663 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 664 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         vlc_css_expression_Delete( (yyvsp[-1].expr) );
         (yyval.expr) = NULL;
     }
-#line 2544 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2545 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 105:
-#line 670 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 671 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.character) = '/';
     }
-#line 2552 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2553 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 106:
-#line 673 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 674 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.character) = ',';
     }
-#line 2560 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2561 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 107:
-#line 676 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 677 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.character) = 0;
   }
-#line 2568 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2569 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 108:
-#line 682 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 683 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { (yyval.term) = (yyvsp[0].term); }
-#line 2574 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2575 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 109:
-#line 683 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 684 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
       (yyval.term) = (yyvsp[0].term);
       (yyval.term).val *= (yyvsp[-1].integer);
   }
-#line 2583 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2584 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 110:
-#line 687 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 688 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { (yyval.term).type = TYPE_STRING; (yyval.term).psz = (yyvsp[-1].string); }
-#line 2589 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2590 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 111:
-#line 688 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 689 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { (yyval.term).type = TYPE_IDENTIFIER; (yyval.term).psz = (yyvsp[-1].string); }
-#line 2595 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2596 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 112:
-#line 690 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 691 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { (yyval.term) = (yyvsp[-1].term); }
-#line 2601 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2602 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 113:
-#line 691 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 692 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { (yyval.term) = (yyvsp[-1].term); }
-#line 2607 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2608 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 114:
-#line 692 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 693 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { (yyval.term).type = TYPE_URI; (yyval.term).psz = (yyvsp[-1].string); }
-#line 2613 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2614 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 115:
-#line 693 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 694 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { (yyval.term).type = TYPE_UNICODERANGE; (yyval.term).psz = (yyvsp[-1].string); }
-#line 2619 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2620 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 116:
-#line 694 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 695 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { (yyval.term).type = TYPE_HEXCOLOR; (yyval.term).psz = (yyvsp[-1].string); }
-#line 2625 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2626 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 117:
-#line 695 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 696 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { (yyval.term).type = TYPE_HEXCOLOR; (yyval.term).psz = (yyvsp[-1].string); }
-#line 2631 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2632 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 118:
-#line 696 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 697 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { (yyval.term).type = TYPE_HEXCOLOR; (yyval.term).psz = NULL; }
-#line 2637 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2638 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 119:
-#line 698 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 699 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
       (yyval.term) = (yyvsp[0].term);
   }
-#line 2645 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2646 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 120:
-#line 701 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 702 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     { /* Handle width: %; */
       (yyval.term).type = TYPE_PERCENT; (yyval.term).val = 0;
   }
-#line 2653 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2654 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 127:
-#line 716 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 717 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.term).type = TYPE_FUNCTION; (yyval.term).function = (yyvsp[-2].expr);
         (yyval.term).psz = (yyvsp[-4].string);
         if(*(yyval.term).psz != 0)
             (yyval.term).psz[strlen((yyval.term).psz) - 1] = 0;
     }
-#line 2664 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2665 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 128:
-#line 722 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 723 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.term).type = TYPE_FUNCTION; (yyval.term).function = (yyvsp[-1].expr); (yyval.term).psz = (yyvsp[-3].string);
         if(*(yyval.term).psz != 0)
             (yyval.term).psz[strlen((yyval.term).psz) - 1] = 0;
     }
-#line 2674 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2675 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 129:
-#line 727 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 728 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.term).type = TYPE_FUNCTION; (yyval.term).function = NULL; (yyval.term).psz = (yyvsp[-3].string);
         if(*(yyval.term).psz != 0)
             (yyval.term).psz[strlen((yyval.term).psz) - 1] = 0;
     }
-#line 2684 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2685 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 130:
-#line 732 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 733 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.term).type = TYPE_FUNCTION; (yyval.term).function = NULL; (yyval.term).psz = (yyvsp[-2].string);
         if(*(yyval.term).psz != 0)
             (yyval.term).psz[strlen((yyval.term).psz) - 1] = 0;
   }
-#line 2694 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2695 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
   case 131:
-#line 742 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
+#line 743 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1661  */
     {
         (yyval.rule) = NULL;
     }
-#line 2702 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2703 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
     break;
 
 
-#line 2706 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
+#line 2707 "codec/webvtt/CSSGrammar.c" /* yacc.c:1661  */
       default: break;
     }
   /* User semantic actions sometimes alter yychar, and that requires
@@ -2930,7 +2931,7 @@ yyreturn:
 #endif
   return yyresult;
 }
-#line 769 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1906  */
+#line 770 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSGrammar.y" /* yacc.c:1906  */
 
 
 #ifdef YYDEBUG

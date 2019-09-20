@@ -82,6 +82,8 @@ static filter_chain_t *filter_chain_NewInner( const filter_owner_t *callbacks,
     chain->callbacks = *callbacks;
     if( owner != NULL )
         chain->owner = *owner;
+    else
+        memset(&chain->owner, 0, sizeof(chain->owner));
     chain->first = NULL;
     chain->last = NULL;
     es_format_Init( &chain->fmt_in, cat, 0 );
@@ -92,18 +94,17 @@ static filter_chain_t *filter_chain_NewInner( const filter_owner_t *callbacks,
     return chain;
 }
 
-#undef filter_chain_New
+#undef filter_chain_NewSPU
 /**
  * Filter chain initialisation
  */
-filter_chain_t *filter_chain_New( vlc_object_t *obj, const char *cap,
-                                  enum es_format_category_e cat )
+filter_chain_t *filter_chain_NewSPU( vlc_object_t *obj, const char *cap )
 {
     filter_owner_t callbacks = {
         .sys = obj,
     };
 
-    return filter_chain_NewInner( &callbacks, cap, NULL, false, NULL, cat );
+    return filter_chain_NewInner( &callbacks, cap, NULL, false, NULL, SPU_ES );
 }
 
 /** Chained filter picture allocator function */
@@ -130,7 +131,7 @@ static picture_t *filter_chain_VideoBufferNew( filter_t *filter )
 
 static const struct filter_video_callbacks filter_chain_video_cbs =
 {
-    .buffer_new = filter_chain_VideoBufferNew,
+    filter_chain_VideoBufferNew,
 };
 
 #undef filter_chain_NewVideo
@@ -263,7 +264,7 @@ error:
         msg_Err( parent, "Failed to create %s", capability );
     es_format_Clean( &filter->fmt_out );
     es_format_Clean( &filter->fmt_in );
-    vlc_object_release( filter );
+    vlc_object_delete(filter);
     return NULL;
 }
 
@@ -313,7 +314,7 @@ void filter_chain_DeleteFilter( filter_chain_t *chain, filter_t *filter )
     es_format_Clean( &filter->fmt_out );
     es_format_Clean( &filter->fmt_in );
 
-    vlc_object_release( filter );
+    vlc_object_delete(filter);
     /* FIXME: check fmt_in/fmt_out consitency */
 }
 
@@ -381,9 +382,8 @@ bool filter_chain_IsEmpty(const filter_chain_t *chain)
     return chain->first == NULL;
 }
 
-const es_format_t *filter_chain_GetFmtOut( filter_chain_t *p_chain )
+const es_format_t *filter_chain_GetFmtOut( const filter_chain_t *p_chain )
 {
-
     if( p_chain->b_allow_fmt_out_change )
         return &p_chain->fmt_out;
 
@@ -497,26 +497,6 @@ int filter_chain_MouseFilter( filter_chain_t *p_chain, vlc_mouse_t *p_dst, const
     }
 
     *p_dst = current;
-    return VLC_SUCCESS;
-}
-
-int filter_chain_MouseEvent( filter_chain_t *p_chain,
-                             const vlc_mouse_t *p_mouse,
-                             const video_format_t *p_fmt )
-{
-    for( chained_filter_t *f = p_chain->first; f != NULL; f = f->next )
-    {
-        filter_t *p_filter = &f->filter;
-
-        if( p_filter->pf_sub_mouse )
-        {
-            vlc_mouse_t old = *f->mouse;
-            *f->mouse = *p_mouse;
-            if( p_filter->pf_sub_mouse( p_filter, &old, p_mouse, p_fmt ) )
-                return VLC_EGENERIC;
-        }
-    }
-
     return VLC_SUCCESS;
 }
 

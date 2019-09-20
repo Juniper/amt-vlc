@@ -3,7 +3,6 @@
  * Also contains some internal utility functions
  *****************************************************************************
  * Copyright (C) 2005-2009 VLC authors and VideoLAN
- * $Id: 5a67e9ff603322f34cf9b13bfcf4c9be4113d947 $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *
@@ -55,5 +54,6 @@ libvlc_media_t * libvlc_media_new_from_input_item(
         libvlc_instance_t *, input_item_t * );
 
 void libvlc_media_set_state( libvlc_media_t *, libvlc_state_t );
+void libvlc_media_add_subtree(libvlc_media_t *, input_item_node_t *);
 
 #endif

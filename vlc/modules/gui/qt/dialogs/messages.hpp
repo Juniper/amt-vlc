@@ -2,7 +2,6 @@
  * messages.hpp : Information about a stream
  ****************************************************************************
  * Copyright (C) 2006-2007 the VideoLAN team
- * $Id: 0491a8f158871850c6664da453a570aa450b4922 $
  *
  * Authors: Jean-Baptiste Kempf <jb (at) videolan.org>
  *
@@ -26,7 +25,7 @@
 
 #include "util/qvlcframe.hpp"
 #include "util/singleton.hpp"
-#include "ui/messages_panel.h"
+#include "ui_messages_panel.h"
 #include <stdarg.h>
 #include <QMutex>
 #include <QAtomicInt>

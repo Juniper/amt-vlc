@@ -2,7 +2,6 @@
  * access.c
  *****************************************************************************
  * Copyright (C) 1999-2008 VLC authors and VideoLAN
- * $Id: 9a34898f8311c23161baf08b4b9f119ffcfd6f2e $
  *
  * Author: Laurent Aimar <fenrir _AT_ videolan _DOT_ org>
  *
@@ -81,8 +80,8 @@ static stream_t *accessNewAttachment(vlc_object_t *parent,
     if (!input)
         return NULL;
 
-    input_attachment_t *attachment;
-    if (input_Control(input, INPUT_GET_ATTACHMENT, &attachment, mrl + 13))
+    input_attachment_t *attachment = input_GetAttachment(input, mrl + 13);
+    if (!attachment)
         return NULL;
     stream_t *stream = vlc_stream_AttachmentNew(parent, attachment);
     if (!stream)
@@ -314,6 +313,12 @@ stream_t *stream_AccessNew(vlc_object_t *parent, input_thread_t *input,
 
         s->p_input_item = input ? input_GetItem(input) : NULL;
         s->psz_url = strdup(access->psz_url);
+        if (unlikely(s->psz_url == NULL))
+        {
+            vlc_object_delete(s);
+            vlc_stream_Delete(access);
+            return NULL;
+        }
 
         if (access->pf_block != NULL)
             s->pf_block = AStreamReadBlock;

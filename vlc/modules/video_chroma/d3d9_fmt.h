@@ -38,14 +38,14 @@ typedef struct
     /* decoder only */
     IDirectXVideoDecoder *decoder; /* keep a reference while the surface exist */
     HINSTANCE            dxva2_dll;
-} picture_sys_t;
+} picture_sys_d3d9_t;
 
 typedef struct
 {
     HINSTANCE               hdll;       /* handle of the opened d3d9 dll */
     union {
-        LPDIRECT3D9         obj;
-        LPDIRECT3D9EX       objex;
+        IDirect3D9          *obj;
+        IDirect3D9Ex        *objex;
     };
     bool                    use_ex;
 } d3d9_handle_t;
@@ -55,27 +55,30 @@ typedef struct
     /* d3d9_handle_t           hd3d; TODO */
     union
     {
-        LPDIRECT3DDEVICE9   dev;
-        LPDIRECT3DDEVICE9EX devex;
+        IDirect3DDevice9    *dev;
+        IDirect3DDevice9Ex  *devex;
     };
     bool                    owner;
 
     /* creation parameters */
-    D3DPRESENT_PARAMETERS   pp;
+    D3DFORMAT               BufferFormat;
     UINT                    adapterId;
-    HWND                    hwnd;
     D3DCAPS9                caps;
 } d3d9_device_t;
 
-#include "../codec/avcodec/va_surface.h"
-
-static inline picture_sys_t *ActivePictureSys(picture_t *p_pic)
+static inline bool is_d3d9_opaque(vlc_fourcc_t chroma)
 {
-    struct va_pic_context *pic_ctx = (struct va_pic_context*)p_pic->context;
-    return pic_ctx ? &pic_ctx->picsys : p_pic->p_sys;
+    switch (chroma)
+    {
+    case VLC_CODEC_D3D9_OPAQUE:
+    case VLC_CODEC_D3D9_OPAQUE_10B:
+        return true;
+    default:
+        return false;
+    }
 }
 
-static inline void AcquirePictureSys(picture_sys_t *p_sys)
+static inline void AcquireD3D9PictureSys(picture_sys_d3d9_t *p_sys)
 {
     IDirect3DSurface9_AddRef(p_sys->surface);
     if (p_sys->decoder)
@@ -83,7 +86,7 @@ static inline void AcquirePictureSys(picture_sys_t *p_sys)
     p_sys->dxva2_dll = LoadLibrary(TEXT("DXVA2.DLL"));
 }
 
-static inline void ReleasePictureSys(picture_sys_t *p_sys)
+static inline void ReleaseD3D9PictureSys(picture_sys_d3d9_t *p_sys)
 {
     IDirect3DSurface9_Release(p_sys->surface);
     if (p_sys->decoder)
@@ -91,16 +94,20 @@ static inline void ReleasePictureSys(picture_sys_t *p_sys)
     FreeLibrary(p_sys->dxva2_dll);
 }
 
-HRESULT D3D9_CreateDevice(vlc_object_t *, d3d9_handle_t *, HWND,
-                          const video_format_t *, d3d9_device_t *out);
-#define D3D9_CreateDevice(a,b,c,d,e) D3D9_CreateDevice( VLC_OBJECT(a), b, c, d, e )
+HRESULT D3D9_CreateDevice(vlc_object_t *, d3d9_handle_t *, int,
+                          d3d9_device_t *out);
+#define D3D9_CreateDevice(a,b,c,d) D3D9_CreateDevice( VLC_OBJECT(a), b, c, d )
+HRESULT D3D9_CreateDeviceExternal(IDirect3DDevice9 *, d3d9_handle_t *,
+                                  d3d9_device_t *out);
 
 void D3D9_ReleaseDevice(d3d9_device_t *);
 int D3D9_Create(vlc_object_t *, d3d9_handle_t *);
 #define D3D9_Create(a,b) D3D9_Create( VLC_OBJECT(a), b )
+int D3D9_CreateExternal(d3d9_handle_t *, IDirect3DDevice9 *);
+void D3D9_CloneExternal(d3d9_handle_t *, IDirect3D9 *);
 
 void D3D9_Destroy(d3d9_handle_t *);
 
-int D3D9_FillPresentationParameters(d3d9_handle_t *, const video_format_t *, d3d9_device_t *);
+int D3D9_FillPresentationParameters(d3d9_handle_t *, const d3d9_device_t *, D3DPRESENT_PARAMETERS *);
 
 #endif /* VLC_VIDEOCHROMA_D3D9_FMT_H_ */

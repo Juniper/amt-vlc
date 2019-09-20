@@ -2,7 +2,6 @@
  * record.c
  *****************************************************************************
  * Copyright (C) 2008 Laurent Aimar
- * $Id: 3563663cb83475396d42e60d72662e1d1cdd2a2e $
  *
  * Author: Laurent Aimar <fenrir _AT_ videolan _DOT_ org>
  *
@@ -33,7 +32,7 @@
 
 #include <assert.h>
 #include <vlc_stream.h>
-#include <vlc_input.h>
+#include <vlc_input_item.h>
 #include <vlc_fs.h>
 
 
@@ -180,8 +179,8 @@ static int Start( stream_t *s, const char *psz_extension )
 
     /* Create file name
      * TODO allow prefix configuration */
-    psz_file = input_CreateFilename( NULL, s->p_input_item, psz_path,
-                                     INPUT_RECORD_PREFIX, psz_extension );
+    psz_file = input_item_CreateFilename( s->p_input_item, psz_path,
+                                          INPUT_RECORD_PREFIX, psz_extension );
 
     free( psz_path );
 
@@ -196,7 +195,7 @@ static int Start( stream_t *s, const char *psz_extension )
     }
 
     /* signal new record file */
-    var_SetString( s->obj.libvlc, "record-file", psz_file );
+    var_SetString( vlc_object_instance(s), "record-file", psz_file );
 
     msg_Dbg( s, "Recording into %s", psz_file );
     free( psz_file );

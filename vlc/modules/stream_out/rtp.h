@@ -2,7 +2,6 @@
  * rtp.h: rtp stream output module header
  *****************************************************************************
  * Copyright (C) 2003-2007 VLC authors and VideoLAN
- * $Id: 6808fa871f4aafc42e4f6f13084fbaae196ed3f1 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Rémi Denis-Courmont
@@ -101,8 +100,8 @@ void CloseVoD( vlc_object_t * );
 int vod_check_range(vod_media_t *p_media, const char *psz_session,
                     vlc_tick_t start, vlc_tick_t end);
 void vod_play(vod_media_t *p_media, const char *psz_session,
-              int64_t *start, int64_t end);
-void vod_pause(vod_media_t *p_media, const char *psz_session, int64_t *npt);
+              vlc_tick_t *start, vlc_tick_t end);
+void vod_pause(vod_media_t *p_media, const char *psz_session, vlc_tick_t *npt);
 void vod_stop(vod_media_t *p_media, const char *psz_session);
 
 const char *vod_get_mux(const vod_media_t *p_media);

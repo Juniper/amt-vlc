@@ -2,7 +2,6 @@
  * open.hpp : advanced open dialog
  ****************************************************************************
  * Copyright (C) 2006-2007 the VideoLAN team
- * $Id: a4f623b1b586fbdf3ba922efdd74b470c4570dc1 $
  *
  * Authors: Jean-Baptiste Kempf <jb@videolan.org>
  *
@@ -32,7 +31,7 @@
 #include <vlc_url.h>
 
 #include "util/qvlcframe.hpp"
-#include "ui/open.h"
+#include "ui_open.h"
 #include "components/open_panels.hpp"
 
 enum {
@@ -87,7 +86,6 @@ private:
     virtual ~OpenDialog();
 
     static OpenDialog *instance;
-    input_thread_t *p_input;
 
     QString optionsMRL;
     QString storedMethod;

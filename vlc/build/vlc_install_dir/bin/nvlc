@@ -1,2 +1,2 @@
 #! /bin/sh
-exec /Users/nlandsberg/Desktop/development/vlc/build/vlc_install_dir/bin/vlc -I "ncurses" "$@"
+exec /Users/nlandsberg/vlc/build/vlc_install_dir/bin/vlc -I "ncurses" "$@"

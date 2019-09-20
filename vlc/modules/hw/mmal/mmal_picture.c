@@ -2,7 +2,6 @@
  * mmal_picture.c: MMAL picture related shared functionality
  *****************************************************************************
  * Copyright © 2014 jusst technologies GmbH
- * $Id: 7ddd5b566c205479abb7db3a9f364fb07c3d11ac $
  *
  * Authors: Julian Scheel <julian@jusst.de>
  *

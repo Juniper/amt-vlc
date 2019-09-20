@@ -2,7 +2,6 @@
  * smf.c : Standard MIDI File (.mid) demux module for vlc
  *****************************************************************************
  * Copyright © 2007 Rémi Denis-Courmont
- * $Id: 58cb75b446c6de6d15a416f277534d00861488c0 $
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published by
@@ -234,10 +233,8 @@ int HandleMeta (demux_t *p_demux, mtrk_t *tr)
             break;
 
         case 0x59: /* Key signature */
-            if (length == 2)
-                ;
-            else
-                ret = -1;
+            if (length != 2)
+                msg_Warn(p_demux, "invalid key signature");
             break;
 
         case 0x7f: /* Proprietary event */
@@ -261,7 +258,7 @@ int HandleMessage (demux_t *p_demux, mtrk_t *tr, es_out_t *out)
     demux_sys_t *sys = p_demux->p_sys;
     block_t *block;
     uint8_t first, event;
-    unsigned datalen;
+    int datalen;
 
     if (vlc_stream_Seek (s, tr->start + tr->offset)
      || (vlc_stream_Read (s, &first, 1) != 1))
@@ -517,13 +514,13 @@ static int Control (demux_t *demux, int i_query, va_list args)
         case DEMUX_SET_POSITION:
             return Seek (demux, va_arg (args, double) * sys->duration);
         case DEMUX_GET_LENGTH:
-            *va_arg (args, int64_t *) = sys->duration;
+            *va_arg (args, vlc_tick_t *) = sys->duration;
             break;
         case DEMUX_GET_TIME:
-            *va_arg (args, int64_t *) = sys->tick - VLC_TICK_0;
+            *va_arg (args, vlc_tick_t *) = sys->tick - VLC_TICK_0;
             break;
         case DEMUX_SET_TIME:
-            return Seek (demux, va_arg (args, int64_t));
+            return Seek (demux, va_arg (args, vlc_tick_t));
 
         case DEMUX_CAN_PAUSE:
         case DEMUX_SET_PAUSE_STATE:

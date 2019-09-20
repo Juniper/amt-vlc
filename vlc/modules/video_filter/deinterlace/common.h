@@ -2,7 +2,6 @@
  * common.h : Common macros for the VLC deinterlacer
  *****************************************************************************
  * Copyright (C) 2000-2017 VLC authors and VideoLAN
- * $Id: 01bfc2a70d3c63daf6666f0d29399aa0e785578e $
  *
  * Author: Sam Hocevar <sam@zoy.org>
  *         Steve Lhomme <robux4@gmail.com>

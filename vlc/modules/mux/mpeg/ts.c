@@ -2,7 +2,6 @@
  * ts.c: MPEG-II TS Muxer
  *****************************************************************************
  * Copyright (C) 2001-2005 VLC authors and VideoLAN
- * $Id: 25e27c3e2e69149d7333bcd984a7d69b3738375f $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Eric Petit <titer@videolan.org>
@@ -63,6 +62,7 @@
 #include "tables.h"
 
 #include "../../codec/jpeg2000.h"
+#include "../../demux/mpeg/timestamps.h"
 
 /*
  * TODO:
@@ -371,8 +371,8 @@ typedef struct
     int64_t         i_bitrate_min;
     int64_t         i_bitrate_max;
 
-    int64_t         i_shaping_delay;
-    int64_t         i_pcr_delay;
+    vlc_tick_t      i_shaping_delay;
+    vlc_tick_t      i_pcr_delay;
 
     vlc_tick_t      i_dts_delay;
     vlc_tick_t      first_dts;
@@ -511,7 +511,7 @@ static csa_t *csaSetup( vlc_object_t *p_this )
 
     var_Create( p_mux, SOUT_CFG_PREFIX "csa-use", VLC_VAR_STRING | VLC_VAR_DOINHERIT | VLC_VAR_ISCOMMAND );
     var_AddCallback( p_mux, SOUT_CFG_PREFIX "csa-use", ActiveKeyCallback, NULL );
-    var_AddCallback( p_mux, SOUT_CFG_PREFIX "csa-ck", ChangeKeyCallback, (void *)1 );
+    var_AddCallback( p_mux, SOUT_CFG_PREFIX "csa-ck", ChangeKeyCallback, p_mux );
     var_AddCallback( p_mux, SOUT_CFG_PREFIX "csa2-ck", ChangeKeyCallback, NULL );
 
     vlc_value_t use_val;
@@ -604,7 +604,7 @@ static int Open( vlc_object_t *p_this )
     vlc_rand_bytes(subi, sizeof(subi));
     p_sys->i_pat_version_number = nrand48(subi) & 0x1f;
 
-    vlc_value_t val;
+    vlc_value_t val,val2;
     var_Get( p_mux, SOUT_CFG_PREFIX "tsid", &val );
     if ( val.i_int )
         p_sys->i_tsid = val.i_int;
@@ -707,24 +707,29 @@ static int Open( vlc_object_t *p_this )
     }
 
     var_Get( p_mux, SOUT_CFG_PREFIX "shaping", &val );
-    p_sys->i_shaping_delay = val.i_int * 1000;
-    if( p_sys->i_shaping_delay <= 0 )
+    if( val.i_int <= 0 )
     {
         msg_Err( p_mux,
                  "invalid shaping (%"PRId64"ms) resetting to 200ms",
-                 p_sys->i_shaping_delay / 1000 );
+                 val.i_int );
         p_sys->i_shaping_delay = VLC_TICK_FROM_MS(200);
     }
+    else
+    {
+        p_sys->i_shaping_delay = VLC_TICK_FROM_MS(val.i_int);
+    }
 
-    var_Get( p_mux, SOUT_CFG_PREFIX "pcr", &val );
-    p_sys->i_pcr_delay = val.i_int * 1000;
-    if( p_sys->i_pcr_delay <= 0 ||
-        p_sys->i_pcr_delay >= p_sys->i_shaping_delay )
+    var_Get( p_mux, SOUT_CFG_PREFIX "pcr", &val2 );
+    if( val2.i_int <= 0 || val2.i_int >= val.i_int )
     {
         msg_Err( p_mux,
                  "invalid pcr delay (%"PRId64"ms) resetting to 70ms",
-                 p_sys->i_pcr_delay / 1000 );
+                 val2.i_int );
         p_sys->i_pcr_delay = VLC_TICK_FROM_MS(70);
+    }
+    else
+    {
+        p_sys->i_pcr_delay = VLC_TICK_FROM_MS(val2.i_int);
     }
 
     var_Get( p_mux, SOUT_CFG_PREFIX "dts-delay", &val );
@@ -760,7 +765,7 @@ static void Close( vlc_object_t * p_this )
 
     if( p_sys->csa )
     {
-        var_DelCallback( p_mux, SOUT_CFG_PREFIX "csa-ck", ChangeKeyCallback, NULL );
+        var_DelCallback( p_mux, SOUT_CFG_PREFIX "csa-ck", ChangeKeyCallback, p_mux );
         var_DelCallback( p_mux, SOUT_CFG_PREFIX "csa2-ck", ChangeKeyCallback, NULL );
         var_DelCallback( p_mux, SOUT_CFG_PREFIX "csa-use", ActiveKeyCallback, NULL );
         csa_Delete( p_sys->csa );
@@ -789,7 +794,7 @@ static int ChangeKeyCallback( vlc_object_t *p_this, char const *psz_cmd,
     int ret;
 
     vlc_mutex_lock(&p_sys->csa_lock);
-    ret = csa_SetCW(p_this, p_sys->csa, newval.psz_string, !!(intptr_t)p_data);
+    ret = csa_SetCW(p_this, p_sys->csa, newval.psz_string, p_data != NULL);
     vlc_mutex_unlock(&p_sys->csa_lock);
 
     return ret;
@@ -1084,9 +1089,9 @@ static void SetBlockDuration( sout_input_t *p_input, block_t *p_data )
                 p_input->p_fmt->video.i_frame_rate &&
                 p_input->p_fmt->video.i_frame_rate_base )
             {
-                p_data->i_length = CLOCK_FREQ *
-                                   p_input->p_fmt->video.i_frame_rate /
-                                   p_input->p_fmt->video.i_frame_rate_base;
+                p_data->i_length = vlc_tick_from_samples(
+                                   p_input->p_fmt->video.i_frame_rate,
+                                   p_input->p_fmt->video.i_frame_rate_base);
             }
             else if( p_input->p_fmt->i_cat == AUDIO_ES &&
                      p_input->p_fmt->audio.i_bytes_per_frame &&
@@ -1468,11 +1473,10 @@ static bool MuxStreams(sout_mux_t *p_mux )
              p_pes = p_pes->p_next )
         {
             int i_size = p_pes->i_buffer;
-            if( p_pes->i_dts + p_pes->i_length >
-                p_pcr_stream->state.i_pes_dts + p_pcr_stream->state.i_pes_length )
+            vlc_tick_t i_frag = p_pcr_stream->state.i_pes_dts +
+                             p_pcr_stream->state.i_pes_length - p_pes->i_dts;
+            if( p_pes->i_length > i_frag )
             {
-                vlc_tick_t i_frag = p_pcr_stream->state.i_pes_dts +
-                    p_pcr_stream->state.i_pes_length - p_pes->i_dts;
                 if( i_frag < 0 )
                 {
                     /* Next stream */
@@ -1528,13 +1532,13 @@ static bool MuxStreams(sout_mux_t *p_mux )
 
         /* do we need to issue pcr */
         bool b_pcr = false;
+        vlc_tick_t packet_length = i_pcr_length * i_packet_pos / i_packet_count;
         if( p_stream == p_pcr_stream &&
-            i_pcr_dts + i_packet_pos * i_pcr_length / i_packet_count >=
+            i_pcr_dts + packet_length >=
             p_sys->i_pcr + p_sys->i_pcr_delay )
         {
             b_pcr = true;
-            p_sys->i_pcr = i_pcr_dts + i_packet_pos *
-                i_pcr_length / i_packet_count;
+            p_sys->i_pcr = i_pcr_dts + packet_length;
         }
 
         /* Build the TS packet */
@@ -1647,11 +1651,12 @@ static block_t *FixPES( sout_mux_t *p_mux, block_fifo_t *p_fifo )
         i_copy = __MIN( STD_PES_PAYLOAD - i_size, p_next->i_buffer );
 
         memcpy( &p_data->p_buffer[i_size], p_next->p_buffer, i_copy );
+        vlc_tick_t offset = p_next->i_length * i_copy / p_next->i_buffer;
         if( p_next->i_pts )
-            p_next->i_pts += p_next->i_length * i_copy / p_next->i_buffer;
+            p_next->i_pts += offset;
         if( p_next->i_dts )
-            p_next->i_dts += p_next->i_length * i_copy / p_next->i_buffer;
-        p_next->i_length -= p_next->i_length * i_copy / p_next->i_buffer;
+            p_next->i_dts += offset;
+        p_next->i_length -= offset;
         p_next->i_buffer -= i_copy;
         p_next->p_buffer += i_copy;
         p_next->i_flags |= BLOCK_FLAG_NO_KEYFRAME;
@@ -1715,7 +1720,7 @@ static void TSSchedule( sout_mux_t *p_mux, sout_buffer_chain_t *p_chain_ts,
 
     BufferChainInit( &new_chain );
 
-    if ( i_pcr_length <= 0 )
+    if ( unlikely(i_pcr_length <= 0) )
     {
         i_pcr_length = i_packet_count;
     }
@@ -1768,7 +1773,7 @@ static void TSDate( sout_mux_t *p_mux, sout_buffer_chain_t *p_chain_ts,
     sout_mux_sys_t  *p_sys = p_mux->p_sys;
     int i_packet_count = p_chain_ts->i_depth;
 
-    if ( i_pcr_length / 1000 > 0 )
+    if ( likely(i_pcr_length / 1000 > 0) )
     {
         int i_bitrate = ((uint64_t)i_packet_count * 188 * 8000)
                           / MS_FROM_VLC_TICK(i_pcr_length);
@@ -1920,7 +1925,7 @@ static block_t *TSNew( sout_mux_t *p_mux, sout_input_sys_t *p_stream,
 
 static void TSSetPCR( block_t *p_ts, vlc_tick_t i_dts )
 {
-    vlc_tick_t i_pcr = 9 * i_dts / 100;
+    int64_t i_pcr = TO_SCALE_NZ(i_dts);
 
     p_ts->p_buffer[6]  = ( i_pcr >> 25 )&0xff;
     p_ts->p_buffer[7]  = ( i_pcr >> 17 )&0xff;

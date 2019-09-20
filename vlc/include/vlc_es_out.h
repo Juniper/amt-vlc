@@ -2,7 +2,6 @@
  * vlc_es_out.h: es_out (demuxer output) descriptor, queries and methods
  *****************************************************************************
  * Copyright (C) 1999-2004 VLC authors and VideoLAN
- * $Id: 627b1c5494a0c5a4c712e1a7678ac7be42028bd8 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *
@@ -37,6 +36,7 @@ enum es_out_query_e
 {
     /* set or change the selected ES in its category (audio/video/spu) */
     ES_OUT_SET_ES,      /* arg1= es_out_id_t*                   */
+    ES_OUT_SET_ES_LIST, /* arg1= es_out_id_t *const* (null terminated array) */
     ES_OUT_UNSET_ES,    /* arg1= es_out_id_t* res=can fail      */
     ES_OUT_RESTART_ES,  /* arg1= es_out_id_t*                   */
 
@@ -64,8 +64,9 @@ enum es_out_query_e
     ES_OUT_SET_GROUP_PCR,       /* arg1= int i_group, arg2=vlc_tick_t i_pcr(microsecond!)*/
     ES_OUT_RESET_PCR,           /* no arg */
 
-    /* Try not to use this one as it is a bit hacky */
-    ES_OUT_SET_ES_FMT,         /* arg1= es_out_id_t* arg2=es_format_t* */
+    /* This will update the fmt, drain and restart the decoder (if any).
+     * The new fmt must have the same i_cat and i_id. */
+    ES_OUT_SET_ES_FMT,         /* arg1= es_out_id_t* arg2=es_format_t* res=can fail */
 
     /* Allow preroll of data (data with dts/pts < i_pts for all ES will be decoded but not displayed */
     ES_OUT_SET_NEXT_DISPLAY_TIME,       /* arg1=int64_t i_pts(microsecond) */
@@ -104,10 +105,9 @@ enum es_out_query_e
 
     ES_OUT_VOUT_ADD_OVERLAY, /* arg1= es_out_id_t* (video es),
                               * arg2= subpicture_t *,
-                              * arg3= int * (channel id), res= can fail */
-
-    ES_OUT_VOUT_FLUSH_OVERLAY, /* arg1= es_out_id_t* (video es),
-                                * arg2= int (channel id), res= can fail */
+                              * arg3= size_t * (channel id), res= can fail */
+    ES_OUT_VOUT_DEL_OVERLAY, /* arg1= es_out_id_t* (video es),
+                              * arg2= size_t (channel id), res= can fail */
 
     ES_OUT_SPU_SET_HIGHLIGHT, /* arg1= es_out_id_t* (spu es),
                                  arg2= const vlc_spu_highlight_t *, res=can fail  */

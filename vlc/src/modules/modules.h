@@ -2,7 +2,6 @@
  * modules.h : Module management functions.
  *****************************************************************************
  * Copyright (C) 2001-2016 VLC authors and VideoLAN
- * $Id: 885789a149d74edf20024ec4be67db3d49c9db20 $
  *
  * Authors: Samuel Hocevar <sam@zoy.org>
  *
@@ -96,7 +95,7 @@ struct module_t
     const char *activate_name;
     const char *deactivate_name;
     void *pf_activate;
-    void *pf_deactivate;
+    void (*deactivate)(vlc_object_t *);
 };
 
 vlc_plugin_t *vlc_plugin_create(void);
@@ -111,7 +110,8 @@ void module_InitBank (void);
 void module_LoadPlugins(vlc_object_t *);
 #define module_LoadPlugins(a) module_LoadPlugins(VLC_OBJECT(a))
 void module_EndBank (bool);
-int module_Map(vlc_object_t *, vlc_plugin_t *);
+int module_Map(struct vlc_logger *, vlc_plugin_t *);
+void *module_Symbol(struct vlc_logger *, vlc_plugin_t *, const char *name);
 
 ssize_t module_list_cap (module_t ***, const char *);
 

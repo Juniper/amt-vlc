@@ -2,7 +2,6 @@
  * demux.hpp : matroska demuxer
  *****************************************************************************
  * Copyright (C) 2003-2004 VLC authors and VideoLAN
- * $Id: 0f4e4df57138faf86c558af04f792f3904e47615 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Steve Lhomme <steve.lhomme@free.fr>
@@ -54,14 +53,13 @@ public:
         ,i_updates(0)
         ,p_current_vsegment(NULL)
         ,dvd_interpretor( *this )
-        ,f_duration(-1.0)
-        ,p_input(NULL)
+        ,i_duration(-1)
         ,ev(&demux)
     {
         vlc_mutex_init( &lock_demuxer );
     }
 
-    virtual ~demux_sys_t();
+    ~demux_sys_t();
 
     /* current data */
     demux_t                 & demuxer;
@@ -89,7 +87,7 @@ public:
     dvd_command_interpretor_c        dvd_interpretor;
 
     /* duration of the stream */
-    float                   f_duration;
+    vlc_tick_t              i_duration;
 
     matroska_segment_c *FindSegment( const EbmlBinary & uid ) const;
     virtual_chapter_c *BrowseCodecPrivate( unsigned int codec_id,
@@ -101,13 +99,11 @@ public:
 
     void PreloadFamily( const matroska_segment_c & of_segment );
     bool PreloadLinked();
-    void FreeUnused();
+    bool FreeUnused();
     bool PreparePlayback( virtual_segment_c & new_vsegment, vlc_tick_t i_mk_date );
     bool AnalyseAllSegmentsFound( demux_t *p_demux, matroska_stream_c * );
     void JumpTo( virtual_segment_c & vsegment, virtual_chapter_c & vchapter );
 
-    /* for spu variables */
-    input_thread_t *p_input;
     uint8_t        palette[4][4];
     vlc_mutex_t    lock_demuxer;
 

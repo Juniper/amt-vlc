@@ -2,7 +2,6 @@
  * sgimb.c: a meta demux to parse sgimb referrer files
  *****************************************************************************
  * Copyright (C) 2004 VLC authors and VideoLAN
- * $Id: e1a772a1a98e0eb96f7e494ad95cdb2cbbea8670 $
  *
  * Authors: Derk-Jan Hartman <hartman at videolan dot org>
  *
@@ -171,7 +170,7 @@ int Import_SGIMB( vlc_object_t * p_this )
             p_sys->psz_mcast_ip = NULL;
             p_sys->i_mcast_port = 0;
             p_sys->i_packet_size = 0;
-            p_sys->i_duration = INPUT_DURATION_ZERO;
+            p_sys->i_duration = 0;
             p_sys->i_port = 0;
             p_sys->i_sid = 0;
             p_sys->b_rtsp_kasenna = false;

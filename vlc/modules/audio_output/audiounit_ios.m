@@ -32,21 +32,6 @@
 #import <mach/mach_time.h>
 
 #pragma mark -
-#pragma mark local prototypes & module descriptor
-
-static int  Open  (vlc_object_t *);
-static void Close (vlc_object_t *);
-
-vlc_module_begin ()
-    set_shortname("audiounit_ios")
-    set_description("AudioUnit output for iOS")
-    set_capability("audio output", 101)
-    set_category(CAT_AUDIO)
-    set_subcategory(SUBCAT_AUDIO_AOUT)
-    set_callbacks(Open, Close)
-vlc_module_end ()
-
-#pragma mark -
 #pragma mark private declarations
 
 /* aout wrapper: used as observer for notifications */
@@ -169,6 +154,7 @@ enum port_type
 - (void)audioSessionRouteChange:(NSNotification *)notification
 {
     audio_output_t *p_aout = [self aout];
+    aout_sys_t *p_sys = p_aout->sys;
     NSDictionary *userInfo = notification.userInfo;
     NSInteger routeChangeReason =
         [[userInfo valueForKey:AVAudioSessionRouteChangeReasonKey] integerValue];
@@ -178,6 +164,13 @@ enum port_type
     if (routeChangeReason == AVAudioSessionRouteChangeReasonNewDeviceAvailable
      || routeChangeReason == AVAudioSessionRouteChangeReasonOldDeviceUnavailable)
         aout_RestartRequest(p_aout, AOUT_RESTART_OUTPUT);
+    else
+    {
+        const vlc_tick_t latency_us =
+            vlc_tick_from_sec([p_sys->avInstance outputLatency]);
+        ca_SetDeviceLatency(p_aout, latency_us);
+        msg_Dbg(p_aout, "Current device has a new latency of %lld us", latency_us);
+    }
 }
 
 - (void)handleInterruption:(NSNotification *)notification
@@ -409,15 +402,7 @@ Pause (audio_output_t *p_aout, bool pause, vlc_tick_t date)
      * that we loose 1-2 sec of audio when resuming. The order is important
      * here, ca_Flush need to be called when paused. */
     if (pause)
-        ca_Flush(p_aout, false);
-}
-
-static void
-Flush(audio_output_t *p_aout, bool wait)
-{
-    aout_sys_t * p_sys = p_aout->sys;
-
-    ca_Flush(p_aout, wait);
+        ca_Flush(p_aout);
 }
 
 static int
@@ -430,7 +415,7 @@ MuteSet(audio_output_t *p_aout, bool mute)
     {
         Pause(p_aout, mute, 0);
         if (mute)
-            ca_Flush(p_aout, false);
+            ca_Flush(p_aout);
     }
 
     return VLC_SUCCESS;
@@ -540,8 +525,11 @@ Start(audio_output_t *p_aout, audio_sample_format_t *restrict fmt)
     if (err != noErr)
         ca_LogWarn("failed to set IO mode");
 
-    ret = au_Initialize(p_aout, p_sys->au_unit, fmt, layout,
-                        vlc_tick_from_sec([p_sys->avInstance outputLatency]), NULL);
+    const vlc_tick_t latency_us =
+        vlc_tick_from_sec([p_sys->avInstance outputLatency]);
+    msg_Dbg(p_aout, "Current device has a latency of %lld us", latency_us);
+
+    ret = au_Initialize(p_aout, p_sys->au_unit, fmt, layout, latency_us, NULL);
     if (ret != VLC_SUCCESS)
         goto error;
 
@@ -562,7 +550,6 @@ Start(audio_output_t *p_aout, audio_sample_format_t *restrict fmt)
     fmt->channel_type = AUDIO_CHANNEL_TYPE_BITMAP;
     p_aout->mute_set  = MuteSet;
     p_aout->pause = Pause;
-    p_aout->flush = Flush;
 
     aout_SoftVolumeStart( p_aout );
 
@@ -625,10 +612,16 @@ static int
 Open(vlc_object_t *obj)
 {
     audio_output_t *aout = (audio_output_t *)obj;
-    aout_sys_t *sys = calloc(1, sizeof (*sys));
 
+    aout_sys_t *sys = p_aout->sys = calloc(1, sizeof (*sys));
     if (unlikely(sys == NULL))
         return VLC_ENOMEM;
+
+    if (ca_Open(aout) != VLC_SUCCESS)
+    {
+        free(sys);
+        return VLC_EGENERIC;
+    }
 
     sys->avInstance = [AVAudioSession sharedInstance];
     assert(sys->avInstance != NULL);
@@ -636,6 +629,7 @@ Open(vlc_object_t *obj)
     sys->aoutWrapper = [[AoutWrapper alloc] initWithAout:aout];
     if (sys->aoutWrapper == NULL)
     {
+        ca_Close(aout);
         free(sys);
         return VLC_ENOMEM;
     }
@@ -643,7 +637,6 @@ Open(vlc_object_t *obj)
     sys->b_muted = false;
     sys->b_preferred_channels_set = false;
     sys->au_dev = var_InheritBool(aout, "spdif") ? AU_DEV_ENCODED : AU_DEV_PCM;
-    aout->sys = sys;
     aout->start = Start;
     aout->stop = Stop;
     aout->device_select = DeviceSelect;
@@ -653,6 +646,18 @@ Open(vlc_object_t *obj)
     for (unsigned int i = 0; i< sizeof(au_devs) / sizeof(au_devs[0]); ++i)
         aout_HotplugReport(aout, au_devs[i].psz_id, au_devs[i].psz_name);
 
-    ca_Open(aout);
     return VLC_SUCCESS;
 }
+
+#pragma mark -
+#pragma mark module descriptor
+
+vlc_module_begin ()
+    set_shortname("audiounit_ios")
+    set_description("AudioUnit output for iOS")
+    set_capability("audio output", 101)
+    set_category(CAT_AUDIO)
+    set_subcategory(SUBCAT_AUDIO_AOUT)
+    add_sw_gain()
+    set_callbacks(Open, Close)
+vlc_module_end ()

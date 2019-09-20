@@ -2,7 +2,6 @@
  * vlc_intf_strings.h : Strings for main interfaces
  *****************************************************************************
  * Copyright (C) 2003 VLC authors and VideoLAN
- * $Id: 25c57b37172dd9463d882efdf74d329949a07d03 $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *

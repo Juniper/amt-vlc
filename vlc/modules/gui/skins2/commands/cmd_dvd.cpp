@@ -2,7 +2,6 @@
  * cmd_dvd.cpp
  *****************************************************************************
  * Copyright (C) 2003 the VideoLAN team
- * $Id: 9e9c5f80c506a48b380ac41a66e323e5ca0303a0 $
  *
  * Authors: Olivier Teulière <ipkiss@via.ecp.fr>
  *
@@ -22,65 +21,50 @@
  *****************************************************************************/
 
 #include "cmd_dvd.hpp"
-#include <vlc_input.h>
+#include <vlc_player.h>
 #include <vlc_playlist.h>
 
 void CmdDvdNextTitle::execute()
 {
-    input_thread_t *p_input = playlist_CurrentInput( getPL() );
-
-    if( p_input )
-    {
-        var_TriggerCallback( p_input, "next-title" );
-        vlc_object_release( p_input );
-    }
+    vlc_playlist_Lock( getPL() );
+    vlc_player_t *player = vlc_playlist_GetPlayer( getPL() );
+    vlc_player_SelectNextTitle( player );
+    vlc_playlist_Unlock( getPL() );
 }
 
 
 void CmdDvdPreviousTitle::execute()
 {
-    input_thread_t *p_input = playlist_CurrentInput( getPL() );
-
-    if( p_input )
-    {
-        var_TriggerCallback( p_input, "prev-title" );
-        vlc_object_release( p_input );
-    }
+    vlc_playlist_Lock( getPL() );
+    vlc_player_t *player = vlc_playlist_GetPlayer( getPL() );
+    vlc_player_SelectPrevTitle( player );
+    vlc_playlist_Unlock( getPL() );
 }
 
 
 void CmdDvdNextChapter::execute()
 {
-    input_thread_t *p_input = playlist_CurrentInput( getPL() );
-
-    if( p_input )
-    {
-        var_TriggerCallback( p_input, "next-chapter" );
-        vlc_object_release( p_input );
-    }
+    vlc_playlist_Lock( getPL() );
+    vlc_player_t *player = vlc_playlist_GetPlayer( getPL() );
+    vlc_player_SelectNextChapter( player );
+    vlc_playlist_Unlock( getPL() );
 }
 
 
 void CmdDvdPreviousChapter::execute()
 {
-    input_thread_t *p_input = playlist_CurrentInput( getPL() );
-
-    if( p_input )
-    {
-        var_TriggerCallback( p_input, "prev-chapter" );
-        vlc_object_release( p_input );
-    }
+    vlc_playlist_Lock( getPL() );
+    vlc_player_t *player = vlc_playlist_GetPlayer( getPL() );
+    vlc_player_SelectPrevChapter( player );
+    vlc_playlist_Unlock( getPL() );
 }
 
 
 void CmdDvdRootMenu::execute()
 {
-    input_thread_t *p_input = playlist_CurrentInput( getPL() );
-
-    if( p_input )
-    {
-        var_SetInteger( p_input, "title  0", 2);
-        vlc_object_release( p_input );
-    }
+    vlc_playlist_Lock( getPL() );
+    vlc_player_t *player = vlc_playlist_GetPlayer( getPL() );
+    vlc_player_Navigate( player, VLC_PLAYER_NAV_MENU );
+    vlc_playlist_Unlock( getPL() );
 }
 

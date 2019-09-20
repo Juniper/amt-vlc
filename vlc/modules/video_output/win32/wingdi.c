@@ -2,7 +2,6 @@
  * wingdi.c : Win32 / WinCE GDI video output plugin for vlc
  *****************************************************************************
  * Copyright (C) 2002-2009 VLC authors and VideoLAN
- * $Id: dd99281b73bca0972a18da2ab5f875925645d518 $
  *
  * Authors: Gildas Bazin <gbazin@videolan.org>
  *          Samuel Hocevar <sam@zoy.org>
@@ -38,20 +37,21 @@
 #include <windows.h>
 
 #include "common.h"
+#include "../../video_chroma/copy.h"
 
 /*****************************************************************************
  * Module descriptor
  *****************************************************************************/
-static int  Open (vlc_object_t *);
-static void Close(vlc_object_t *);
+static int  Open (vout_display_t *, const vout_display_cfg_t *,
+                  video_format_t *, vlc_video_context *);
+static void Close(vout_display_t *);
 
 vlc_module_begin ()
     set_category(CAT_VIDEO)
     set_subcategory(SUBCAT_VIDEO_VOUT)
     set_shortname("GDI")
     set_description(N_("Windows GDI video output"))
-    set_capability("vout display", 110)
-    set_callbacks(Open, Close)
+    set_callback_display(Open, 110)
 vlc_module_end ()
 
 
@@ -61,12 +61,16 @@ vlc_module_end ()
 struct vout_display_sys_t
 {
     vout_display_sys_win32_t sys;
+    display_win32_area_t     area;
 
     int  i_depth;
 
     /* Our offscreen bitmap and its framebuffer */
     HDC        off_dc;
     HBITMAP    off_bitmap;
+
+    void    *p_pic_buffer;
+    int     i_pic_pitch;
 
     struct
     {
@@ -77,17 +81,32 @@ struct vout_display_sys_t
     };
 };
 
-static picture_pool_t *Pool  (vout_display_t *, unsigned);
-static void           Display(vout_display_t *, picture_t *, subpicture_t *subpicture);
-static int            Control(vout_display_t *, int, va_list);
+static void           Display(vout_display_t *, picture_t *);
 
-static int            Init(vout_display_t *, video_format_t *, int, int);
+static int            Init(vout_display_t *, video_format_t *);
 static void           Clean(vout_display_t *);
 
-/* */
-static int Open(vlc_object_t *object)
+static void Prepare(vout_display_t *vd, picture_t *picture, subpicture_t *subpic,
+                    vlc_tick_t date)
 {
-    vout_display_t *vd = (vout_display_t *)object;
+    VLC_UNUSED(subpic);
+    VLC_UNUSED(date);
+    vout_display_sys_t *sys = vd->sys;
+    picture_t fake_pic = *picture;
+    picture_UpdatePlanes(&fake_pic, sys->p_pic_buffer, sys->i_pic_pitch);
+    picture_CopyPixels(&fake_pic, picture);
+}
+
+static int Control(vout_display_t *vd, int query, va_list args)
+{
+    vout_display_sys_t *sys = vd->sys;
+    return CommonControl(VLC_OBJECT(vd), &sys->area, &sys->sys, query, args);
+}
+
+/* */
+static int Open(vout_display_t *vd, const vout_display_cfg_t *cfg,
+                video_format_t *fmtp, vlc_video_context *context)
+{
     vout_display_sys_t *sys;
 
     if ( !vd->obj.force && vd->source.projection_mode != PROJECTION_MODE_RECTANGULAR)
@@ -97,121 +116,83 @@ static int Open(vlc_object_t *object)
     if (!sys)
         return VLC_ENOMEM;
 
-    if (CommonInit(vd))
+    CommonInit(vd, &sys->area, cfg);
+    if (CommonWindowInit(VLC_OBJECT(vd), &sys->area, &sys->sys, false))
         goto error;
 
     /* */
-    video_format_t fmt = vd->fmt;
-    if (Init(vd, &fmt, fmt.i_width, fmt.i_height))
+    if (Init(vd, fmtp))
         goto error;
 
-    vout_display_info_t info = vd->info;
-    info.is_slow              = false;
-    info.has_double_click     = true;
-    info.has_pictures_invalid = true;
-
     /* */
-    vd->fmt  = fmt;
-    vd->info = info;
-
-    vd->pool    = Pool;
-    vd->prepare = NULL;
+    vd->prepare = Prepare;
     vd->display = Display;
     vd->control = Control;
+    vd->close = Close;
     return VLC_SUCCESS;
 
 error:
-    Close(VLC_OBJECT(vd));
+    Close(vd);
     return VLC_EGENERIC;
 }
 
 /* */
-static void Close(vlc_object_t *object)
+static void Close(vout_display_t *vd)
 {
-    vout_display_t *vd = (vout_display_t *)object;
-
     Clean(vd);
 
-    CommonClean(vd);
+    CommonWindowClean(VLC_OBJECT(vd), &vd->sys->sys);
 
     free(vd->sys);
 }
 
-/* */
-static picture_pool_t *Pool(vout_display_t *vd, unsigned count)
-{
-    VLC_UNUSED(count);
-    return vd->sys->sys.pool;
-}
-
-static void Display(vout_display_t *vd, picture_t *picture, subpicture_t *subpicture)
+static void Display(vout_display_t *vd, picture_t *picture)
 {
     vout_display_sys_t *sys = vd->sys;
+    VLC_UNUSED(picture);
 
-#define rect_src vd->sys->rect_src
-#define rect_src_clipped vd->sys->sys.rect_src_clipped
-#define rect_dest vd->sys->sys.rect_dest
-#define rect_dest_clipped vd->sys->sys.rect_dest_clipped
-    RECT rect_dst = rect_dest_clipped;
     HDC hdc = GetDC(sys->sys.hvideownd);
 
-    OffsetRect(&rect_dst, -rect_dest.left, -rect_dest.top);
+    if (sys->area.place_changed)
+    {
+        /* clear the background */
+        RECT display = {
+            .left   = 0,
+            .right  = sys->area.vdcfg.display.width,
+            .top    = 0,
+            .bottom = sys->area.vdcfg.display.height,
+        };
+        FillRect(hdc, &display, GetStockObject(BLACK_BRUSH));
+        sys->area.place_changed = false;
+    }
+
     SelectObject(sys->off_dc, sys->off_bitmap);
 
-    if (rect_dest_clipped.right - rect_dest_clipped.left !=
-        rect_src_clipped.right - rect_src_clipped.left ||
-        rect_dest_clipped.bottom - rect_dest_clipped.top !=
-        rect_src_clipped.bottom - rect_src_clipped.top) {
-        StretchBlt(hdc, rect_dst.left, rect_dst.top,
-                   rect_dst.right, rect_dst.bottom,
+    if (sys->area.place.width  != vd->source.i_visible_width ||
+        sys->area.place.height != vd->source.i_visible_height) {
+        SetStretchBltMode(hdc, COLORONCOLOR);
+
+        StretchBlt(hdc, sys->area.place.x, sys->area.place.y,
+                   sys->area.place.width, sys->area.place.height,
                    sys->off_dc,
-                   rect_src_clipped.left,  rect_src_clipped.top,
-                   rect_src_clipped.right, rect_src_clipped.bottom,
+                   vd->source.i_x_offset, vd->source.i_y_offset,
+                   vd->source.i_x_offset + vd->source.i_visible_width,
+                   vd->source.i_y_offset + vd->source.i_visible_height,
                    SRCCOPY);
     } else {
-        BitBlt(hdc, rect_dst.left, rect_dst.top,
-               rect_dst.right, rect_dst.bottom,
+        BitBlt(hdc, sys->area.place.x, sys->area.place.y,
+               sys->area.place.width, sys->area.place.height,
                sys->off_dc,
-               rect_src_clipped.left, rect_src_clipped.top,
+               vd->source.i_x_offset, vd->source.i_y_offset,
                SRCCOPY);
     }
 
     ReleaseDC(sys->sys.hvideownd, hdc);
-#undef rect_src
-#undef rect_src_clipped
-#undef rect_dest
-#undef rect_dest_clipped
-    /* TODO */
-    picture_Release(picture);
-    VLC_UNUSED(subpicture);
-
-    CommonDisplay(vd);
-    CommonManage(vd);
 }
 
-static int Control(vout_display_t *vd, int query, va_list args)
-{
-    switch (query) {
-    case VOUT_DISPLAY_RESET_PICTURES:
-        vlc_assert_unreachable();
-        return VLC_EGENERIC;
-    default:
-        return CommonControl(vd, query, args);
-    }
-
-}
-
-static int Init(vout_display_t *vd,
-                video_format_t *fmt, int width, int height)
+static int Init(vout_display_t *vd, video_format_t *fmt)
 {
     vout_display_sys_t *sys = vd->sys;
-
-    /* */
-    RECT *display = &sys->sys.rect_display;
-    display->left   = 0;
-    display->top    = 0;
-    display->right  = GetSystemMetrics(SM_CXSCREEN);;
-    display->bottom = GetSystemMetrics(SM_CYSCREEN);;
 
     /* Initialize an offscreen bitmap for direct buffer operations. */
 
@@ -256,11 +237,7 @@ static int Init(vout_display_t *vd,
         msg_Err(vd, "screen depth %i not supported", sys->i_depth);
         return VLC_EGENERIC;
     }
-    fmt->i_width  = width;
-    fmt->i_height = height;
 
-    void *p_pic_buffer;
-    int     i_pic_pitch;
     /* Initialize offscreen bitmap */
     BITMAPINFO *bi = &sys->bitmapinfo;
     memset(bi, 0, sizeof(BITMAPINFO) + 3 * sizeof(RGBQUAD));
@@ -284,33 +261,18 @@ static int Init(vout_display_t *vd,
     bih->biXPelsPerMeter = 0;
     bih->biYPelsPerMeter = 0;
 
-    i_pic_pitch = bih->biBitCount * bih->biWidth / 8;
+    sys->i_pic_pitch = bih->biBitCount * bih->biWidth / 8;
     sys->off_bitmap = CreateDIBSection(window_dc,
                                        (BITMAPINFO *)bih,
                                        DIB_RGB_COLORS,
-                                       &p_pic_buffer, NULL, 0);
+                                       &sys->p_pic_buffer, NULL, 0);
 
     sys->off_dc = CreateCompatibleDC(window_dc);
 
     SelectObject(sys->off_dc, sys->off_bitmap);
     ReleaseDC(sys->sys.hvideownd, window_dc);
 
-    EventThreadUpdateTitle(sys->sys.event, VOUT_TITLE " (WinGDI output)");
-
-    /* */
-    picture_resource_t rsc;
-    memset(&rsc, 0, sizeof(rsc));
-    rsc.p[0].p_pixels = p_pic_buffer;
-    rsc.p[0].i_lines  = fmt->i_height;
-    rsc.p[0].i_pitch  = i_pic_pitch;;
-
-    picture_t *picture = picture_NewFromResource(fmt, &rsc);
-    if (picture != NULL)
-        sys->sys.pool = picture_pool_New(1, &picture);
-    else
-        sys->sys.pool = NULL;
-
-    UpdateRects(vd, NULL, true);
+    vout_window_SetTitle(sys->area.vdcfg.window, VOUT_TITLE " (WinGDI output)");
 
     return VLC_SUCCESS;
 }
@@ -318,10 +280,6 @@ static int Init(vout_display_t *vd,
 static void Clean(vout_display_t *vd)
 {
     vout_display_sys_t *sys = vd->sys;
-
-    if (sys->sys.pool)
-        picture_pool_Release(sys->sys.pool);
-    sys->sys.pool = NULL;
 
     if (sys->off_dc)
         DeleteDC(sys->off_dc);

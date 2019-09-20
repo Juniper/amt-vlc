@@ -31,7 +31,7 @@ vlc_LDADD += $(LIBDL)
 else
 vlc_SOURCES = winvlc.c
 vlc_DEPENDENCIES = vlc_win32_rc.$(OBJEXT)
-vlc_LDFLAGS = -mwindows
+vlc_LDFLAGS = -mwindows -Wc,-static
 vlc_LDADD += vlc_win32_rc.$(OBJEXT)
 libbreakpad_wrapper_la_SOURCES = breakpad.cpp
 libbreakpad_wrapper_la_LIBADD = $(BREAKPAD_LIBS)
@@ -47,8 +47,7 @@ endif
 
 vlc_osx_SOURCES = darwinvlc.m
 vlc_osx_LDFLAGS = $(LDFLAGS_vlc) -Wl,-framework,CoreFoundation,-framework,Cocoa
-vlc_osx_LDFLAGS += -Xlinker -rpath -Xlinker "@executable_path/lib/"
-vlc_osx_LDFLAGS += -Xlinker -rpath -Xlinker "@executable_path/plugins/"
+vlc_osx_LDFLAGS += -Xlinker -rpath -Xlinker "$(libdir)"
 if HAVE_BREAKPAD
 vlc_osx_LDFLAGS += -Wl,-framework,Breakpad
 vlc_osx_OBJCFLAGS = -F$(CONTRIB_DIR)/Frameworks
@@ -118,6 +117,7 @@ vlc_cache_gen_LDADD = \
 	../lib/libvlc.la
 if HAVE_WIN32
 vlc_cache_gen_LDADD += vlc_win32_rc.$(OBJEXT)
+vlc_cache_gen_LDFLAGS = -Wc,-static
 vlc_cache_gen_DEPENDENCIES = vlc_win32_rc.$(OBJEXT)
 endif
 

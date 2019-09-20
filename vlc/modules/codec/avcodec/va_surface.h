@@ -33,7 +33,13 @@ struct va_pic_context
 {
     picture_context_t         s;
     struct vlc_va_surface_t *va_surface;
-    picture_sys_t             picsys;
+    VA_PICSYS                 picsys;
 };
+
+static inline VA_PICSYS *ActivePictureSys(picture_t *p_pic)
+{
+    struct va_pic_context *pic_ctx = container_of(p_pic->context, struct va_pic_context, s);
+    return p_pic->context ? &pic_ctx->picsys : p_pic->p_sys;
+}
 
 #endif /* AVCODEC_VA_SURFACE_H */

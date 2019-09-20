@@ -2,7 +2,6 @@
  * vlc.c: Generic lua interface functions
  *****************************************************************************
  * Copyright (C) 2007-2008 the VideoLAN team
- * $Id: 802c58153ccc910f5aa66909a01dc6c2bb249c96 $
  *
  * Authors: Antoine Cellerier <dionoea at videolan tod org>
  *          Pierre d'Herbemont <pdherbemont # videolan.org>
@@ -70,14 +69,6 @@
 #define TELNETPWD_TEXT N_( "Password" )
 #define TELNETPWD_LONGTEXT N_( "A single password restricts access " \
     "to this interface." )
-#define RCHOST_TEXT N_("TCP command input")
-#define RCHOST_LONGTEXT N_("Accept commands over a socket rather than stdin. " \
-            "You can set the address and port the interface will bind to." )
-#define CLIHOST_TEXT N_("CLI input")
-#define CLIHOST_LONGTEXT N_( "Accept commands from this source. " \
-    "The CLI defaults to stdin (\"*console\"), but can also bind to a " \
-    "plain TCP socket (\"localhost:4212\") or use the telnet protocol " \
-    "(\"telnet://0.0.0.0:4212\")" )
 
 static int vlc_sd_probe_Open( vlc_object_t * );
 
@@ -104,19 +95,6 @@ vlc_module_begin ()
         set_description( N_("Lua HTTP") )
 
     add_submodule ()
-        set_section( N_("Lua CLI"), 0 )
-            add_string( "rc-host", NULL, RCHOST_TEXT, RCHOST_LONGTEXT, true )
-            add_string( "cli-host", NULL, CLIHOST_TEXT, CLIHOST_LONGTEXT, true )
-        set_capability( "interface", 25 )
-        set_description( N_("Command-line interface") )
-        set_callbacks( Open_LuaCLI, Close_LuaIntf )
-#ifndef _WIN32
-        add_shortcut( "luacli", "luarc", "cli", "rc" )
-#else
-        add_shortcut( "luacli", "luarc" )
-#endif
-
-    add_submodule ()
         set_section( N_("Lua Telnet"), 0 )
             add_string( "telnet-host", "localhost", TELNETHOST_TEXT,
                         TELNETHOST_LONGTEXT, true )
@@ -134,13 +112,13 @@ vlc_module_begin ()
         set_shortname( N_( "Lua Meta Fetcher" ) )
         set_description( N_("Fetch meta data using lua scripts") )
         set_capability( "meta fetcher", 10 )
-        set_callbacks( FetchMeta, NULL )
+        set_callback( FetchMeta )
 
     add_submodule ()
         set_shortname( N_( "Lua Meta Reader" ) )
         set_description( N_("Read meta data using lua scripts") )
         set_capability( "meta reader", 10 )
-        set_callbacks( ReadMeta, NULL )
+        set_callback( ReadMeta )
 
     add_submodule ()
         add_shortcut( "luaplaylist" )
@@ -153,7 +131,7 @@ vlc_module_begin ()
         set_shortname( N_( "Lua Art" ) )
         set_description( N_("Fetch artwork using lua scripts") )
         set_capability( "art finder", 10 )
-        set_callbacks( FindArt, NULL )
+        set_callback( FindArt )
 
     add_submodule ()
         set_shortname( N_("Lua Extension") )
@@ -232,6 +210,8 @@ int vlclua_dir_list(const char *luadirname, char ***restrict listp)
     /* Source Lua Scripts in architecture-independent data directory */
     if (both || libdir == NULL)
         list = vlclua_dir_list_append(list, datadir, luadirname);
+    else
+        free(datadir);
 
     *list = NULL;
     return VLC_SUCCESS;
@@ -484,7 +464,7 @@ input_item_t *vlclua_read_input_item(vlc_object_t *obj, lua_State *L)
         msg_Warn(obj, "Playlist item name should be a string" );
 
     /* Read duration */
-    vlc_tick_t duration = INPUT_DURATION_UNKNOWN;
+    vlc_tick_t duration = INPUT_DURATION_INDEFINITE;
 
     lua_getfield( L, -3, "duration" );
     if (lua_isnumber(L, -1))

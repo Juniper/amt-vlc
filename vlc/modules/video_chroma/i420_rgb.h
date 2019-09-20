@@ -2,7 +2,6 @@
  * i420_rgb.h : YUV to bitmap RGB conversion module for vlc
  *****************************************************************************
  * Copyright (C) 2000, 2004 VLC authors and VideoLAN
- * $Id: 9bd156149e2af0b1e2e577c6bbbc6b1f819fe2f1 $
  *
  * Authors: Samuel Hocevar <sam@zoy.org>
  *
@@ -20,6 +19,7 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston MA 02110-1301, USA.
  *****************************************************************************/
+#include <limits.h>
 
 #if !defined (SSE2) && !defined (MMX)
 # define PLAIN
@@ -37,6 +37,8 @@
 typedef struct
 {
     uint8_t  *p_buffer;
+    size_t    i_buffer_size;
+    uint8_t   i_bytespp;
     int *p_offset;
 
 #ifdef PLAIN
@@ -55,6 +57,25 @@ typedef struct
     uint16_t  p_rgb_b[CMAP_RGB2_SIZE];  /**< Blue values of palette */
 #endif
 } filter_sys_t;
+
+/*****************************************************************************
+ * Conversion buffer helper
+ *****************************************************************************/
+static inline int AllocateOrGrow( uint8_t **pp_buffer, size_t *pi_buffer,
+                                  unsigned i_width, uint8_t bytespp )
+{
+    if(UINT_MAX / bytespp < i_width)
+        return -1;
+    const size_t i_realloc = i_width * bytespp;
+    if(*pi_buffer >= i_realloc)
+        return 0;
+    uint8_t *p_realloc = realloc(*pp_buffer, i_realloc);
+    if(!p_realloc)
+        return -1;
+    *pp_buffer = p_realloc;
+    *pi_buffer = i_realloc;
+    return 0;
+}
 
 /*****************************************************************************
  * Prototypes

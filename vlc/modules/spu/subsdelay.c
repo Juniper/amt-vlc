@@ -2,7 +2,6 @@
  * subsdelay.c : Subsdelay plugin for vlc
  *****************************************************************************
  * Copyright © 2011 VideoLAN
- * $Id: 33ac819329989419aeb9ba7f4380a27958bba852 $
  *
  * Authors: Yuval Tze <yuvaltze@gmail.com>
  *
@@ -97,14 +96,6 @@ static const char * const ppsz_mode_descriptions[] = { N_( "Absolute delay" ), N
 /* max subtitles handled on the heap */
 #define SUBSDELAY_MAX_ENTRIES 16
 
-/* factor convert macros */
-#define INT_FACTOR_BASE                  1000
-#define FLOAT_FACTOR_TO_INT_FACTOR( x )  (int)( ( x ) * INT_FACTOR_BASE )
-#define INT_FACTOR_TO_MICROSEC( x )      ( ( x ) * ( CLOCK_FREQ / INT_FACTOR_BASE ) )
-#define INT_FACTOR_TO_RANK_FACTOR( x )   ( x )
-#define MILLISEC_TO_MICROSEC( x )        ( ( x ) * 1000 )
-
-
 #define SUBSDELAY_MODE_ABSOLUTE                0
 #define SUBSDELAY_MODE_RELATIVE_SOURCE_DELAY   1
 #define SUBSDELAY_MODE_RELATIVE_SOURCE_CONTENT 2
@@ -173,17 +164,17 @@ typedef struct
 {
     int i_mode; /* delay calculation mode */
 
-    int i_factor; /* calculation factor */
+    float f_factor; /* calculation factor */
 
     int i_overlap; /* max overlap */
 
     int i_min_alpha; /* oldest subtitle alpha value */
 
-    int64_t i_min_stops_interval;
+    vlc_tick_t i_min_stops_interval;
 
-    int64_t i_min_stop_start_interval;
+    vlc_tick_t i_min_stop_start_interval;
 
-    int64_t i_min_start_stop_interval;
+    vlc_tick_t i_min_start_stop_interval;
 
     subsdelay_heap_t heap; /* subpictures list */
 } filter_sys_t;
@@ -208,7 +199,7 @@ static int SubsdelayCallback( vlc_object_t *p_this, char const *psz_var, vlc_val
 
 static void SubsdelayEnforceDelayRules( filter_t *p_filter );
 
-static int64_t SubsdelayEstimateDelay( filter_t *p_filter, subsdelay_heap_entry_t *p_entry );
+static vlc_tick_t SubsdelayEstimateDelay( filter_t *p_filter, subsdelay_heap_entry_t *p_entry );
 
 static void SubsdelayRecalculateDelays( filter_t *p_filter );
 
@@ -323,7 +314,7 @@ static int SubsdelayCreate( vlc_object_t *p_this )
     p_sys->i_mode = var_CreateGetIntegerCommand( p_filter, CFG_MODE );
     var_AddCallback( p_filter, CFG_MODE, SubsdelayCallback, p_sys );
 
-    p_sys->i_factor = FLOAT_FACTOR_TO_INT_FACTOR( var_CreateGetFloatCommand( p_filter, CFG_FACTOR ) );
+    p_sys->f_factor = var_CreateGetFloatCommand( p_filter, CFG_FACTOR );
     var_AddCallback( p_filter, CFG_FACTOR, SubsdelayCallback, p_sys );
 
     p_sys->i_overlap = var_CreateGetIntegerCommand( p_filter, CFG_OVERLAP );
@@ -333,15 +324,15 @@ static int SubsdelayCreate( vlc_object_t *p_this )
     var_AddCallback( p_filter, CFG_MIN_ALPHA, SubsdelayCallback, p_sys );
 
     p_sys->i_min_stops_interval
-            = MILLISEC_TO_MICROSEC( var_CreateGetIntegerCommand( p_filter, CFG_MIN_STOPS_INTERVAL ) );
+            = VLC_TICK_FROM_MS( var_CreateGetIntegerCommand( p_filter, CFG_MIN_STOPS_INTERVAL ) );
     var_AddCallback( p_filter, CFG_MIN_STOPS_INTERVAL, SubsdelayCallback, p_sys );
 
     p_sys->i_min_stop_start_interval
-            = MILLISEC_TO_MICROSEC( var_CreateGetIntegerCommand( p_filter, CFG_MIN_STOP_START_INTERVAL ) );
+            = VLC_TICK_FROM_MS( var_CreateGetIntegerCommand( p_filter, CFG_MIN_STOP_START_INTERVAL ) );
     var_AddCallback( p_filter, CFG_MIN_STOP_START_INTERVAL, SubsdelayCallback, p_sys );
 
     p_sys->i_min_start_stop_interval
-            = MILLISEC_TO_MICROSEC( var_CreateGetIntegerCommand( p_filter, CFG_MIN_START_STOP_INTERVAL ) );
+            = VLC_TICK_FROM_MS( var_CreateGetIntegerCommand( p_filter, CFG_MIN_START_STOP_INTERVAL ) );
     var_AddCallback( p_filter, CFG_MIN_START_STOP_INTERVAL, SubsdelayCallback, p_sys );
 
     p_filter->p_sys = p_sys;
@@ -437,7 +428,7 @@ static subpicture_t * SubsdelayFilter( filter_t *p_filter, subpicture_t* p_subpi
         /* set a relativly long delay in hope that the next subtitle
            will arrive in this time and the real delay could be determined */
 
-        p_subpic->i_stop = p_subpic->i_start + 20000000; /* start + 20 sec */
+        p_subpic->i_stop = p_subpic->i_start + VLC_TICK_FROM_SEC(20); /* start + 20 sec */
         p_subpic->b_ephemer = false;
     }
 
@@ -467,7 +458,7 @@ static int SubsdelayCallback( vlc_object_t *p_this, char const *psz_var, vlc_val
     }
     else if( !strcmp( psz_var, CFG_FACTOR ) )
     {
-        p_sys->i_factor = FLOAT_FACTOR_TO_INT_FACTOR( newval.f_float );
+        p_sys->f_factor = newval.f_float;
     }
     else if( !strcmp( psz_var, CFG_OVERLAP ) )
     {
@@ -479,20 +470,19 @@ static int SubsdelayCallback( vlc_object_t *p_this, char const *psz_var, vlc_val
     }
     else if( !strcmp( psz_var, CFG_MIN_STOPS_INTERVAL ) )
     {
-        p_sys->i_min_stops_interval = MILLISEC_TO_MICROSEC( newval.i_int );
+        p_sys->i_min_stops_interval = VLC_TICK_FROM_MS( newval.i_int );
     }
     else if( !strcmp( psz_var, CFG_MIN_STOP_START_INTERVAL ) )
     {
-        p_sys->i_min_stop_start_interval = MILLISEC_TO_MICROSEC( newval.i_int );
+        p_sys->i_min_stop_start_interval = VLC_TICK_FROM_MS( newval.i_int );
     }
     else if( !strcmp( psz_var, CFG_MIN_START_STOP_INTERVAL ) )
     {
-        p_sys->i_min_start_stop_interval = MILLISEC_TO_MICROSEC( newval.i_int );
+        p_sys->i_min_start_stop_interval = VLC_TICK_FROM_MS( newval.i_int );
     }
     else
     {
-        SubsdelayHeapUnlock( &p_sys->heap );
-        return VLC_ENOVAR;
+        vlc_assert_unreachable();
     }
 
     SubsdelayRecalculateDelays( (filter_t *) p_this );
@@ -775,9 +765,9 @@ static void SubsdelayEnforceDelayRules( filter_t *p_filter )
     subsdelay_heap_entry_t ** p_list;
     int i_count, i_overlap;
     vlc_tick_t i_offset;
-    int64_t i_min_stops_interval;
-    int64_t i_min_stop_start_interval;
-    int64_t i_min_start_stop_interval;
+    vlc_tick_t i_min_stops_interval;
+    vlc_tick_t i_min_stop_start_interval;
+    vlc_tick_t i_min_start_stop_interval;
 
     filter_sys_t *p_sys = p_filter->p_sys;
 
@@ -890,10 +880,7 @@ static void SubsdelayEnforceDelayRules( filter_t *p_filter )
 
     for( int i = 0; i < i_count - i_overlap; i++ )
     {
-        if( p_list[i]->i_new_stop > p_list[i + i_overlap]->p_source->i_start )
-        {
-            p_list[i]->i_new_stop = p_list[i + i_overlap]->p_source->i_start;
-        }
+        p_list[i]->i_new_stop = __MIN(p_list[i]->i_new_stop, p_list[i + i_overlap]->p_source->i_start);
     }
 
     /* finally - update all */
@@ -1169,20 +1156,18 @@ static void SubpicDestroyClone( subpicture_t *p_subpic )
  * SubsdelayEstimateDelay: Calculate new subtitle delay according to its
  *     content and the calculation mode
  *****************************************************************************/
-static int64_t SubsdelayEstimateDelay( filter_t *p_filter, subsdelay_heap_entry_t *p_entry )
+static vlc_tick_t SubsdelayEstimateDelay( filter_t *p_filter, subsdelay_heap_entry_t *p_entry )
 {
     int i_mode;
-    int i_factor;
     int i_rank;
 
     filter_sys_t *p_sys = p_filter->p_sys;
 
     i_mode = p_sys->i_mode;
-    i_factor = p_sys->i_factor;
 
     if( i_mode == SUBSDELAY_MODE_ABSOLUTE )
     {
-        return ( p_entry->p_source->i_stop - p_entry->p_source->i_start + INT_FACTOR_TO_MICROSEC( i_factor ) );
+        return ( p_entry->p_source->i_stop - p_entry->p_source->i_start + vlc_tick_from_sec( p_sys->f_factor ) );
     }
 
     if( i_mode == SUBSDELAY_MODE_RELATIVE_SOURCE_CONTENT )
@@ -1192,19 +1177,19 @@ static int64_t SubsdelayEstimateDelay( filter_t *p_filter, subsdelay_heap_entry_
             //FIXME: We only use a single segment here
             i_rank = SubsdelayGetTextRank( p_entry->p_subpic->p_region->p_text->psz_text );
 
-            return ( i_rank * INT_FACTOR_TO_RANK_FACTOR( i_factor ) );
+            return vlc_tick_from_sec( p_sys->f_factor * i_rank );
         }
 
         /* content is unavailable, calculation mode should be based on source delay */
         i_mode = SUBSDELAY_MODE_RELATIVE_SOURCE_DELAY;
     }
 
-    if( i_mode == SUBSDELAY_MODE_RELATIVE_SOURCE_DELAY )
+    if( likely(i_mode == SUBSDELAY_MODE_RELATIVE_SOURCE_DELAY) )
     {
-        return ( ( i_factor * ( p_entry->p_source->i_stop - p_entry->p_source->i_start ) ) / INT_FACTOR_BASE );
+        return (vlc_tick_t)( p_sys->f_factor * ( p_entry->p_source->i_stop - p_entry->p_source->i_start ) );
     }
 
-    return 10000000; /* 10 sec */
+    return VLC_TICK_FROM_SEC(10); /* 10 sec */
 }
 
 /*****************************************************************************

@@ -1,7 +1,6 @@
 /*
  * meta.c - libvlc smoke test
  *
- * $Id: aa29c98406f8444de7a3c6d3a59b621fd9e4ed1a $
  */
 
 /**********************************************************************
@@ -32,7 +31,7 @@ static void test_meta (const char ** argv, int argc)
     libvlc_media_t *media;
     char * artist;
 
-    log ("Testing meta\n");
+    test_log ("Testing meta\n");
 
     vlc = libvlc_new (argc, argv);
     assert (vlc != NULL);
@@ -47,7 +46,7 @@ static void test_meta (const char ** argv, int argc)
     const char *expected_artist = "mike";
 
     assert (artist);
-    log ("+ got '%s' as Artist, expecting %s\n", artist, expected_artist);
+    test_log ("+ got '%s' as Artist, expecting %s\n", artist, expected_artist);
 
     int string_compare = strcmp (artist, expected_artist);
     assert (!string_compare);

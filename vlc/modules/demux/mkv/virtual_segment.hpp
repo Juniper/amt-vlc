@@ -2,7 +2,6 @@
  * virtual_segment.hpp : virtual segment implementation in the MKV demuxer
  *****************************************************************************
  * Copyright © 2003-2011 VideoLAN and VLC authors
- * $Id: 45086bcd65f0725a64ff80d7349ac6660de3b299 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Steve Lhomme <steve.lhomme@free.fr>
@@ -38,7 +37,7 @@ namespace mkv {
 class virtual_chapter_c
 {
 public:
-    virtual_chapter_c( matroska_segment_c &seg, chapter_item_c *p_chap, int64_t start, int64_t stop, std::vector<virtual_chapter_c *> & sub_chaps ):
+    virtual_chapter_c( matroska_segment_c &seg, chapter_item_c *p_chap, vlc_tick_t start, vlc_tick_t stop, std::vector<virtual_chapter_c *> & sub_chaps ):
         segment(seg), p_chapter(p_chap),
         i_mk_virtual_start_time(start), i_mk_virtual_stop_time(stop),
         sub_vchapters(sub_chaps)
@@ -48,9 +47,9 @@ public:
     static virtual_chapter_c * CreateVirtualChapter( chapter_item_c * p_chap,
                                                      matroska_segment_c & main_segment,
                                                      std::vector<matroska_segment_c*> & segments,
-                                                     int64_t & usertime_offset, bool b_ordered );
+                                                     vlc_tick_t & usertime_offset, bool b_ordered );
 
-    virtual_chapter_c* getSubChapterbyTimecode( int64_t time );
+    virtual_chapter_c* getSubChapterbyTimecode( vlc_tick_t time );
     bool Leave( );
     bool EnterAndLeave( virtual_chapter_c *p_leaving_vchapter, bool b_enter = true );
     virtual_chapter_c * FindChapter( int64_t i_find_uid );
@@ -90,7 +89,7 @@ public:
     ~virtual_edition_c();
     std::vector<virtual_chapter_c*> vchapters;
 
-    virtual_chapter_c* getChapterbyTimecode( int64_t time );
+    virtual_chapter_c* getChapterbyTimecode( vlc_tick_t time );
     std::string GetMainName();
     int PublishChapters( input_title_t & title, int & i_user_chapters, int i_level );
     virtual_chapter_c * BrowseCodecPrivate( unsigned int codec_id,
@@ -145,9 +144,9 @@ public:
         return &p_current_vchapter->segment;
     }
 
-    inline int64_t Duration()
+    inline vlc_tick_t Duration()
     {
-        return veditions[i_current_edition]->i_duration / 1000;
+        return veditions[i_current_edition]->i_duration;
     }
 
     inline std::vector<virtual_edition_c*>* Editions() { return &veditions; }

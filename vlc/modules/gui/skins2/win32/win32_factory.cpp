@@ -2,7 +2,6 @@
  * win32_factory.cpp
  *****************************************************************************
  * Copyright (C) 2003 the VideoLAN team
- * $Id: f5a657fc7ffd16942ddf656473539b842cb95aee $
  *
  * Authors: Cyril Deguet     <asmax@via.ecp.fr>
  *          Olivier Teulière <ipkiss@via.ecp.fr>
@@ -31,7 +30,6 @@
 #include <windows.h>
 #include <winuser.h>
 #include <wingdi.h>
-#include <tchar.h>
 #include <shellapi.h>
 
 #include "win32_factory.hpp"
@@ -74,7 +72,7 @@ LRESULT CALLBACK Win32Factory::Win32Proc( HWND hwnd, UINT uMsg,
             // If closing parent window
             if( (wParam & 0xFFF0) == SC_CLOSE )
             {
-                libvlc_Quit( p_intf->obj.libvlc );
+                libvlc_Quit( vlc_object_instance(p_intf) );
                 return 0;
             }
             else if( (wParam & 0xFFF0) == SC_MINIMIZE )
@@ -215,7 +213,7 @@ bool Win32Factory::init()
     m_trayIcon.uFlags = NIF_ICON|NIF_TIP|NIF_MESSAGE;
     m_trayIcon.uCallbackMessage = MY_WM_TRAYACTION;
     m_trayIcon.hIcon = LoadIcon( m_hInst, vlc_icon );
-    _tcscpy( m_trayIcon.szTip, vlc_name );
+    wcscpy( m_trayIcon.szTip, vlc_name );
 
     // Show the systray icon if needed
     if( var_InheritBool( getIntf(), "skins2-systray" ) )

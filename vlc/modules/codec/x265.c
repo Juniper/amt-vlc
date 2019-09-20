@@ -55,9 +55,7 @@ typedef struct
     x265_encoder    *h;
     x265_param      param;
 
-    vlc_tick_t      i_initial_delay;
-
-    vlc_tick_t      dts;
+    unsigned        frame_count;
     vlc_tick_t      initial_date;
 #ifndef NDEBUG
     vlc_tick_t      start;
@@ -73,7 +71,7 @@ static block_t *Encode(encoder_t *p_enc, picture_t *p_pict)
 
     if (likely(p_pict)) {
         pic.pts = p_pict->date;
-        if (unlikely(p_sys->initial_date == 0)) {
+        if (unlikely(p_sys->initial_date == VLC_TICK_INVALID)) {
             p_sys->initial_date = p_pict->date;
 #ifndef NDEBUG
             p_sys->start = vlc_tick_now();
@@ -106,12 +104,12 @@ static block_t *Encode(encoder_t *p_enc, picture_t *p_pict)
     memcpy(p_block->p_buffer, nal[0].payload, i_out);
 
     /* This isn't really valid for streams with B-frames */
-    p_block->i_length = CLOCK_FREQ *
-        p_enc->fmt_in.video.i_frame_rate_base /
-            p_enc->fmt_in.video.i_frame_rate;
+    p_block->i_length = vlc_tick_from_samples(
+                p_enc->fmt_in.video.i_frame_rate_base,
+                p_enc->fmt_in.video.i_frame_rate );
 
     p_block->i_pts = p_sys->initial_date + pic.poc * p_block->i_length;
-    p_block->i_dts = p_sys->initial_date + p_sys->dts++ * p_block->i_length;
+    p_block->i_dts = p_sys->initial_date + p_sys->frame_count++ * p_block->i_length;
 
     switch (pic.sliceType)
     {
@@ -129,8 +127,8 @@ static block_t *Encode(encoder_t *p_enc, picture_t *p_pict)
     }
 
 #ifndef NDEBUG
-    msg_Dbg(p_enc, "%zu bytes (frame %"PRId64", %.2ffps)", p_block->i_buffer,
-        p_sys->dts, (float)p_sys->dts * CLOCK_FREQ / (vlc_tick_now() - p_sys->start));
+    msg_Dbg(p_enc, "%zu bytes (frame %u, %.2ffps)", p_block->i_buffer,
+        p_sys->frame_count, (float)p_sys->frame_count * CLOCK_FREQ / (vlc_tick_now() - p_sys->start));
 #endif
 
     return p_block;
@@ -226,9 +224,8 @@ static int  Open (vlc_object_t *p_this)
         p_extra += nal[i].sizeBytes;
     }
 
-    p_sys->dts = 0;
-    p_sys->initial_date = 0;
-    p_sys->i_initial_delay = 0;
+    p_sys->frame_count = 0;
+    p_sys->initial_date = VLC_TICK_INVALID;
 
     p_enc->pf_encode_video = Encode;
     p_enc->pf_encode_audio = NULL;

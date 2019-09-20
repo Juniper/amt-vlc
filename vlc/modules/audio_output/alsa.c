@@ -98,7 +98,6 @@ vlc_module_begin ()
     set_subcategory( SUBCAT_AUDIO_AOUT )
     add_string ("alsa-audio-device", "default",
                 AUDIO_DEV_TEXT, AUDIO_DEV_LONGTEXT, false)
-        change_string_cb (EnumDevices)
     add_integer ("alsa-audio-channels", AOUT_CHANS_FRONT,
                  AUDIO_CHAN_TEXT, AUDIO_CHAN_LONGTEXT, false)
         change_integer_list (channels, channels_text)
@@ -294,7 +293,8 @@ static int TimeGet (audio_output_t *aout, vlc_tick_t *);
 static void Play(audio_output_t *, block_t *, vlc_tick_t);
 static void Pause (audio_output_t *, bool, vlc_tick_t);
 static void PauseDummy (audio_output_t *, bool, vlc_tick_t);
-static void Flush (audio_output_t *, bool);
+static void Flush (audio_output_t *);
+static void Drain (audio_output_t *);
 
 /** Initializes an ALSA playback stream */
 static int Start (audio_output_t *aout, audio_sample_format_t *restrict fmt)
@@ -611,8 +611,6 @@ static int Start (audio_output_t *aout, audio_sample_format_t *restrict fmt)
     fmt->channel_type = AUDIO_CHANNEL_TYPE_BITMAP;
     sys->format = fmt->i_format;
 
-    aout->time_get = TimeGet;
-    aout->play = Play;
     if (snd_pcm_hw_params_can_pause (hw))
         aout->pause = Pause;
     else
@@ -620,7 +618,6 @@ static int Start (audio_output_t *aout, audio_sample_format_t *restrict fmt)
         aout->pause = PauseDummy;
         msg_Warn (aout, "device cannot be paused");
     }
-    aout->flush = Flush;
     aout_SoftVolumeStart (aout);
     return 0;
 
@@ -640,7 +637,7 @@ static int TimeGet (audio_output_t *aout, vlc_tick_t *restrict delay)
         msg_Err (aout, "cannot estimate delay: %s", snd_strerror (val));
         return -1;
     }
-    *delay = frames * CLOCK_FREQ / sys->rate;
+    *delay = vlc_tick_from_samples(frames, sys->rate);
     return 0;
 }
 
@@ -717,20 +714,26 @@ static void PauseDummy (audio_output_t *aout, bool pause, vlc_tick_t date)
 }
 
 /**
- * Flushes/drains the audio playback buffer.
+ * Flushes the audio playback buffer.
  */
-static void Flush (audio_output_t *aout, bool wait)
+static void Flush (audio_output_t *aout)
 {
     aout_sys_t *p_sys = aout->sys;
     snd_pcm_t *pcm = p_sys->pcm;
-
-    if (wait)
-        snd_pcm_drain (pcm);
-    else
-        snd_pcm_drop (pcm);
+    snd_pcm_drop (pcm);
     snd_pcm_prepare (pcm);
 }
 
+/**
+ * Drains the audio playback buffer.
+ */
+static void Drain (audio_output_t *aout)
+{
+    aout_sys_t *p_sys = aout->sys;
+    snd_pcm_t *pcm = p_sys->pcm;
+    snd_pcm_drain (pcm);
+    snd_pcm_prepare (pcm);
+}
 
 /**
  * Releases the audio output.
@@ -800,6 +803,8 @@ static int EnumDevices(char const *varname,
     return n;
 }
 
+VLC_CONFIG_STRING_ENUM(EnumDevices)
+
 static int DeviceSelect (audio_output_t *aout, const char *id)
 {
     aout_sys_t *sys = aout->sys;
@@ -850,6 +855,11 @@ static int Open(vlc_object_t *obj)
         free (names);
         free (ids);
     }
+
+    aout->time_get = TimeGet;
+    aout->play = Play;
+    aout->flush = Flush;
+    aout->drain = Drain;
 
     return VLC_SUCCESS;
 error:

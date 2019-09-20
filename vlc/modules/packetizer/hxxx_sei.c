@@ -22,11 +22,12 @@
 #endif
 
 #include <vlc_common.h>
-#include <vlc_bits.h>
 #include <vlc_block.h>
+#include <vlc_bits.h>
 
 #include "hxxx_sei.h"
 #include "hxxx_nal.h"
+#include "hxxx_ep3b.h"
 
 void HxxxParse_AnnexB_SEI(const uint8_t *p_buf, size_t i_buf,
                           uint8_t i_header, pf_hxxx_sei_callback cb, void *cbdata)
@@ -39,15 +40,16 @@ void HxxxParseSEI(const uint8_t *p_buf, size_t i_buf,
                   uint8_t i_header, pf_hxxx_sei_callback pf_callback, void *cbdata)
 {
     bs_t s;
-    unsigned i_bitflow = 0;
     bool b_continue = true;
 
     if( i_buf <= i_header )
         return;
 
-    bs_init( &s, &p_buf[i_header], i_buf - i_header ); /* skip nal unit header */
-    s.p_fwpriv = &i_bitflow;
-    s.pf_forward = hxxx_bsfw_ep3b_to_rbsp;  /* Does the emulated 3bytes conversion to rbsp */
+    struct hxxx_bsfw_ep3b_ctx_s bsctx;
+    hxxx_bsfw_ep3b_ctx_init( &bsctx );
+    bs_init_custom( &s, &p_buf[i_header], i_buf - i_header, /* skip nal unit header */
+                    &hxxx_bsfw_ep3b_callbacks, &bsctx );
+
 
     while( bs_remain( &s ) >= 8 && bs_aligned( &s ) && b_continue )
     {

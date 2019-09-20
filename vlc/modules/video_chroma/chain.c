@@ -2,7 +2,6 @@
  * chain.c : chain multiple video filter modules as a last resort solution
  *****************************************************************************
  * Copyright (C) 2007-2017 VLC authors and VideoLAN
- * $Id: 242034bda0de65f80f3537cc1291a373b6cbf113 $
  *
  * Authors: Antoine Cellerier <dionoea at videolan dot org>
  *
@@ -131,18 +130,19 @@ static int RestartFilterCallback( vlc_object_t *obj, char const *psz_name,
 /*****************************************************************************
  * Buffer management
  *****************************************************************************/
-static picture_t *BufferNew( filter_t *p_filter )
+static picture_t *BufferChainNew( filter_t *p_filter )
 {
-    filter_t *p_parent = p_filter->owner.sys;
-
-    return filter_NewPicture( p_parent );
+    filter_t *p_chain_parent = p_filter->owner.sys;
+    // the last filter of the internal chain gets its pictures from the original
+    // filter source
+    return filter_NewPicture( p_chain_parent );
 }
 
 #define CHAIN_LEVEL_MAX 2
 
 static const struct filter_video_callbacks filter_video_chain_cbs =
 {
-    .buffer_new = BufferNew,
+    BufferChainNew,
 };
 
 /*****************************************************************************
@@ -172,7 +172,7 @@ static int Activate( filter_t *p_filter, int (*pf_build)(filter_t *) )
     }
 
     int type = VLC_VAR_INTEGER;
-    if( var_Type( p_filter->obj.parent, "chain-level" ) != 0 )
+    if( var_Type( vlc_object_parent(p_filter), "chain-level" ) != 0 )
         type |= VLC_VAR_DOINHERIT;
 
     var_Create( p_filter, "chain-level", type );
@@ -197,7 +197,7 @@ static int Activate( filter_t *p_filter, int (*pf_build)(filter_t *) )
         free( p_sys );
         return VLC_EGENERIC;
     }
-    else if( p_filter->b_allow_fmt_out_change )
+    if( p_filter->b_allow_fmt_out_change )
     {
         es_format_Clean( &p_filter->fmt_out );
         es_format_Copy( &p_filter->fmt_out,
@@ -234,7 +234,7 @@ static int ActivateFilter( vlc_object_t *p_this )
     if( !p_filter->b_allow_fmt_out_change || p_filter->psz_name == NULL )
         return VLC_EGENERIC;
 
-    if( var_Type( p_filter->obj.parent, "chain-filter-level" ) != 0 )
+    if( var_Type( vlc_object_parent(p_filter), "chain-filter-level" ) != 0 )
         return VLC_EGENERIC;
 
     var_Create( p_filter, "chain-filter-level", VLC_VAR_INTEGER );
@@ -289,10 +289,7 @@ static int BuildTransformChain( filter_t *p_filter )
     EsFormatMergeSize( &fmt_mid, &p_filter->fmt_out, &p_filter->fmt_in );
     i_ret = CreateChain( p_filter, &fmt_mid );
     es_format_Clean( &fmt_mid );
-    if( i_ret == VLC_SUCCESS )
-        return VLC_SUCCESS;
-
-    return VLC_EGENERIC;
+    return i_ret;
 }
 
 static int BuildChromaResize( filter_t *p_filter )

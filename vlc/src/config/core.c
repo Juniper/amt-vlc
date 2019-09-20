@@ -2,7 +2,6 @@
  * core.c management of the modules configuration
  *****************************************************************************
  * Copyright (C) 2001-2007 VLC authors and VideoLAN
- * $Id: 430aadf9cf0b2a2b1eb9d27e7783cc867cb21470 $
  *
  * Authors: Gildas Bazin <gbazin@videolan.org>
  *
@@ -206,15 +205,13 @@ ssize_t config_GetIntChoices(const char *name,
     size_t count = cfg->list_count;
     if (count == 0)
     {
-        if (module_Map(NULL, cfg->owner))
-        {
-            errno = EIO;
-            return -1;
-        }
+        int (*cb)(const char *, int64_t **, char ***);
 
-        if (cfg->list.i_cb == NULL)
+        cb = module_Symbol(NULL, cfg->owner, "vlc_entry_cfg_int_enum");
+        if (cb == NULL)
             return 0;
-        return cfg->list.i_cb(name, values, texts);
+
+        return cb(name, values, texts);
     }
 
     int64_t *vals = vlc_alloc (count, sizeof (*vals));
@@ -262,26 +259,53 @@ static ssize_t config_ListModules (const char *cap, char ***restrict values,
         return n;
     }
 
-    char **vals = xmalloc ((n + 2) * sizeof (*vals));
-    char **txts = xmalloc ((n + 2) * sizeof (*txts));
-
-    vals[0] = xstrdup ("any");
-    txts[0] = xstrdup (_("Automatic"));
-
-    for (ssize_t i = 0; i < n; i++)
+    char **vals = malloc ((n + 2) * sizeof (*vals));
+    char **txts = malloc ((n + 2) * sizeof (*txts));
+    if (!vals || !txts)
     {
-        vals[i + 1] = xstrdup (module_get_object (list[i]));
-        txts[i + 1] = xstrdup (module_gettext (list[i],
-                               module_get_name (list[i], true)));
+        free (vals);
+        free (txts);
+        *values = *texts = NULL;
+        return -1;
     }
 
-    vals[n + 1] = xstrdup ("none");
-    txts[n + 1] = xstrdup (_("Disable"));
+    ssize_t i = 0;
+
+    vals[i] = strdup ("any");
+    txts[i] = strdup (_("Automatic"));
+    if (!vals[i] || !txts[i])
+        goto error;
+
+    ++i;
+    for (; i <= n; i++)
+    {
+        vals[i] = strdup (module_get_object (list[i - 1]));
+        txts[i] = strdup (module_gettext (list[i - 1],
+                               module_get_name (list[i - 1], true)));
+        if( !vals[i] || !txts[i])
+            goto error;
+    }
+    vals[i] = strdup ("none");
+    txts[i] = strdup (_("Disable"));
+    if( !vals[i] || !txts[i])
+        goto error;
 
     *values = vals;
     *texts = txts;
     module_list_free (list);
-    return n + 2;
+    return i + 1;
+
+error:
+    for (ssize_t j = 0; j <= i; ++j)
+    {
+        free (vals[j]);
+        free (txts[j]);
+    }
+    free(vals);
+    free(txts);
+    module_list_free (list);
+    *values = *texts = NULL;
+    return -1;
 }
 
 ssize_t config_GetPszChoices(const char *name,
@@ -312,31 +336,50 @@ ssize_t config_GetPszChoices(const char *name,
     size_t count = cfg->list_count;
     if (count == 0)
     {
-        if (module_Map(NULL, cfg->owner))
-        {
-            errno = EIO;
-            return -1;
-        }
+        int (*cb)(const char *, char ***, char ***);
 
-        if (cfg->list.psz_cb == NULL)
+        cb = module_Symbol(NULL, cfg->owner, "vlc_entry_cfg_str_enum");
+        if (cb == NULL)
             return 0;
-        return cfg->list.psz_cb(name, values, texts);
+
+        return cb(name, values, texts);
     }
 
-    char **vals = xmalloc (sizeof (*vals) * count);
-    char **txts = xmalloc (sizeof (*txts) * count);
-
-    for (size_t i = 0; i < count; i++)
+    char **vals = malloc (sizeof (*vals) * count);
+    char **txts = malloc (sizeof (*txts) * count);
+    if (!vals || !txts)
     {
-        vals[i] = xstrdup ((cfg->list.psz[i] != NULL) ? cfg->list.psz[i] : "");
+        free (vals);
+        free (txts);
+        errno = ENOMEM;
+        return -1;
+    }
+
+    size_t i;
+    for (i = 0; i < count; i++)
+    {
+        vals[i] = strdup ((cfg->list.psz[i] != NULL) ? cfg->list.psz[i] : "");
         /* FIXME: use module_gettext() instead */
-        txts[i] = xstrdup ((cfg->list_text[i] != NULL)
+        txts[i] = strdup ((cfg->list_text[i] != NULL)
                                        ? vlc_gettext (cfg->list_text[i]) : "");
+        if (!vals[i] || !txts[i])
+            goto error;
     }
 
     *values = vals;
     *texts = txts;
     return count;
+
+error:
+    for (size_t j = 0; j <= i; ++j)
+    {
+        free (vals[j]);
+        free (txts[j]);
+    }
+    free(vals);
+    free(txts);
+    errno = ENOMEM;
+    return -1;
 }
 
 static int confcmp (const void *a, const void *b)

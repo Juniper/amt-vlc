@@ -42,12 +42,21 @@
 #include <mach/mach_time.h>
 #include <execinfo.h>
 
-static mach_timebase_info_data_t vlc_clock_conversion_factor;
+static struct {
+    uint32_t quotient;
+    uint32_t remainder;
+    uint32_t divider;
+} vlc_clock_conversion;
 
 static void vlc_clock_setup_once (void)
 {
-    if (unlikely(mach_timebase_info (&vlc_clock_conversion_factor) != 0))
+    mach_timebase_info_data_t timebase;
+    if (unlikely(mach_timebase_info (&timebase) != 0))
         abort ();
+    lldiv_t d = lldiv (timebase.numer, timebase.denom);
+    vlc_clock_conversion.quotient = (uint32_t)d.quot;
+    vlc_clock_conversion.remainder = (uint32_t)d.rem;
+    vlc_clock_conversion.divider = timebase.denom;
 }
 
 static pthread_once_t vlc_clock_once = PTHREAD_ONCE_INIT;
@@ -142,33 +151,21 @@ void vlc_mutex_destroy (vlc_mutex_t *p_mutex)
     VLC_THREAD_ASSERT ("destroying mutex");
 }
 
-#ifndef NDEBUG
-# ifdef HAVE_VALGRIND_VALGRIND_H
-#  include <valgrind/valgrind.h>
-# else
-#  define RUNNING_ON_VALGRIND (0)
-# endif
-
-void vlc_assert_locked (vlc_mutex_t *p_mutex)
-{
-    if (RUNNING_ON_VALGRIND > 0)
-        return;
-    assert (pthread_mutex_lock (p_mutex) == EDEADLK);
-}
-#endif
-
 void vlc_mutex_lock (vlc_mutex_t *p_mutex)
 {
     int val = pthread_mutex_lock( p_mutex );
     VLC_THREAD_ASSERT ("locking mutex");
+    vlc_mutex_mark(p_mutex);
 }
 
 int vlc_mutex_trylock (vlc_mutex_t *p_mutex)
 {
     int val = pthread_mutex_trylock( p_mutex );
 
-    if (val != EBUSY)
+    if (val != EBUSY) {
         VLC_THREAD_ASSERT ("locking mutex");
+        vlc_mutex_mark(p_mutex);
+    }
     return val;
 }
 
@@ -176,6 +173,7 @@ void vlc_mutex_unlock (vlc_mutex_t *p_mutex)
 {
     int val = pthread_mutex_unlock( p_mutex );
     VLC_THREAD_ASSERT ("unlocking mutex");
+    vlc_mutex_unmark(p_mutex);
 }
 
 void vlc_cond_init (vlc_cond_t *p_condvar)
@@ -516,16 +514,9 @@ vlc_tick_t vlc_tick_now (void)
     vlc_clock_setup();
     uint64_t date = mach_absolute_time();
 
-    /* denom is uint32_t, switch to 64 bits to prevent overflow. */
-    uint64_t denom = vlc_clock_conversion_factor.denom;
-
-    /* Switch to microsecs */
-    denom *= 1000LL;
-
-    /* Split the division to prevent overflow */
-    lldiv_t d = lldiv (vlc_clock_conversion_factor.numer, denom);
-
-    return (d.quot * date) + ((d.rem * date) / denom);
+    date = date * vlc_clock_conversion.quotient +
+        date * vlc_clock_conversion.remainder / vlc_clock_conversion.divider;
+    return VLC_TICK_FROM_NS(date);
 }
 
 #undef vlc_tick_wait

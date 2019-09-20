@@ -2,7 +2,6 @@
  * flac.c : FLAC demux module for vlc
  *****************************************************************************
  * Copyright (C) 2001-2008 VLC authors and VideoLAN
- * $Id: e7f8d4e42db334fde1671b599af82cb16f7cf3a6 $
  *
  * Authors: Gildas Bazin <gbazin@netcourrier.com>
  *          Laurent Aimar <fenrir@via.ecp.fr>
@@ -86,7 +85,7 @@ typedef struct
     struct flac_stream_info stream_info;
     bool b_stream_info;
 
-    int64_t i_length; /* Length from stream info */
+    vlc_tick_t i_length; /* Length from stream info */
     uint64_t i_data_pos;
 
     /* */
@@ -271,7 +270,7 @@ static int RefineSeek( demux_t *p_demux, vlc_tick_t i_time, double i_bytemicrora
     unsigned i_frame_size = FLAC_FRAME_SIZE_MIN;
 
     bool b_canfastseek = false;
-    (int) vlc_stream_Control( p_demux->s, STREAM_CAN_FASTSEEK, &b_canfastseek );
+    vlc_stream_Control( p_demux->s, STREAM_CAN_FASTSEEK, &b_canfastseek );
 
     uint64_t i_start_pos = vlc_stream_Tell( p_demux->s );
 
@@ -318,7 +317,7 @@ static int RefineSeek( demux_t *p_demux, vlc_tick_t i_time, double i_bytemicrora
             }
             else b_found = true;
         }
-        else if( p_block_out->i_dts < i_time )
+        else
         {
             vlc_tick_t i_diff = i_time - p_block_out->i_dts;
             /* Not in acceptable NEXT_TIME demux range */
@@ -408,11 +407,11 @@ static int Demux( demux_t *p_demux )
 /*****************************************************************************
  * Control:
  *****************************************************************************/
-static int64_t ControlGetLength( demux_t *p_demux )
+static vlc_tick_t ControlGetLength( demux_t *p_demux )
 {
     demux_sys_t *p_sys = p_demux->p_sys;
     const uint64_t i_size = stream_Size(p_demux->s) - p_sys->i_data_pos;
-    int64_t i_length = p_sys->i_length;
+    vlc_tick_t i_length = p_sys->i_length;
     int i;
 
     /* Try to fix length using seekpoint and current size for truncated file */
@@ -434,13 +433,13 @@ static int64_t ControlGetLength( demux_t *p_demux )
     return i_length;
 }
 
-static int64_t ControlGetTime( demux_t *p_demux )
+static vlc_tick_t ControlGetTime( demux_t *p_demux )
 {
     demux_sys_t *p_sys = p_demux->p_sys;
     return p_sys->i_pts;
 }
 
-static int ControlSetTime( demux_t *p_demux, int64_t i_time )
+static int ControlSetTime( demux_t *p_demux, vlc_tick_t i_time )
 {
     demux_sys_t *p_sys = p_demux->p_sys;
     bool b_seekable;
@@ -521,19 +520,17 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
     }
     else if( i_query == DEMUX_GET_LENGTH )
     {
-        int64_t *pi64 = va_arg( args, int64_t * );
-        *pi64 = ControlGetLength( p_demux );
+        *va_arg( args, vlc_tick_t * ) = ControlGetLength( p_demux );
         return VLC_SUCCESS;
     }
     else if( i_query == DEMUX_SET_TIME )
     {
-        int64_t i_time = va_arg( args, int64_t );
-        return ControlSetTime( p_demux, i_time );
+        return ControlSetTime( p_demux, va_arg( args, vlc_tick_t ) );
     }
     else if( i_query == DEMUX_SET_POSITION )
     {
         const double f = va_arg( args, double );
-        int64_t i_length = ControlGetLength( p_demux );
+        vlc_tick_t i_length = ControlGetLength( p_demux );
         int i_ret;
         if( i_length > 0 )
         {
@@ -552,19 +549,18 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
     }
     else if( i_query == DEMUX_GET_TIME )
     {
-        int64_t *pi64 = va_arg( args, int64_t * );
-        *pi64 = ControlGetTime( p_demux );
+        *va_arg( args, vlc_tick_t * ) = ControlGetTime( p_demux );
         return VLC_SUCCESS;
     }
     else if( i_query == DEMUX_GET_POSITION )
     {
-        const int64_t i_length = ControlGetLength(p_demux);
+        const vlc_tick_t i_length = ControlGetLength(p_demux);
         if( i_length > 0 )
         {
-            double current = ControlGetTime(p_demux);
+            vlc_tick_t current = ControlGetTime(p_demux);
             if( current <= i_length )
             {
-                *(va_arg( args, double * )) = current / (double)i_length;
+                *(va_arg( args, double * )) = (double)current / (double)i_length;
                 return VLC_SUCCESS;
             }
         }
@@ -729,8 +725,8 @@ static int  ParseHeaders( demux_t *p_demux, es_format_t *p_fmt )
             p_fmt->audio.i_channels = p_sys->stream_info.channels;
             p_fmt->audio.i_bitspersample = p_sys->stream_info.bits_per_sample;
             if( p_sys->stream_info.sample_rate > 0 )
-                p_sys->i_length = p_sys->stream_info.total_samples * CLOCK_FREQ
-                                / p_sys->stream_info.sample_rate;
+                p_sys->i_length = vlc_tick_from_samples(p_sys->stream_info.total_samples,
+                                  p_sys->stream_info.sample_rate);
 
             continue;
         }
@@ -787,7 +783,7 @@ static void ParseSeekTable( demux_t *p_demux, const uint8_t *p_data, size_t i_da
             break;
 
         s = xmalloc( sizeof (*s) );
-        s->i_time_offset = i_sample * CLOCK_FREQ / i_sample_rate;
+        s->i_time_offset = vlc_tick_from_samples(i_sample, i_sample_rate);
         s->i_byte_offset = GetQWBE( &p_data[4+18*i+8] );
 
         /* Check for duplicate entry */

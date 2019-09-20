@@ -2,7 +2,6 @@
  * visual.c : Visualisation system
  *****************************************************************************
  * Copyright (C) 2002-2009 VLC authors and VideoLAN
- * $Id: 03b60825f443115322d742acd3b246e7de2bdf87 $
  *
  * Authors: Clément Stenac <zorglub@via.ecp.fr>
  *
@@ -175,6 +174,7 @@ vlc_module_end ()
  * Local prototypes
  *****************************************************************************/
 static block_t *DoWork( filter_t *, block_t * );
+static void Flush( filter_t * );
 static void *Thread( void *);
 
 typedef struct
@@ -298,8 +298,11 @@ static int Open( vlc_object_t *p_this )
         .i_visible_height = height,
         .i_sar_num = 1,
         .i_sar_den = 1,
+        .transfer = TRANSFER_FUNC_SRGB,
+        .primaries = COLOR_PRIMARIES_SRGB,
+        .space = COLOR_SPACE_SRGB,
     };
-    p_sys->p_vout = aout_filter_RequestVout( p_filter, NULL, &fmt );
+    p_sys->p_vout = aout_filter_GetVout( p_filter, &fmt );
     if( p_sys->p_vout == NULL )
     {
         msg_Err( p_filter, "no suitable vout module" );
@@ -309,7 +312,7 @@ static int Open( vlc_object_t *p_this )
     p_sys->fifo = block_FifoNew();
     if( unlikely( p_sys->fifo == NULL ) )
     {
-        aout_filter_RequestVout( p_filter, p_sys->p_vout, NULL );
+        vout_Close( p_sys->p_vout );
         goto error;
     }
 
@@ -317,13 +320,14 @@ static int Open( vlc_object_t *p_this )
                    VLC_THREAD_PRIORITY_VIDEO ) )
     {
         block_FifoRelease( p_sys->fifo );
-        aout_filter_RequestVout( p_filter, p_sys->p_vout, NULL );
+        vout_Close( p_sys->p_vout );
         goto error;
     }
 
     p_filter->fmt_in.audio.i_format = VLC_CODEC_FL32;
     p_filter->fmt_out.audio = p_filter->fmt_in.audio;
     p_filter->pf_audio_filter = DoWork;
+    p_filter->pf_flush = Flush;
     return VLC_SUCCESS;
 
 error:
@@ -394,6 +398,12 @@ static block_t *DoWork( filter_t *p_filter, block_t *p_in_buf )
     return p_in_buf;
 }
 
+static void Flush( filter_t *p_filter )
+{
+    filter_sys_t *p_sys = p_filter->p_sys;
+    vout_FlushAll( p_sys->p_vout );
+}
+
 /*****************************************************************************
  * Close: close the plugin
  *****************************************************************************/
@@ -405,7 +415,7 @@ static void Close( vlc_object_t *p_this )
     vlc_cancel( p_sys->thread );
     vlc_join( p_sys->thread, NULL );
     block_FifoRelease( p_sys->fifo );
-    aout_filter_RequestVout( p_filter, p_sys->p_vout, NULL );
+    vout_Close( p_sys->p_vout );
 
     /* Free the list */
     for( int i = 0; i < p_sys->i_effect; i++ )

@@ -284,16 +284,16 @@ void Oggseek_ProbeEnd( demux_t *p_demux )
 
                     i_length = Ogg_GranuleToTime( p_sys->pp_stream[i], i_granule,
                                                   !p_sys->pp_stream[i]->b_contiguous, false );
-                    if( i_length > VLC_TICK_INVALID )
-                        p_sys->i_length = __MAX( p_sys->i_length, (i_length - VLC_TICK_0) / 1000000 );
+                    if( i_length != VLC_TICK_INVALID )
+                    {
+                        /* We found at least a page with valid granule */
+                        p_sys->i_length = __MAX( p_sys->i_length, SEC_FROM_VLC_TICK(i_length - VLC_TICK_0) );
+                        goto clean;
+                    }
                     break;
                 }
             }
-            if ( i_length > VLC_TICK_INVALID ) break;
         }
-
-        /* We found at least a page with valid granule */
-        if ( i_length > VLC_TICK_INVALID ) break;
 
         /* Otherwise increase read size, starting earlier */
         if ( i_backoffset <= ( UINT_MAX >> 1 ) )
@@ -702,7 +702,7 @@ static int64_t OggBisectSearchByTime( demux_t *p_demux, logical_stream_t *p_stre
                     bestlower = current;
                 i_start_pos = current.i_pos;
             }
-            else if ( current.i_timestamp > i_targettime )
+            else
             {
                 if ( lowestupper.i_timestamp == VLC_TICK_INVALID ||
                      current.i_timestamp < lowestupper.i_timestamp )
@@ -864,6 +864,7 @@ int Oggseek_BlindSeektoPosition( demux_t *p_demux, logical_stream_t *p_stream,
     }
 
     OggDebug( msg_Dbg( p_demux, "=================== Seeked To %"PRId64" granule %"PRId64, i_pagepos, i_granule ) );
+    (void) i_pagepos;
     return VLC_SUCCESS;
 }
 

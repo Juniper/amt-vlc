@@ -2,7 +2,6 @@
  * variables.c: routines for object variables handling
  *****************************************************************************
  * Copyright (C) 2002-2009 VLC authors and VideoLAN
- * $Id: d53364258ab8390460aeb84d2a52f679ab633c52 $
  *
  * Authors: Samuel Hocevar <sam@zoy.org>
  *
@@ -195,7 +194,7 @@ static void CheckValue(variable_t *var, vlc_value_t *val)
         case VLC_VAR_INTEGER:
             if (val->i_int < var->min.i_int)
                val->i_int = var->min.i_int;
-            if (val->i_int > var->max.i_int)
+            else if (val->i_int > var->max.i_int)
                 val->i_int = var->max.i_int;
             if (var->step.i_int != 0 && (val->i_int % var->step.i_int))
             {
@@ -211,7 +210,7 @@ static void CheckValue(variable_t *var, vlc_value_t *val)
         case VLC_VAR_FLOAT:
             if (isless(val->f_float, var->min.f_float))
                 val->f_float = var->min.f_float;
-            if (isgreater(val->f_float, var->max.f_float))
+            else if (isgreater(val->f_float, var->max.f_float))
                 val->f_float = var->max.f_float;
             if (var->step.f_float != 0.f)
                 val->f_float = var->step.f_float
@@ -777,6 +776,7 @@ static void AddCallback( vlc_object_t *p_this, const char *psz_name,
         vlc_mutex_unlock( &p_priv->var_lock );
         msg_Err( p_this, "cannot add callback %p to nonexistent variable '%s'",
                  entry->p_callback, psz_name );
+        free( entry );
         return;
     }
 
@@ -968,7 +968,18 @@ void var_OptionParse( vlc_object_t *p_obj, const char *psz_option,
     switch( i_type )
     {
     case VLC_VAR_BOOL:
-        val.b_bool = !b_isno;
+        if( psz_value )
+        {
+            char *endptr;
+            long long int value = strtoll( psz_value, &endptr, 0 );
+            if( endptr == psz_value ) /* Not an integer */
+                val.b_bool = strcasecmp( psz_value, "true" ) == 0
+                          || strcasecmp( psz_value, "yes" ) == 0;
+            else
+                val.b_bool = value != 0;
+        }
+        else
+            val.b_bool = !b_isno;
         break;
 
     case VLC_VAR_INTEGER:
@@ -1026,7 +1037,7 @@ int var_Inherit( vlc_object_t *p_this, const char *psz_name, int i_type,
                  vlc_value_t *p_val )
 {
     i_type &= VLC_VAR_CLASS;
-    for( vlc_object_t *obj = p_this; obj != NULL; obj = obj->obj.parent )
+    for (vlc_object_t *obj = p_this; obj != NULL; obj = vlc_object_parent(obj))
     {
         if( var_GetChecked( obj, psz_name, i_type, p_val ) == VLC_SUCCESS )
             return VLC_SUCCESS;
@@ -1121,84 +1132,6 @@ error:
     *num = 0;
     *den = 0;
     return VLC_EGENERIC;
-}
-
-static void DumpVariable(const void *data, const VISIT which, const int depth)
-{
-    if (which != postorder && which != leaf)
-        return;
-    (void) depth;
-
-    const variable_t *var = *(const variable_t **)data;
-    const char *typename = "unknown";
-
-    switch (var->i_type & VLC_VAR_TYPE)
-    {
-        case VLC_VAR_VOID:     typename = "void";        break;
-        case VLC_VAR_BOOL:     typename = "bool";        break;
-        case VLC_VAR_INTEGER:  typename = "integer";     break;
-        case VLC_VAR_STRING:   typename = "string";      break;
-        case VLC_VAR_FLOAT:    typename = "float";       break;
-        case VLC_VAR_COORDS:   typename = "coordinates"; break;
-        case VLC_VAR_ADDRESS:  typename = "address";     break;
-        default:               typename = "unknown";     break;
-    }
-
-    printf(" *-o \"%s\" (%s", var->psz_name, typename);
-    if (var->psz_text != NULL)
-        printf(", %s", var->psz_text);
-    putchar(')');
-    if (var->i_type & VLC_VAR_HASCHOICE)
-        fputs(", has choices", stdout);
-    if (var->i_type & VLC_VAR_ISCOMMAND)
-        fputs(", command", stdout);
-    if (var->value_callbacks != NULL)
-    {
-        size_t count = 0;
-
-        for (callback_entry_t *entry = var->value_callbacks;
-             entry != NULL;
-             entry = entry->next)
-            count++;
-
-        printf(", %zu callbacks", count);
-    }
-
-    switch (var->i_type & VLC_VAR_CLASS)
-    {
-        case VLC_VAR_VOID:
-            break;
-        case VLC_VAR_BOOL:
-            printf(": %s", var->val.b_bool ? "true" : "false");
-            break;
-        case VLC_VAR_INTEGER:
-            printf(": %"PRId64, var->val.i_int );
-            break;
-        case VLC_VAR_STRING:
-            printf(": \"%s\"", var->val.psz_string );
-            break;
-        case VLC_VAR_FLOAT:
-            printf(": %f", var->val.f_float );
-            break;
-        case VLC_VAR_COORDS:
-            printf(": %"PRId32"x%"PRId32,
-                   var->val.coords.x, var->val.coords.y);
-            break;
-        case VLC_VAR_ADDRESS:
-            printf(": %p", var->val.p_address);
-            break;
-    }
-    putchar('\n');
-}
-
-void DumpVariables(vlc_object_t *obj)
-{
-    vlc_mutex_lock(&vlc_internals(obj)->var_lock);
-    if (vlc_internals(obj)->var_root == NULL)
-        puts(" `-o No variables");
-    else
-        twalk(vlc_internals(obj)->var_root, DumpVariable);
-    vlc_mutex_unlock(&vlc_internals(obj)->var_lock);
 }
 
 static thread_local void *twalk_ctx;

@@ -2,7 +2,6 @@
  * cmd_dialogs.hpp
  *****************************************************************************
  * Copyright (C) 2003 the VideoLAN team
- * $Id: 8c2b39e51016a30b9d576c3e0bc3ac31f3bb81c6 $
  *
  * Authors: Cyril Deguet     <asmax@via.ecp.fr>
  *          Olivier Teulière <ipkiss@via.ecp.fr>
@@ -71,23 +70,5 @@ DEFC( ShowMiscPopupMenu,  showPopupMenu(true,INTF_DIALOG_MISCPOPUPMENU) )
 DEFC( HideMiscPopupMenu,  showPopupMenu(false,INTF_DIALOG_MISCPOPUPMENU) )
 
 #undef DEFC
-
-class CmdInteraction: public CmdGeneric
-{
-public:
-    CmdInteraction( intf_thread_t *pIntf, interaction_dialog_t * p_dialog )
-                  : CmdGeneric( pIntf ), m_pDialog( p_dialog ) { }
-    virtual ~CmdInteraction() { }
-
-    virtual void execute()
-    {
-        Dialogs *pDialogs = Dialogs::instance( getIntf() );
-        if( pDialogs != NULL )
-            pDialogs->showInteraction( m_pDialog );
-    }
-    virtual std::string getType() const { return "interaction"; }
-private:
-    interaction_dialog_t *m_pDialog;
-};
 
 #endif

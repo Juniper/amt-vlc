@@ -2,7 +2,6 @@
  * podcast_configuration.cpp: Podcast configuration dialog
  ****************************************************************************
  * Copyright (C) 2007 the VideoLAN team
- * $Id: a4623bf245f43efc50841613420c17beef662a4c $
  *
  * Authors: Antoine Cellerier <dionoea at videolan dot org>
  *
@@ -72,11 +71,12 @@ void PodcastConfigDialog::accept()
     }
     config_PutPsz( "podcast-urls", qtu( urls ) );
 
-    if( playlist_IsServicesDiscoveryLoaded( THEPL, "podcast" ) )
-    {
-        var_SetString( THEPL, "podcast-urls", qtu( urls ) );
-        msg_Dbg( p_intf, "You will need to reload the podcast module to take into account deleted podcast urls" );
-    }
+    //FIXME IsServicesDiscoveryLoaded is uninplmented
+    //if( playlist_IsServicesDiscoveryLoaded( THEPL, "podcast" ) )
+    //{
+    //    var_SetString( THEPL, "podcast-urls", qtu( urls ) );
+    //    msg_Dbg( p_intf, "You will need to reload the podcast module to take into account deleted podcast urls" );
+    //}
 }
 
 void PodcastConfigDialog::add()

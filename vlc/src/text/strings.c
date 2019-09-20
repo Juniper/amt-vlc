@@ -3,11 +3,10 @@
  *****************************************************************************
  * Copyright (C) 2006 VLC authors and VideoLAN
  * Copyright (C) 2008-2009 Rémi Denis-Courmont
- * $Id: c094d374e4077da0eadc55d28f452ae8ea8e0ce6 $
  *
  * Authors: Antoine Cellerier <dionoea at videolan dot org>
  *          Daniel Stranger <vlc at schmaller dot de>
- *          Rémi Denis-Courmont <rem # videolan org>
+ *          Rémi Denis-Courmont
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published by
@@ -43,8 +42,7 @@
 # define strcoll strcasecmp
 #endif
 
-/* Needed by vlc_strfinput */
-#include <vlc_input.h>
+/* Needed by vlc_strfplayer */
 #include <vlc_meta.h>
 #include <vlc_aout.h>
 #include <vlc_memstream.h>
@@ -52,8 +50,10 @@
 #include <vlc_strings.h>
 #include <vlc_charset.h>
 #include <vlc_arrays.h>
+#include <vlc_player.h>
 #include <libvlc.h>
 #include <errno.h>
+#include "../input/input_internal.h"
 
 static const struct xml_entity_s
 {
@@ -348,64 +348,66 @@ char *vlc_xml_encode (const char *str)
 }
 
 /* Base64 encoding */
-char *vlc_b64_encode_binary( const uint8_t *src, size_t i_src )
+char *vlc_b64_encode_binary(const void *src, size_t length)
 {
     static const char b64[] =
-           "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const unsigned char *in = src;
+    char *dst = malloc((((length + 2) / 3) * 4) + 1);
+    char *out = dst;
 
-    char *ret = malloc( ( i_src + 4 ) * 4 / 3 );
-    char *dst = ret;
-
-    if( dst == NULL )
+    if (unlikely(dst == NULL))
         return NULL;
 
-    while( i_src > 0 )
-    {
-        /* pops (up to) 3 bytes of input, push 4 bytes */
-        uint32_t v;
+    while (length >= 3) { /* pops (up to) 3 bytes of input, push 4 bytes */
+        uint_fast32_t v = (in[0] << 16) | (in[1] << 8) | in[2];
 
-        /* 1/3 -> 1/4 */
-        v = ((unsigned)*src++) << 24;
-        *dst++ = b64[v >> 26];
-        v = v << 6;
-
-        /* 2/3 -> 2/4 */
-        if( i_src >= 2 )
-            v |= *src++ << 22;
-        *dst++ = b64[v >> 26];
-        v = v << 6;
-
-        /* 3/3 -> 3/4 */
-        if( i_src >= 3 )
-            v |= *src++ << 20; // 3/3
-        *dst++ = ( i_src >= 2 ) ? b64[v >> 26] : '='; // 3/4
-        v = v << 6;
-
-        /* -> 4/4 */
-        *dst++ = ( i_src >= 3 ) ? b64[v >> 26] : '='; // 4/4
-
-        if( i_src <= 3 )
-            break;
-        i_src -= 3;
+        *(out++) = b64[(v >> 18)];
+        *(out++) = b64[(v >> 12) & 0x3f];
+        *(out++) = b64[(v >>  6) & 0x3f];
+        *(out++) = b64[(v >>  0) & 0x3f];
+        in += 3;
+        length -= 3;
     }
 
-    *dst = '\0';
+    switch (length) {
+        case 2: {
+            uint_fast16_t v = (in[0] << 8) | in[1];
 
-    return ret;
+            *(out++) = b64[(v >> 10)];
+            *(out++) = b64[(v >>  4) & 0x3f];
+            *(out++) = b64[(v <<  2) & 0x3f];
+            *(out++) = '=';
+            break;
+        }
+
+        case 1: {
+            uint_fast8_t v = in[0];
+
+            *(out++) = b64[(v >>  2)];
+            *(out++) = b64[(v <<  4) & 0x3f];
+            *(out++) = '=';
+            *(out++) = '=';
+            break;
+        }
+    }
+
+    *out = '\0';
+    return dst;
 }
 
-char *vlc_b64_encode( const char *src )
+char *vlc_b64_encode(const char *src)
 {
-    if( src )
-        return vlc_b64_encode_binary( (const uint8_t*)src, strlen(src) );
-    else
-        return vlc_b64_encode_binary( (const uint8_t*)"", 0 );
+    if (src == NULL)
+        src = "";
+    return vlc_b64_encode_binary(src, strlen(src));
 }
 
 /* Base64 decoding */
-size_t vlc_b64_decode_binary_to_buffer( uint8_t *p_dst, size_t i_dst, const char *p_src )
+size_t vlc_b64_decode_binary_to_buffer(void *dst, size_t size,
+                                       const char *restrict src)
 {
-    static const int b64[256] = {
+    static const signed char b64[256] = {
         -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,  /* 00-0F */
         -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,  /* 10-1F */
         -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,62,-1,-1,-1,63,  /* 20-2F */
@@ -421,42 +423,32 @@ size_t vlc_b64_decode_binary_to_buffer( uint8_t *p_dst, size_t i_dst, const char
         -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,  /* C0-CF */
         -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,  /* D0-DF */
         -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,  /* E0-EF */
-        -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1   /* F0-FF */
+        -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,  /* F0-FF */
     };
-    uint8_t *p_start = p_dst;
-    uint8_t *p = (uint8_t *)p_src;
+    const unsigned char *in = (const unsigned char *)src;
+    unsigned char *out = dst;
+    signed char prev;
+    int shift = 0;
 
-    int i_level;
-    int i_last;
+    static_assert (CHAR_BIT == 8, "Oops");
 
-    for( i_level = 0, i_last = 0; (size_t)( p_dst - p_start ) < i_dst && *p != '\0'; p++ )
-    {
-        const int c = b64[(unsigned int)*p];
-        if( c == -1 )
+    while (size > 0) {
+        const signed char cur = b64[*(in++)];
+        if (cur < 0)
             break;
 
-        switch( i_level )
-        {
-            case 0:
-                i_level++;
-                break;
-            case 1:
-                *p_dst++ = ( i_last << 2 ) | ( ( c >> 4)&0x03 );
-                i_level++;
-                break;
-            case 2:
-                *p_dst++ = ( ( i_last << 4 )&0xf0 ) | ( ( c >> 2 )&0x0f );
-                i_level++;
-                break;
-            case 3:
-                *p_dst++ = ( ( i_last &0x03 ) << 6 ) | c;
-                i_level = 0;
+        if (shift != 0) {
+            *(out++) = (prev << shift) | (cur >> (6 - shift));
+            size--;
         }
-        i_last = c;
+
+        prev = cur;
+        shift = (shift + 2) & 7;
     }
 
-    return p_dst - p_start;
+    return out - (unsigned char *)dst;
 }
+
 size_t vlc_b64_decode_binary( uint8_t **pp_dst, const char *psz_src )
 {
     const int i_src = strlen( psz_src );
@@ -538,7 +530,7 @@ static int write_meta(struct vlc_memstream *stream, input_item_t *item,
     return 0;
 }
 
-char *vlc_strfinput(input_thread_t *input, input_item_t *item, const char *s)
+char *vlc_strfplayer(vlc_player_t *player, input_item_t *item, const char *s)
 {
     struct vlc_memstream stream[1];
 
@@ -548,8 +540,8 @@ char *vlc_strfinput(input_thread_t *input, input_item_t *item, const char *s)
 
     assert(s != NULL);
 
-    if (!item && input)
-        item = input_GetItem(input);
+    if (!item && player)
+        item = vlc_player_GetCurrentMedia(player);
 
     vlc_memstream_open(stream);
 
@@ -634,8 +626,8 @@ char *vlc_strfinput(input_thread_t *input, input_item_t *item, const char *s)
             {
                 char *lang = NULL;
 
-                if (input != NULL)
-                    lang = var_GetNonEmptyString(input, "sub-language");
+                if (player != NULL)
+                    lang = vlc_player_GetCategoryLanguage(player, SPU_ES);
                 if (lang != NULL)
                 {
                     vlc_memstream_puts(stream, lang);
@@ -655,17 +647,33 @@ char *vlc_strfinput(input_thread_t *input, input_item_t *item, const char *s)
                 write_meta(stream, item, vlc_meta_Date);
                 break;
             case 'B':
-                if (input != NULL)
-                    vlc_memstream_printf(stream, "%"PRId64,
-                            var_GetInteger(input, "bit-rate") / 1000);
-                else if (!b_empty_if_na)
+            {
+                if (player)
+                {
+                    const struct vlc_player_track *track =
+                        vlc_player_GetSelectedTrack(player, AUDIO_ES);
+                    if (track)
+                    {
+                        vlc_memstream_printf(stream, "%u",
+                                             track->fmt.i_bitrate);
+                        break;
+                    }
+                }
+                if (!b_empty_if_na)
                     vlc_memstream_putc(stream, '-');
                 break;
+            }
             case 'C':
-                if (input != NULL)
-                    vlc_memstream_printf(stream, "%"PRId64,
-                            var_GetInteger(input, "chapter"));
-                else if (!b_empty_if_na)
+                if (player)
+                {
+                    ssize_t chapter = vlc_player_GetSelectedChapterIdx(player);
+                    if (chapter != -1)
+                    {
+                        vlc_memstream_printf(stream, "%zd", chapter);
+                        break;
+                    }
+                }
+                if (!b_empty_if_na)
                     vlc_memstream_putc(stream, '-');
                 break;
             case 'D':
@@ -686,20 +694,27 @@ char *vlc_strfinput(input_thread_t *input, input_item_t *item, const char *s)
                 }
                 break;
             case 'I':
-                if (input != NULL)
-                    vlc_memstream_printf(stream, "%"PRId64,
-                                         var_GetInteger(input, "title"));
-                else if (!b_empty_if_na)
+                if (player)
+                {
+                    ssize_t title = vlc_player_GetSelectedTitleIdx(player);
+                    if (title != -1)
+                    {
+                        vlc_memstream_printf(stream, "%zd", title);
+                        break;
+                    }
+                }
+                if (!b_empty_if_na)
                     vlc_memstream_putc(stream, '-');
                 break;
             case 'L':
-                if (item != NULL)
+                if (player)
                 {
-                    assert(input != NULL);
-                    write_duration(stream, input_item_GetDuration(item)
-                                   - var_GetInteger(input, "time"));
+                    vlc_tick_t length = vlc_player_GetLength(player);
+                    vlc_tick_t time = vlc_player_GetTime(player);
+                    if (length != VLC_TICK_INVALID && time != VLC_TICK_INVALID)
+                        write_duration(stream, length - time);
                 }
-                else if (!b_empty_if_na)
+                if (!b_empty_if_na)
                     vlc_memstream_puts(stream, "--:--:--");
                 break;
             case 'N':
@@ -717,8 +732,8 @@ char *vlc_strfinput(input_thread_t *input, input_item_t *item, const char *s)
             {
                 char *lang = NULL;
 
-                if (input != NULL)
-                    lang = var_GetNonEmptyString(input, "audio-language");
+                if (player != NULL)
+                    lang = vlc_player_GetCategoryLanguage(player, AUDIO_ES);
                 if (lang != NULL)
                 {
                     vlc_memstream_puts(stream, lang);
@@ -729,34 +744,51 @@ char *vlc_strfinput(input_thread_t *input, input_item_t *item, const char *s)
                 break;
             }
             case 'P':
-                if (input != NULL)
-                    vlc_memstream_printf(stream, "%2.1f",
-                            var_GetFloat(input, "position") * 100.f);
-                else if (!b_empty_if_na)
+                if (player)
+                {
+                    float pos = vlc_player_GetPosition(player);
+                    if (pos >= 0)
+                    {
+                        vlc_memstream_printf(stream, "%2.1f", pos);
+                        break;
+                    }
+                }
+                if (!b_empty_if_na)
                     vlc_memstream_puts(stream, "--.-%");
                 break;
             case 'R':
-                if (input != NULL)
+                if (player)
                     vlc_memstream_printf(stream, "%.3f",
-                                         var_GetFloat(input, "rate"));
+                                         vlc_player_GetRate(player));
                 else if (!b_empty_if_na)
                     vlc_memstream_putc(stream, '-');
                 break;
             case 'S':
-                if (input != NULL)
+                if (player)
                 {
-                    int rate = var_GetInteger(input, "sample-rate");
-                    div_t dr = div((rate + 50) / 100, 10);
-
-                    vlc_memstream_printf(stream, "%d.%01d", dr.quot, dr.rem);
+                    const struct vlc_player_track *track =
+                        vlc_player_GetSelectedTrack(player, AUDIO_ES);
+                    if (track)
+                    {
+                        div_t dr = div((track->fmt.audio.i_rate + 50) / 100, 10);
+                        vlc_memstream_printf(stream, "%d.%01d", dr.quot, dr.rem);
+                        break;
+                    }
                 }
-                else if (!b_empty_if_na)
+                if (!b_empty_if_na)
                     vlc_memstream_putc(stream, '-');
                 break;
             case 'T':
-                if (input != NULL)
-                    write_duration(stream, var_GetInteger(input, "time"));
-                else if (!b_empty_if_na)
+                if (player)
+                {
+                    vlc_tick_t time = vlc_player_GetTime(player);
+                    if (time != VLC_TICK_INVALID)
+                    {
+                        write_duration(stream, time);
+                        break;
+                    }
+                }
+                if (!b_empty_if_na)
                     vlc_memstream_puts(stream, "--:--:--");
                 break;
             case 'U':
@@ -766,13 +798,13 @@ char *vlc_strfinput(input_thread_t *input, input_item_t *item, const char *s)
             {
                 float vol = 0.f;
 
-                if (input != NULL)
+                if (player)
                 {
-                    audio_output_t *aout = input_GetAout(input);
+                    audio_output_t *aout = vlc_player_aout_Hold(player);
                     if (aout != NULL)
                     {
                         vol = aout_VolumeGet(aout);
-                        vlc_object_release(aout);
+                        aout_Release(aout);
                     }
                 }
                 if (vol >= 0.f)

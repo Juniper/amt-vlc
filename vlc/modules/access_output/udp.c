@@ -2,7 +2,6 @@
  * udp.c
  *****************************************************************************
  * Copyright (C) 2001-2007 VLC authors and VideoLAN
- * $Id: feb413d0ddf42efa225f90879bc52b934fa7e5e2 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Eric Petit <titer@videolan.org>
@@ -362,12 +361,12 @@ static void* ThreadWrite( void *data )
     for (;;)
     {
         block_t *p_pk = block_FifoGet( p_sys->p_fifo );
-        vlc_tick_t    i_date, i_sent;
+        vlc_tick_t    i_date;
 
         i_date = p_sys->i_caching + p_pk->i_dts;
         if( i_date_last > 0 )
         {
-            if( i_date - i_date_last > 2000000 )
+            if( i_date - i_date_last > VLC_TICK_FROM_SEC(2) )
             {
                 if( !i_dropped_packets )
                     msg_Dbg( p_access, "mmh, hole (%"PRId64" > 2s) -> drop",
@@ -404,18 +403,19 @@ static void* ThreadWrite( void *data )
             i_dropped_packets = 0;
         }
 
+        i_date_last = i_date;
+
 #if 1
-        i_sent = vlc_tick_now();
-        if ( i_sent > i_date + VLC_TICK_FROM_MS(20) )
+        i_date = vlc_tick_now() - i_date;
+        if ( i_date > VLC_TICK_FROM_MS(20) )
         {
             msg_Dbg( p_access, "packet has been sent too late (%"PRId64 ")",
-                     i_sent - i_date );
+                     i_date );
         }
 #endif
 
         block_Release( p_pk );
 
-        i_date_last = i_date;
     }
     return NULL;
 }

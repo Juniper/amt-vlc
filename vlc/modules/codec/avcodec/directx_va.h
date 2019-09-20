@@ -4,7 +4,6 @@
  * Copyright (C) 2009 Geoffroy Couprie
  * Copyright (C) 2009 Laurent Aimar
  * Copyright (C) 2015 Steve Lhomme
- * $Id: 335cca7bd37babf57b631330f4b592f93ea40cef $
  *
  * Authors: Geoffroy Couprie <geal@videolan.org>
  *          Laurent Aimar <fenrir _AT_ videolan _DOT_ org>
@@ -53,19 +52,6 @@ typedef struct input_list_t {
 #define MAX_SURFACE_COUNT (64)
 typedef struct
 {
-    va_pool_t             va_pool;
-    bool                  can_extern_pool;
-
-    /* for pre allocation */
-    D3D_DecoderSurface     *hw_surface[MAX_SURFACE_COUNT];
-
-    /* Video service */
-    GUID                   input;
-    D3D_DecoderDevice      *d3ddec;
-
-    /* Video decoder */
-    D3D_DecoderType        *decoder;
-
     /**
      * Read the list of possible input GUIDs
      */
@@ -78,9 +64,8 @@ typedef struct
 
 } directx_sys_t;
 
-int directx_va_Open(vlc_va_t *, directx_sys_t *);
-void directx_va_Close(vlc_va_t *, directx_sys_t *);
-int directx_va_Setup(vlc_va_t *, directx_sys_t *, const AVCodecContext *avctx, const es_format_t *, int flag_xbox);
+int directx_va_Setup(vlc_va_t *, const directx_sys_t *, const AVCodecContext *avctx, const es_format_t *, int flag_xbox,
+                     video_format_t *fmt_out, unsigned *surface_count, GUID *found_guid);
 char *directx_va_GetDecoderName(const GUID *guid);
 bool directx_va_canUseDecoder(vlc_va_t *, UINT VendorId, UINT DeviceId, const GUID *pCodec, UINT driverBuild);
 

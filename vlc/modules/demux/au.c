@@ -2,7 +2,6 @@
  * au.c : au file input module for vlc
  *****************************************************************************
  * Copyright (C) 2001-2007 VLC authors and VideoLAN
- * $Id: 7a5af1367939565438ca773e311f92cfe2995e32 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *
@@ -49,7 +48,7 @@ vlc_module_begin ()
     set_subcategory( SUBCAT_INPUT_DEMUX )
     set_description( N_("AU demuxer") )
     set_capability( "demux", 10 )
-    set_callbacks( Open, NULL )
+    set_callback( Open )
     add_shortcut( "au" )
 vlc_module_end ()
 
@@ -288,9 +287,8 @@ static int Open( vlc_object_t *p_this )
             p_sys->i_frame_size += p_sys->fmt.audio.i_blockalign - mod;
         }
     }
-    p_sys->i_frame_length = CLOCK_FREQ *
-                            (vlc_tick_t)i_samples /
-                            (vlc_tick_t)p_sys->fmt.audio.i_rate;
+    p_sys->i_frame_length = vlc_tick_from_samples( i_samples,
+                                                   p_sys->fmt.audio.i_rate );
 
     p_demux->p_sys = p_sys;
     p_demux->pf_demux = Demux;

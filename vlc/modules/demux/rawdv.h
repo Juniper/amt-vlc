@@ -2,7 +2,6 @@
  * rawdv.h : raw DV helpers
  *****************************************************************************
  * Copyright (C) 2001-2011 VLC authors and VideoLAN
- * $Id: 02d11c76b002333e3a4aa3e4a794a85d94a0863e $
  *
  * Authors: Gildas Bazin <gbazin@netcourrier.com>
  *          Paul Corke <paul dot corke at datatote dot co dot uk>

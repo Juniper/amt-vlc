@@ -2,13 +2,12 @@
  * libvlc.c: libvlc instances creation and deletion, interfaces handling
  *****************************************************************************
  * Copyright (C) 1998-2008 VLC authors and VideoLAN
- * $Id: 1f4fed6107495bf49e7015c0540cee1dc3191c36 $
  *
  * Authors: Vincent Seguin <seguin@via.ecp.fr>
  *          Samuel Hocevar <sam@zoy.org>
  *          Gildas Bazin <gbazin@videolan.org>
  *          Derk-Jan Hartman <hartman at videolan dot org>
- *          Rémi Denis-Courmont <rem # videolan : org>
+ *          Rémi Denis-Courmont
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published by
@@ -38,11 +37,11 @@
 
 #include <vlc_common.h>
 #include "../lib/libvlc_internal.h"
-#include <vlc_input.h>
 
 #include "modules/modules.h"
 #include "config/configuration.h"
 #include "preparser/preparser.h"
+#include "media_source/media_source.h"
 
 #include <stdio.h>                                              /* sprintf() */
 #include <string.h>
@@ -63,10 +62,9 @@
 #include <vlc_url.h>
 #include <vlc_modules.h>
 #include <vlc_media_library.h>
+#include <vlc_thumbnailer.h>
 
 #include "libvlc.h"
-#include "playlist/playlist_internal.h"
-#include "misc/variables.h"
 
 #include <vlc_vlm.h>
 
@@ -92,8 +90,11 @@ libvlc_int_t * libvlc_InternalCreate( void )
         return NULL;
 
     priv = libvlc_priv (p_libvlc);
-    priv->playlist = NULL;
+    vlc_mutex_init(&priv->lock);
+    priv->interfaces = NULL;
+    priv->main_playlist = NULL;
     priv->p_vlm = NULL;
+    priv->media_source_provider = NULL;
 
     vlc_ExitInit( &priv->exit );
 
@@ -118,10 +119,11 @@ int libvlc_InternalInit( libvlc_int_t *p_libvlc, int i_argc,
     char        *psz_val;
     int          i_ret = VLC_EGENERIC;
 
+    if (unlikely(vlc_LogPreinit(p_libvlc)))
+        return VLC_ENOMEM;
+
     /* System specific initialization code */
     system_Init();
-
-    vlc_LogPreinit(p_libvlc);
 
     /* Initialize the module bank and load the configuration of the
      * core module. We need to do this at this stage to be able to display
@@ -225,6 +227,10 @@ int libvlc_InternalInit( libvlc_int_t *p_libvlc, int i_argc,
             msg_Warn( p_libvlc, "Media library initialization failed" );
     }
 
+    priv->p_thumbnailer = vlc_thumbnailer_Create( VLC_OBJECT( p_libvlc ) );
+    if ( priv->p_thumbnailer == NULL )
+        msg_Warn( p_libvlc, "Failed to instantiate VLC thumbnailer" );
+
     /*
      * Initialize hotkey handling
      */
@@ -236,6 +242,10 @@ int libvlc_InternalInit( libvlc_int_t *p_libvlc, int i_argc,
      */
     priv->parser = input_preparser_New(VLC_OBJECT(p_libvlc));
     if( !priv->parser )
+        goto error;
+
+    priv->media_source_provider = vlc_media_source_provider_New( VLC_OBJECT( p_libvlc ) );
+    if( !priv->media_source_provider )
         goto error;
 
     /* variables for signalling creation of new files */
@@ -349,6 +359,20 @@ int libvlc_InternalInit( libvlc_int_t *p_libvlc, int i_argc,
         free( psz_val );
     }
 
+    /* Callbacks between interfaces */
+
+    /* Create a variable for showing the right click menu */
+    var_Create(p_libvlc, "intf-popupmenu", VLC_VAR_BOOL);
+
+    /* Create a variable for showing the fullscreen interface */
+    var_Create(p_libvlc, "intf-toggle-fscontrol", VLC_VAR_VOID);
+
+    /* Create a variable for the Boss Key */
+    var_Create(p_libvlc, "intf-boss", VLC_VAR_VOID);
+
+    /* Create a variable for showing the main interface */
+    var_Create(p_libvlc, "intf-show", VLC_VAR_VOID);
+
     return VLC_SUCCESS;
 
 error:
@@ -371,8 +395,14 @@ void libvlc_InternalCleanup( libvlc_int_t *p_libvlc )
     msg_Dbg( p_libvlc, "removing all interfaces" );
     intf_DestroyAll( p_libvlc );
 
+    if ( priv->p_thumbnailer )
+        vlc_thumbnailer_Release( priv->p_thumbnailer );
+
     if ( priv->p_media_library )
         libvlc_MlRelease( priv->p_media_library );
+
+    if( priv->media_source_provider )
+        vlc_media_source_provider_Delete( priv->media_source_provider );
 
     libvlc_InternalDialogClean( p_libvlc );
     libvlc_InternalKeystoreClean( p_libvlc );
@@ -400,14 +430,17 @@ void libvlc_InternalCleanup( libvlc_int_t *p_libvlc )
     if (priv->parser != NULL)
         input_preparser_Delete(priv->parser);
 
+    if (priv->main_playlist)
+        vlc_playlist_Delete(priv->main_playlist);
+
     libvlc_InternalActionsClean( p_libvlc );
 
     /* Save the configuration */
     if( !var_InheritBool( p_libvlc, "ignore-config" ) )
         config_AutoSaveConfigFile( VLC_OBJECT(p_libvlc) );
 
+    vlc_LogDestroy(p_libvlc->obj.logger);
     /* Free module bank. It is refcounted, so we call this each time  */
-    vlc_LogDeinit (p_libvlc);
     module_EndBank (true);
 #if defined(_WIN32) || defined(__OS2__)
     system_End( );
@@ -427,8 +460,8 @@ void libvlc_InternalDestroy( libvlc_int_t *p_libvlc )
 
     vlc_ExitDestroy( &priv->exit );
 
-    assert( atomic_load(&(vlc_internals(p_libvlc)->refs)) == 1 );
-    vlc_object_release( p_libvlc );
+    vlc_mutex_destroy(&priv->lock);
+    vlc_object_delete(p_libvlc);
 }
 
 /*****************************************************************************
@@ -472,6 +505,8 @@ static void GetFilenames( libvlc_int_t *p_vlc, unsigned n,
 
 int vlc_MetadataRequest(libvlc_int_t *libvlc, input_item_t *item,
                         input_item_meta_request_option_t i_options,
+                        const input_preparser_callbacks_t *cbs,
+                        void *cbs_userdata,
                         int timeout, void *id)
 {
     libvlc_priv_t *priv = libvlc_priv(libvlc);
@@ -479,13 +514,7 @@ int vlc_MetadataRequest(libvlc_int_t *libvlc, input_item_t *item,
     if (unlikely(priv->parser == NULL))
         return VLC_ENOMEM;
 
-    if( i_options & META_REQUEST_OPTION_DO_INTERACT )
-    {
-        vlc_mutex_lock( &item->lock );
-        item->b_preparse_interact = true;
-        vlc_mutex_unlock( &item->lock );
-    }
-    input_preparser_Push( priv->parser, item, i_options, timeout, id );
+    input_preparser_Push( priv->parser, item, i_options, cbs, cbs_userdata, timeout, id );
     return VLC_SUCCESS;
 
 }
@@ -497,9 +526,12 @@ int vlc_MetadataRequest(libvlc_int_t *libvlc, input_item_t *item,
  */
 int libvlc_MetadataRequest(libvlc_int_t *libvlc, input_item_t *item,
                            input_item_meta_request_option_t i_options,
+                           const input_preparser_callbacks_t *cbs,
+                           void *cbs_userdata,
                            int timeout, void *id)
 {
     libvlc_priv_t *priv = libvlc_priv(libvlc);
+    assert(i_options & META_REQUEST_OPTION_SCOPE_ANY);
 
     if (unlikely(priv->parser == NULL))
         return VLC_ENOMEM;
@@ -509,7 +541,7 @@ int libvlc_MetadataRequest(libvlc_int_t *libvlc, input_item_t *item,
         item->i_preparse_depth = 1;
     vlc_mutex_unlock( &item->lock );
 
-    return vlc_MetadataRequest(libvlc, item, i_options, timeout, id);
+    return vlc_MetadataRequest(libvlc, item, i_options, cbs, cbs_userdata, timeout, id);
 }
 
 /**
@@ -517,14 +549,18 @@ int libvlc_MetadataRequest(libvlc_int_t *libvlc, input_item_t *item,
  * The retrieval is performed asynchronously.
  */
 int libvlc_ArtRequest(libvlc_int_t *libvlc, input_item_t *item,
-                      input_item_meta_request_option_t i_options)
+                      input_item_meta_request_option_t i_options,
+                      const input_fetcher_callbacks_t *cbs,
+                      void *cbs_userdata)
 {
     libvlc_priv_t *priv = libvlc_priv(libvlc);
+    assert(i_options & META_REQUEST_OPTION_FETCH_ANY);
 
     if (unlikely(priv->parser == NULL))
         return VLC_ENOMEM;
 
-    input_preparser_fetcher_Push(priv->parser, item, i_options);
+    input_preparser_fetcher_Push(priv->parser, item, i_options,
+                                 cbs, cbs_userdata);
     return VLC_SUCCESS;
 }
 

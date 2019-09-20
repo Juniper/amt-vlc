@@ -2,7 +2,6 @@
  * resource.h
  *****************************************************************************
  * Copyright (C) 2008 Laurent Aimar
- * $Id: 13c0c3d49bcb1795c38af8ed85d22347fc9ac318 $
  *
  * Authors: Laurent Aimar < fenrir _AT_ videolan _DOT_ org >
  *
@@ -38,30 +37,31 @@ void input_resource_SetInput( input_resource_t *, input_thread_t * );
  */
 sout_instance_t *input_resource_RequestSout( input_resource_t *, sout_instance_t *, const char *psz_sout );
 
-/**
- * This function handles vout request.
- */
-vout_thread_t *input_resource_RequestVout( input_resource_t *,
-                                           const vout_configuration_t *, bool );
+vout_thread_t *input_resource_GetVout(input_resource_t *,
+                                      const vout_configuration_t *,
+                                      enum vlc_vout_order *order);
+void input_resource_PutVout(input_resource_t *, vout_thread_t *);
 
 /**
  * This function returns one of the current vout if any.
  *
- * You must call vlc_object_release on the value returned (if non NULL).
+ * You must call vout_Release() on the value returned (if non NULL).
  */
 vout_thread_t *input_resource_HoldVout( input_resource_t * );
 
 /**
+ * This function returns the dummy vout. It will be the parent of the future
+ * main vout and can be used to pre-configure it. */
+vout_thread_t *input_resource_HoldDummyVout( input_resource_t * );
+
+/**
  * This function returns all current vouts if any.
  *
- * You must call vlc_object_release on all values returned (if non NULL).
+ * You must call vout_Release() on all values returned (if non NULL).
  */
 void input_resource_HoldVouts( input_resource_t *, vout_thread_t ***, size_t * );
 
-/**
- * This function releases all resources (object).
- */
-void input_resource_Terminate( input_resource_t * );
+void input_resource_StopFreeVout( input_resource_t * );
 
 /**
  * This function holds the input_resource_t itself

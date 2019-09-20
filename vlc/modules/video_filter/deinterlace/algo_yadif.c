@@ -2,7 +2,6 @@
  * algo_yadif.c : Wrapper for FFmpeg's Yadif algorithm
  *****************************************************************************
  * Copyright (C) 2000-2011 VLC authors and VideoLAN
- * $Id: d94e45dbb5276ee99d193747d74f0144d61ff791 $
  *
  * Author: Laurent Aimar <fenrir@videolan.org>
  *         Juha Jeronen  <juha.jeronen@jyu.fi> (soft field repeat hack)
@@ -113,20 +112,18 @@ int RenderYadif( filter_t *p_filter, picture_t *p_dst, picture_t *p_src,
         void (*filter)(uint8_t *dst, uint8_t *prev, uint8_t *cur, uint8_t *next,
                        int w, int prefs, int mrefs, int parity, int mode);
 
-#if defined(HAVE_YADIF_SSSE3)
+#if defined(HAVE_X86ASM)
         if( vlc_CPU_SSSE3() )
-            filter = yadif_filter_line_ssse3;
+            filter = vlcpriv_yadif_filter_line_ssse3;
         else
-#endif
-#if defined(HAVE_YADIF_SSE2)
         if( vlc_CPU_SSE2() )
-            filter = yadif_filter_line_sse2;
+            filter = vlcpriv_yadif_filter_line_sse2;
+        else
+#if defined(__i386__)
+        if( vlc_CPU_MMXEXT() )
+            filter = vlcpriv_yadif_filter_line_mmxext;
         else
 #endif
-#if defined(HAVE_YADIF_MMX)
-        if( vlc_CPU_MMX() )
-            filter = yadif_filter_line_mmx;
-        else
 #endif
             filter = yadif_filter_line_c;
 

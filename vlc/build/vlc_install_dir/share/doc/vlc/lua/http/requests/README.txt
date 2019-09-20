@@ -113,16 +113,14 @@ status.xml or status.json
 > toggle repeat:
   ?command=pl_repeat
 
-> toggle enable service discovery module <val>:
-  ?command=pl_sd&val=<val>
-  Typical values are:
-    sap
-    shoutcast
-    podcast
-    hal
-
 > toggle fullscreen:
   ?command=fullscreen
+
+> enable services discovery module <val>:
+  ?command=pl_sd_add&val=<val>
+
+> disable services discovery module <val>:
+  ?command=pl_sd_remove&val=<val>
 
 > set volume level to <val> (can be absolute integer, percent or +/- relative value):
   ?command=volume&val=<val>

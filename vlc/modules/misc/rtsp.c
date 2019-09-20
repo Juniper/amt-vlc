@@ -2,7 +2,6 @@
  * rtsp.c: rtsp VoD server module
  *****************************************************************************
  * Copyright (C) 2003-2006 the VideoLAN team
- * $Id: 06b280fc60e3fecccb2d7753302d0e0ee96a03f7 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Gildas Bazin <gbazin@videolan.org>
@@ -33,7 +32,7 @@
 #define VLC_MODULE_LICENSE VLC_LICENSE_GPL_2_PLUS
 #include <vlc_common.h>
 #include <vlc_plugin.h>
-#include <vlc_input.h>
+#include <vlc_input_item.h>
 #include <vlc_sout.h>
 #include <vlc_block.h>
 
@@ -910,7 +909,7 @@ static void RtspClientDel( vod_media_t *p_media, rtsp_client_t *p_rtsp )
 }
 
 
-static int64_t ParseNPT (const char *str)
+static vlc_tick_t ParseNPT (const char *str)
 {
     locale_t loc = newlocale (LC_NUMERIC_MASK, "C", NULL);
     locale_t oldloc = uselocale (loc);
@@ -942,7 +941,6 @@ static int RtspCallback( httpd_callback_sys_t *p_args, httpd_client_t *cl,
     const char *psz_playnow = NULL; /* support option: x-playNow */
     const char *psz_session = NULL;
     const char *psz_cseq = NULL;
-    rtsp_client_t *p_rtsp;
     int i_cseq = 0;
 
     if( answer == NULL || query == NULL ) return VLC_SUCCESS;
@@ -1087,7 +1085,7 @@ static int RtspCallback( httpd_callback_sys_t *p_args, httpd_client_t *cl,
                 psz_session = httpd_MsgGet( query, "Session" );
             msg_Dbg( p_vod, "HTTPD_MSG_PLAY for session: %s", psz_session );
 
-            p_rtsp = RtspClientGet( p_media, psz_session );
+            rtsp_client_t *p_rtsp = RtspClientGet( p_media, psz_session );
             if( !p_rtsp )
             {
                 answer->i_status = 500;
@@ -1104,7 +1102,7 @@ static int RtspCallback( httpd_callback_sys_t *p_args, httpd_client_t *cl,
                     psz_position = strstr( psz_position, "npt=" );
                 if( psz_position && !psz_scale )
                 {
-                    int64_t i_time = ParseNPT (psz_position + 4);
+                    vlc_tick_t i_time = ParseNPT (psz_position + 4);
                     msg_Dbg( p_vod, "seeking request: %s", psz_position );
                     CommandPush( p_vod, RTSP_CMD_TYPE_SEEK, p_media,
                                  psz_session, i_time, 0.0, NULL );
@@ -1206,11 +1204,11 @@ static int RtspCallback( httpd_callback_sys_t *p_args, httpd_client_t *cl,
             break;
         }
 
-        case HTTPD_MSG_PAUSE:
+        case HTTPD_MSG_PAUSE: {
             psz_session = httpd_MsgGet( query, "Session" );
             msg_Dbg( p_vod, "HTTPD_MSG_PAUSE for session: %s", psz_session );
 
-            p_rtsp = RtspClientGet( p_media, psz_session );
+            rtsp_client_t *p_rtsp = RtspClientGet( p_media, psz_session );
             if( !p_rtsp ) break;
 
             CommandPush( p_vod, RTSP_CMD_TYPE_PAUSE, p_media, psz_session,
@@ -1220,8 +1218,9 @@ static int RtspCallback( httpd_callback_sys_t *p_args, httpd_client_t *cl,
             answer->i_body = 0;
             answer->p_body = NULL;
             break;
+        }
 
-        case HTTPD_MSG_TEARDOWN:
+        case HTTPD_MSG_TEARDOWN: {
             /* for now only multicast so easy again */
             answer->i_status = 200;
             answer->i_body = 0;
@@ -1230,13 +1229,14 @@ static int RtspCallback( httpd_callback_sys_t *p_args, httpd_client_t *cl,
             psz_session = httpd_MsgGet( query, "Session" );
             msg_Dbg( p_vod, "HTTPD_MSG_TEARDOWN for session: %s", psz_session);
 
-            p_rtsp = RtspClientGet( p_media, psz_session );
+            rtsp_client_t *p_rtsp = RtspClientGet( p_media, psz_session );
             if( !p_rtsp ) break;
 
             CommandPush( p_vod, RTSP_CMD_TYPE_STOP, p_media, psz_session,
                          0, 0.0, NULL );
             RtspClientDel( p_media, p_rtsp );
             break;
+        }
 
         case HTTPD_MSG_GETPARAMETER:
             answer->i_status = 200;
@@ -1275,7 +1275,6 @@ static int RtspCallbackES( httpd_callback_sys_t *p_args, httpd_client_t *cl,
     vod_media_t *p_media = p_es->p_media;
     vod_t *p_vod = p_media->p_vod;
     vod_sys_t *p_sys = p_vod->p_sys;
-    rtsp_client_t *p_rtsp = NULL;
     const char *psz_transport = NULL;
     const char *psz_playnow = NULL; /* support option: x-playNow */
     const char *psz_session = NULL;
@@ -1415,13 +1414,11 @@ static int RtspCallbackES( httpd_callback_sys_t *p_args, httpd_client_t *cl,
             psz_session = httpd_MsgGet( query, "Session" );
             msg_Dbg( p_vod, "HTTPD_MSG_PLAY for session: %s", psz_session );
 
-            p_rtsp = RtspClientGet( p_media, psz_session );
-
             psz_position = httpd_MsgGet( query, "Range" );
             if( psz_position ) psz_position = strstr( psz_position, "npt=" );
             if( psz_position )
             {
-                int64_t i_time = ParseNPT (psz_position + 4);
+                vlc_tick_t i_time = ParseNPT (psz_position + 4);
                 msg_Dbg( p_vod, "seeking request: %s", psz_position );
                 CommandPush( p_vod, RTSP_CMD_TYPE_SEEK, p_media,
                              psz_session, i_time, 0.0, NULL );
@@ -1435,7 +1432,7 @@ static int RtspCallbackES( httpd_callback_sys_t *p_args, httpd_client_t *cl,
             }
             break;
 
-        case HTTPD_MSG_TEARDOWN:
+        case HTTPD_MSG_TEARDOWN: {
             answer->i_status = 200;
             answer->i_body = 0;
             answer->p_body = NULL;
@@ -1443,7 +1440,7 @@ static int RtspCallbackES( httpd_callback_sys_t *p_args, httpd_client_t *cl,
             psz_session = httpd_MsgGet( query, "Session" );
             msg_Dbg( p_vod, "HTTPD_MSG_TEARDOWN for session: %s", psz_session);
 
-            p_rtsp = RtspClientGet( p_media, psz_session );
+            rtsp_client_t *p_rtsp = RtspClientGet( p_media, psz_session );
             if( !p_rtsp ) break;
 
             for( int i = 0; i < p_rtsp->i_es; i++ )
@@ -1463,14 +1460,15 @@ static int RtspCallbackES( httpd_callback_sys_t *p_args, httpd_client_t *cl,
                 RtspClientDel( p_media, p_rtsp );
             }
             break;
+        }
 
-        case HTTPD_MSG_PAUSE:
+        case HTTPD_MSG_PAUSE: {
             /* This is kind of a kludge. Should we only support Aggregate
              * Operations ? */
             psz_session = httpd_MsgGet( query, "Session" );
             msg_Dbg( p_vod, "HTTPD_MSG_PAUSE for session: %s", psz_session );
 
-            p_rtsp = RtspClientGet( p_media, psz_session );
+            rtsp_client_t *p_rtsp = RtspClientGet( p_media, psz_session );
             if( !p_rtsp ) break;
 
             CommandPush( p_vod, RTSP_CMD_TYPE_PAUSE, p_media, psz_session,
@@ -1480,6 +1478,7 @@ static int RtspCallbackES( httpd_callback_sys_t *p_args, httpd_client_t *cl,
             answer->i_body = 0;
             answer->p_body = NULL;
             break;
+        }
 
         default:
             return VLC_EGENERIC;

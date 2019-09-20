@@ -2,7 +2,6 @@
  * mpc.c : MPC stream input module for vlc
  *****************************************************************************
  * Copyright (C) 2001 the VideoLAN team
- * $Id: f381c7dce3ffefda8347a34fe5050d94cc6400f2 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr.com>
  *
@@ -31,7 +30,6 @@
 #include <vlc_common.h>
 #include <vlc_plugin.h>
 #include <vlc_demux.h>
-#include <vlc_input.h>
 #include <vlc_codec.h>
 #include <math.h>
 
@@ -241,7 +239,7 @@ static int Demux( demux_t *p_demux )
     /* */
     p_data->i_buffer = i_ret * sizeof(MPC_SAMPLE_FORMAT) * p_sys->info.channels;
     p_data->i_dts = p_data->i_pts =
-            VLC_TICK_0 + CLOCK_FREQ * p_sys->i_position / p_sys->info.sample_freq;
+            VLC_TICK_0 + vlc_tick_from_samples(p_sys->i_position, p_sys->info.sample_freq);
 
     es_out_SetPCR( p_demux->out, p_data->i_dts );
 
@@ -260,7 +258,8 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
 {
     demux_sys_t *p_sys = p_demux->p_sys;
     double   f, *pf;
-    int64_t i64, *pi64;
+    vlc_tick_t i64;
+    vlc_tick_t *pi64;
     bool *pb_bool;
 
     switch( i_query )
@@ -274,9 +273,8 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
             return VLC_SUCCESS;
 
         case DEMUX_GET_LENGTH:
-            pi64 = va_arg( args, int64_t * );
-            *pi64 = CLOCK_FREQ * p_sys->info.pcm_samples /
-                        p_sys->info.sample_freq;
+            *va_arg( args, vlc_tick_t * ) =
+                vlc_tick_from_samples(p_sys->info.pcm_samples, p_sys->info.sample_freq);
             return VLC_SUCCESS;
 
         case DEMUX_GET_POSITION:
@@ -289,9 +287,8 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
             return VLC_SUCCESS;
 
         case DEMUX_GET_TIME:
-            pi64 = va_arg( args, int64_t * );
-            *pi64 = CLOCK_FREQ * p_sys->i_position /
-                        p_sys->info.sample_freq;
+            *va_arg( args, vlc_tick_t * ) =
+                vlc_tick_from_samples(p_sys->i_position, p_sys->info.sample_freq);
             return VLC_SUCCESS;
 
         case DEMUX_SET_POSITION:
@@ -305,13 +302,15 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
             return VLC_EGENERIC;
 
         case DEMUX_SET_TIME:
-            i64 = va_arg( args, int64_t );
+        {
+            vlc_tick_t i64 = va_arg( args, vlc_tick_t );
             if( mpc_decoder_seek_sample( &p_sys->decoder, i64 ) )
             {
                 p_sys->i_position = i64;
                 return VLC_SUCCESS;
             }
             return VLC_EGENERIC;
+        }
 
         case DEMUX_CAN_PAUSE:
         case DEMUX_SET_PAUSE_STATE:

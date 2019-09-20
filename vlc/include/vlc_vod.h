@@ -2,7 +2,6 @@
  * vlc_vod.h: interface for VoD server modules
  *****************************************************************************
  * Copyright (C) 2000, 2001 VLC authors and VideoLAN
- * $Id: 6fb7ed0a8a3e6810c7f28e39e83bdccfd2cb0c33 $
  *
  * Author: Gildas Bazin <gbazin@videolan.org>
  *
@@ -35,7 +34,7 @@
 
 struct vod_t
 {
-    struct vlc_common_members obj;
+    struct vlc_object_t obj;
 
     /* Module properties */
     module_t  *p_module;

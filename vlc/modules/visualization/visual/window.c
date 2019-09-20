@@ -2,7 +2,6 @@
  * window.c : Implementation of FFT window routines
  *****************************************************************************
  * Copyright (C) 2014 Ronald Wright
- * $Id: 4bd43ec2e448c8db04467a29ffb918365583e288 $
  *
  * Author: Ronald Wright <logiconcepts819@gmail.com>
  *

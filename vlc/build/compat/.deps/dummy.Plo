@@ -1,1 +1,1 @@
-dummy.lo: dummy.c
+dummy.lo: ../../extras/package/macosx/../../../compat/dummy.c

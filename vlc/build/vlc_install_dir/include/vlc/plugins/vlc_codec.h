@@ -2,7 +2,6 @@
  * vlc_codec.h: Definition of the decoder and encoder structures
  *****************************************************************************
  * Copyright (C) 1999-2003 VLC authors and VideoLAN
- * $Id: 88965e73373b6c4027eea39dcec594e5725c2dbe $
  *
  * Authors: Gildas Bazin <gbazin@netcourrier.com>
  *
@@ -28,6 +27,7 @@
 
 #include <vlc_block.h>
 #include <vlc_es.h>
+#include <vlc_vout_window.h>
 #include <vlc_picture.h>
 #include <vlc_subpicture.h>
 
@@ -51,7 +51,7 @@ struct decoder_owner_callbacks
         {
             int         (*format_update)( decoder_t * );
 
-            /* cf. decoder_NewPicture */
+            /* cf. decoder_NewPicture, can be called from any decoder thread */
             picture_t*  (*buffer_new)( decoder_t * );
             /* cf.decoder_QueueVideo */
             void        (*queue)( decoder_t *, picture_t * );
@@ -61,7 +61,7 @@ struct decoder_owner_callbacks
 
             /* Display date
              * cf. decoder_GetDisplayDate */
-            vlc_tick_t  (*get_display_date)( decoder_t *, vlc_tick_t );
+            vlc_tick_t  (*get_display_date)( decoder_t *, vlc_tick_t, vlc_tick_t );
             /* Display rate
              * cf. decoder_GetDisplayRate */
             float       (*get_display_rate)( decoder_t * );
@@ -98,7 +98,7 @@ struct decoder_owner_callbacks
  */
 struct decoder_t
 {
-    struct vlc_common_members obj;
+    struct vlc_object_t obj;
 
     /* Module properties */
     module_t *          p_module;
@@ -220,7 +220,7 @@ struct decoder_cc_desc_t
 
 struct encoder_t
 {
-    struct vlc_common_members obj;
+    struct vlc_object_t obj;
 
     /* Module properties */
     module_t *          p_module;
@@ -268,16 +268,7 @@ struct encoder_t
  *
  * @return 0 if the video output was set up successfully, -1 otherwise.
  */
-VLC_USED
-static inline int decoder_UpdateVideoFormat( decoder_t *dec )
-{
-    vlc_assert( dec->fmt_in.i_cat == VIDEO_ES && dec->cbs != NULL );
-
-    if( dec->fmt_in.i_cat == VIDEO_ES && dec->cbs->video.format_update != NULL )
-        return dec->cbs->video.format_update( dec );
-    else
-        return -1;
-}
+VLC_API int decoder_UpdateVideoFormat( decoder_t *dec );
 
 /**
  * Allocates an output picture buffer.
@@ -296,12 +287,7 @@ static inline int decoder_UpdateVideoFormat( decoder_t *dec )
  *
  * \return a picture buffer on success, NULL on error
  */
-VLC_USED
-static inline picture_t *decoder_NewPicture( decoder_t *dec )
-{
-    vlc_assert( dec->fmt_in.i_cat == VIDEO_ES && dec->cbs != NULL );
-    return dec->cbs->video.buffer_new( dec );
-}
+VLC_API picture_t *decoder_NewPicture( decoder_t *dec );
 
 /**
  * Abort any calls of decoder_NewPicture
@@ -311,6 +297,28 @@ static inline picture_t *decoder_NewPicture( decoder_t *dec )
  * to unblock a thread that is waiting for a picture.
  */
 VLC_API void decoder_AbortPictures( decoder_t *dec, bool b_abort );
+
+/**
+ * Initialize a decoder structure before creating the decoder.
+ *
+ * To be used by decoder owners.
+ * By default frame drop is not allowed.
+ */
+VLC_API void decoder_Init( decoder_t *dec, const es_format_t * );
+
+/**
+ * Destroy a decoder and reset the structure.
+ *
+ * To be used by decoder owners.
+ */
+VLC_API void decoder_Destroy( decoder_t *p_dec );
+
+/**
+ * Unload a decoder module and reset the input/output formats.
+ *
+ * To be used by decoder owners.
+ */
+VLC_API void decoder_Clean( decoder_t *p_dec );
 
 /**
  * This function queues a single picture to the video output.
@@ -439,14 +447,16 @@ static inline int decoder_GetInputAttachments( decoder_t *dec,
  * You MUST use it *only* for gathering statistics about speed.
  */
 VLC_USED
-static inline vlc_tick_t decoder_GetDisplayDate( decoder_t *dec, vlc_tick_t i_ts )
+static inline vlc_tick_t decoder_GetDisplayDate( decoder_t *dec,
+                                                 vlc_tick_t system_now,
+                                                 vlc_tick_t i_ts )
 {
     vlc_assert( dec->fmt_in.i_cat == VIDEO_ES && dec->cbs != NULL );
 
     if( !dec->cbs->video.get_display_date )
         return VLC_TICK_INVALID;
 
-    return dec->cbs->video.get_display_date( dec, i_ts );
+    return dec->cbs->video.get_display_date( dec, system_now, i_ts );
 }
 
 /**
@@ -465,5 +475,99 @@ static inline float decoder_GetDisplayRate( decoder_t *dec )
 }
 
 /** @} */
+
+/**
+ * \defgroup decoder_device Decoder hardware device
+ * \ingroup input
+ * @{
+ */
+
+/** Decoder device type */
+enum vlc_decoder_device_type
+{
+    VLC_DECODER_DEVICE_NONE,
+    VLC_DECODER_DEVICE_VAAPI,
+    VLC_DECODER_DEVICE_VDPAU,
+    VLC_DECODER_DEVICE_DXVA2,
+    VLC_DECODER_DEVICE_D3D11VA,
+    VLC_DECODER_DEVICE_AWINDOW,
+    VLC_DECODER_DEVICE_MMAL,
+};
+
+struct vlc_decoder_device_operations
+{
+    void (*close)(struct vlc_decoder_device *);
+};
+
+/**
+ * Decoder context struct
+ */
+typedef struct vlc_decoder_device
+{
+    struct vlc_object_t obj;
+
+    const struct vlc_decoder_device_operations *ops;
+
+    /** Private context that could be used by the "decoder device" module
+     * implementation */
+    void *sys;
+
+    /** Must be set from the "decoder device" module open entry point */
+    enum vlc_decoder_device_type type;
+
+    /**
+     * Could be set from the "decoder device" module open entry point and will
+     * be used by hardware decoder modules.
+     *
+     * The type of pointer will depend of the type:
+     * VAAPI: VADisplay
+     * VDPAU: vdp_t *
+     * DXVA2: IDirect3DDevice9*
+     * D3D11VA: ID3D11DeviceContext*
+     * AWindow: android AWindowHandler*
+     * MMAL: MMAL_PORT_T*
+     */
+    void *opaque;
+} vlc_decoder_device;
+
+/**
+ * "decoder device" module open entry point
+ *
+ * @param device the "decoder device" structure to initialize
+ * @param window pointer to a window to help device initialization (can be NULL)
+ **/
+typedef int (*vlc_decoder_device_Open)(vlc_decoder_device *device,
+                                        vout_window_t *window);
+
+#define set_callback_dec_device(activate, priority) \
+    { \
+        vlc_decoder_device_Open open__ = activate; \
+        (void) open__; \
+        set_callback(activate) \
+    } \
+    set_capability( "decoder device", priority )
+
+
+/**
+ * Create a decoder device from a window
+ *
+ * This function will be hidden in the future. It is now used by opengl vout
+ * module as a transition.
+ */
+VLC_USED vlc_decoder_device *
+vlc_decoder_device_Create(vout_window_t *window);
+
+/**
+ * Hold a decoder device
+ */
+VLC_API vlc_decoder_device *
+vlc_decoder_device_Hold(vlc_decoder_device *device);
+
+/**
+ * Release a decoder device
+ */
+VLC_API void
+vlc_decoder_device_Release(vlc_decoder_device *device);
+
 /** @} */
 #endif /* _VLC_CODEC_H */

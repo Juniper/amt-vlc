@@ -2,7 +2,6 @@
  * parse.c: SPU parser
  *****************************************************************************
  * Copyright (C) 2000-2001, 2005, 2006 VLC authors and VideoLAN
- * $Id: bf7a3c0973ea695b76790f2067024e64d2dd91af $
  *
  * Authors: Sam Hocevar <sam@zoy.org>
  *          Laurent Aimar <fenrir@via.ecp.fr>
@@ -32,7 +31,6 @@
 
 #include <vlc_common.h>
 #include <vlc_codec.h>
-#include <vlc_input.h>
 
 #include "spudec.h"
 
@@ -191,7 +189,7 @@ static int ParseControlSeq( decoder_t *p_dec, subpicture_t *p_spu,
     spu_data_cmd.pi_alpha[3] = 0x0f;
 
     /* Initialize the structure */
-    p_spu->i_start = p_spu->i_stop = 0;
+    p_spu->i_start = p_spu->i_stop = VLC_TICK_INVALID;
     p_spu->b_ephemer = false;
 
     memset( p_spu_properties, 0, sizeof(*p_spu_properties) );
@@ -326,6 +324,11 @@ static int ParseControlSeq( decoder_t *p_dec, subpicture_t *p_spu,
             p_spu_properties->i_height = (((p_sys->buffer[i_index+5]&0x0f)<<8)|
                               p_sys->buffer[i_index+6]) - p_spu_properties->i_y + 1;
 
+            if (p_spu_properties->i_width < 0 || p_spu_properties->i_height < 0) {
+                msg_Err( p_dec, "integer overflow in SPU command" );
+                return VLC_EGENERIC;
+            }
+
             /* Auto crop fullscreen subtitles */
             if( p_spu_properties->i_height > 250 )
                 p_spu_data->b_auto_crop = true;
@@ -416,7 +419,7 @@ static int ParseControlSeq( decoder_t *p_dec, subpicture_t *p_spu,
         return VLC_EGENERIC;
     }
 
-    if( !p_spu->i_start )
+    if( p_spu->i_start == VLC_TICK_INVALID )
     {
         msg_Err( p_dec, "no `start display' command" );
         return VLC_EGENERIC;

@@ -17,11 +17,11 @@ SED = /usr/bin/sed
 SHELL = /bin/sh
 
 
-srcdir = /Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../po
-top_srcdir = /Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../..
-VPATH = /Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../po
+srcdir = ../../extras/package/macosx/../../../po
+top_srcdir = ../../extras/package/macosx/../../..
+VPATH = ../../extras/package/macosx/../../../po
 
-prefix = /Users/nlandsberg/Desktop/development/vlc/build/vlc_install_dir
+prefix = /Users/nlandsberg/vlc/build/vlc_install_dir
 exec_prefix = ${prefix}
 datarootdir = ${prefix}/share
 datadir = ${datarootdir}
@@ -34,13 +34,13 @@ INSTALL_DATA = ${INSTALL} -m 644
 # We use $(mkdir_p).
 # In automake <= 1.9.x, $(mkdir_p) is defined either as "mkdir -p --" or as
 # "$(mkinstalldirs)" or as "$(install_sh) -d". For these automake versions,
-# ${SHELL} /Users/nlandsberg/Desktop/development/vlc/autotools/install-sh does not start with $(SHELL), so we add it.
+# ${SHELL} /Users/nlandsberg/vlc/autotools/install-sh does not start with $(SHELL), so we add it.
 # In automake >= 1.10, $(MKDIR_P) is derived from ${MKDIR_P}, which is defined
 # either as "/path/to/mkdir -p" or ".../install-sh -c -d". For these automake
 # versions, $(mkinstalldirs) and $(install_sh) are unused.
-mkinstalldirs = $(SHELL) ${SHELL} /Users/nlandsberg/Desktop/development/vlc/autotools/install-sh -d
-install_sh = $(SHELL) ${SHELL} /Users/nlandsberg/Desktop/development/vlc/autotools/install-sh
-MKDIR_P = /Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../autotools/install-sh -c -d
+mkinstalldirs = $(SHELL) ${SHELL} /Users/nlandsberg/vlc/autotools/install-sh -d
+install_sh = $(SHELL) ${SHELL} /Users/nlandsberg/vlc/autotools/install-sh
+MKDIR_P = ../../extras/package/macosx/../../../autotools/install-sh -c -d
 mkdir_p = $(MKDIR_P)
 
 # When building gettext-tools, we prefer to use the built programs
@@ -48,20 +48,20 @@ mkdir_p = $(MKDIR_P)
 # are cross compiling.
 CROSS_COMPILING = @CROSS_COMPILING@
 
-GMSGFMT_ = /Users/nlandsberg/Desktop/development/vlc/extras/tools/build/bin/msgfmt
-GMSGFMT_no = /Users/nlandsberg/Desktop/development/vlc/extras/tools/build/bin/msgfmt
-GMSGFMT_yes = /Users/nlandsberg/Desktop/development/vlc/extras/tools/build/bin/msgfmt
+GMSGFMT_ = /Users/nlandsberg/vlc/extras/tools/build/bin/msgfmt
+GMSGFMT_no = /Users/nlandsberg/vlc/extras/tools/build/bin/msgfmt
+GMSGFMT_yes = /Users/nlandsberg/vlc/extras/tools/build/bin/msgfmt
 GMSGFMT = $(GMSGFMT_$(USE_MSGCTXT))
-MSGFMT_ = /Users/nlandsberg/Desktop/development/vlc/extras/tools/build/bin/msgfmt
-MSGFMT_no = /Users/nlandsberg/Desktop/development/vlc/extras/tools/build/bin/msgfmt
-MSGFMT_yes = /Users/nlandsberg/Desktop/development/vlc/extras/tools/build/bin/msgfmt
+MSGFMT_ = /Users/nlandsberg/vlc/extras/tools/build/bin/msgfmt
+MSGFMT_no = /Users/nlandsberg/vlc/extras/tools/build/bin/msgfmt
+MSGFMT_yes = /Users/nlandsberg/vlc/extras/tools/build/bin/msgfmt
 MSGFMT = $(MSGFMT_$(USE_MSGCTXT))
-XGETTEXT_ = /Users/nlandsberg/Desktop/development/vlc/extras/tools/build/bin/xgettext
-XGETTEXT_no = /Users/nlandsberg/Desktop/development/vlc/extras/tools/build/bin/xgettext
-XGETTEXT_yes = /Users/nlandsberg/Desktop/development/vlc/extras/tools/build/bin/xgettext
+XGETTEXT_ = /Users/nlandsberg/vlc/extras/tools/build/bin/xgettext
+XGETTEXT_no = /Users/nlandsberg/vlc/extras/tools/build/bin/xgettext
+XGETTEXT_yes = /Users/nlandsberg/vlc/extras/tools/build/bin/xgettext
 XGETTEXT = $(XGETTEXT_$(USE_MSGCTXT))
 MSGMERGE = msgmerge
-MSGMERGE_UPDATE = /Users/nlandsberg/Desktop/development/vlc/extras/tools/build/bin/msgmerge --update
+MSGMERGE_UPDATE = /Users/nlandsberg/vlc/extras/tools/build/bin/msgmerge --update
 MSGINIT = msginit
 MSGCONV = msgconv
 MSGFILTER = msgfilter

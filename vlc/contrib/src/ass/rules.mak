@@ -14,10 +14,6 @@ ifeq ($(ANDROID_ABI), x86)
 WITH_ASS_ASM = 0
 endif
 else
-ifdef HAVE_TIZEN
-WITH_FONTCONFIG = 0
-WITH_HARFBUZZ = 0
-else
 ifdef HAVE_DARWIN_OS
 WITH_FONTCONFIG = 0
 WITH_HARFBUZZ = 1
@@ -38,7 +34,6 @@ endif
 endif
 endif
 endif
-endif
 
 $(TARBALLS)/libass-$(ASS_VERSION).tar.gz:
 	$(call download_pkg,$(ASS_URL),ass)
@@ -50,6 +45,7 @@ libass: libass-$(ASS_VERSION).tar.gz .sum-ass
 	$(APPLY) $(SRC)/ass/ass-macosx.patch
 ifdef HAVE_WIN32
 	$(APPLY) $(SRC)/ass/use-topendir.patch
+	$(APPLY) $(SRC)/ass/libass-no-tchar.patch
 ifdef HAVE_WINSTORE
 	$(APPLY) $(SRC)/ass/dwrite.patch
 endif
@@ -57,7 +53,7 @@ endif
 	$(UPDATE_AUTOCONFIG)
 	$(MOVE)
 
-DEPS_ass = freetype2 $(DEPS_freetype2) fribidi
+DEPS_ass = freetype2 $(DEPS_freetype2) fribidi iconv $(DEPS_iconv)
 
 ifneq ($(WITH_FONTCONFIG), 0)
 DEPS_ass += fontconfig $(DEPS_fontconfig)

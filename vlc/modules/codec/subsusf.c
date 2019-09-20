@@ -2,7 +2,6 @@
  * subsusf.c : USF subtitles decoder
  *****************************************************************************
  * Copyright (C) 2000-2006 VLC authors and VideoLAN
- * $Id: 8b9aef868fb4aec30d2a0365fc19a45d6950c7a8 $
  *
  * Authors: Bernie Purcell <bitmap@videolan.org>
  *
@@ -101,6 +100,7 @@ typedef struct
 
 static int           DecodeBlock   ( decoder_t *, block_t * );
 static char         *CreatePlainText( char * );
+static char         *StripTags( char *psz_subtitle );
 static int           ParseImageAttachments( decoder_t *p_dec );
 
 static subpicture_t        *ParseText     ( decoder_t *, block_t * );
@@ -263,7 +263,7 @@ static subpicture_t *ParseText( decoder_t *p_dec, block_t *p_block )
 
     p_spu->i_start = p_block->i_pts;
     p_spu->i_stop = p_block->i_pts + p_block->i_length;
-    p_spu->b_ephemer = (p_block->i_length == 0);
+    p_spu->b_ephemer = (p_block->i_length == VLC_TICK_INVALID);
     p_spu->b_absolute = false;
     p_spu->i_original_picture_width = p_sys->i_original_width;
     p_spu->i_original_picture_height = p_sys->i_original_height;
@@ -508,16 +508,14 @@ static int ParseImageAttachments( decoder_t *p_dec )
 
                 if( p_block != NULL )
                 {
-                    video_format_t     fmt_in;
+                    es_format_t        es_in;
                     video_format_t     fmt_out;
 
                     memcpy( p_block->p_buffer, p_attach->p_data, p_attach->i_data );
 
-                    memset( &fmt_in,  0, sizeof( video_format_t));
-                    memset( &fmt_out, 0, sizeof( video_format_t));
-
-                    fmt_in.i_chroma  = type;
-                    fmt_out.i_chroma = VLC_CODEC_YUVA;
+                    es_format_Init( &es_in, VIDEO_ES, type );
+                    es_in.video.i_chroma = type;
+                    video_format_Init( &fmt_out, VLC_CODEC_YUVA );
 
                     /* Find a suitable decoder module */
                     if( module_exists( "sdl_image" ) )
@@ -529,8 +527,10 @@ static int ParseImageAttachments( decoder_t *p_dec )
                         var_SetString( p_dec, "codec", "sdl_image" );
                     }
 
-                    p_pic = image_Read( p_image, p_block, &fmt_in, &fmt_out );
+                    p_pic = image_Read( p_image, p_block, &es_in, &fmt_out );
                     var_Destroy( p_dec, "codec" );
+                    es_format_Clean( &es_in );
+                    video_format_Clean( &fmt_out );
                 }
 
                 image_HandlerDelete( p_image );
@@ -749,17 +749,6 @@ static void ParseUSFHeaderTags( decoder_t *p_dec, xml_reader_t *p_xml_reader )
                         {
                             p_ssa_style->p_style->i_shadow_width = atoi( val );
                         }
-                        else if( !strcasecmp( "back-color", attr ) )
-                        {
-                            if( *val == '#' )
-                            {
-                                unsigned long col = strtol(val+1, NULL, 16);
-                                p_ssa_style->p_style->i_karaoke_background_color = (col & 0x00ffffff);
-                                p_ssa_style->p_style->i_karaoke_background_alpha = (col >> 24) & 0xff;
-                                p_ssa_style->p_style->i_features |= STYLE_HAS_K_BACKGROUND_COLOR
-                                                                  | STYLE_HAS_K_BACKGROUND_ALPHA;
-                            }
-                        }
                         else if( !strcasecmp( "spacing", attr ) )
                         {
                             p_ssa_style->p_style->i_spacing = atoi( val );
@@ -851,21 +840,37 @@ static subpicture_region_t *ParseUSFString( decoder_t *p_dec,
                 {
                     subpicture_region_t  *p_text_region;
 
+                    char *psz_flat = NULL;
+                    char *psz_knodes = strndup( &psz_subtitle[9], psz_end - &psz_subtitle[9] );
+                    if( psz_knodes )
+                    {
+                        /* remove timing <k> tags */
+                        psz_flat = CreatePlainText( psz_knodes );
+                        free( psz_knodes );
+                        if( psz_flat )
+                        {
+                            p_text_region = CreateTextRegion( p_dec,
+                                                              psz_flat,
+                                                              p_sys->i_align );
+                            if( p_text_region )
+                            {
+                                free( p_text_region->p_text->psz_text );
+                                p_text_region->p_text->psz_text = psz_flat;
+                                if( !p_region_first )
+                                {
+                                    p_region_first = p_region_upto = p_text_region;
+                                }
+                                else if( p_text_region )
+                                {
+                                    p_region_upto->p_next = p_text_region;
+                                    p_region_upto = p_region_upto->p_next;
+                                }
+                            }
+                            else free( psz_flat );
+                        }
+                    }
+
                     psz_end += strcspn( psz_end, ">" ) + 1;
-
-                    p_text_region = CreateTextRegion( p_dec,
-                                                      psz_subtitle,
-                                                      p_sys->i_align );
-
-                    if( !p_region_first )
-                    {
-                        p_region_first = p_region_upto = p_text_region;
-                    }
-                    else if( p_text_region )
-                    {
-                        p_region_upto->p_next = p_text_region;
-                        p_region_upto = p_region_upto->p_next;
-                    }
                 }
             }
             else if(( !strncasecmp( psz_subtitle, "<image ", 7 )) ||

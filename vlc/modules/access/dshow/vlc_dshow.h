@@ -2,7 +2,6 @@
  * vlc_dshow.h : DirectShow access module for vlc
  *****************************************************************************
  * Copyright (C) 2002, 2004, 2010-2011 VLC authors and VideoLAN
- * $Id: eaa6873101d0670cd1589481636929fec4985c72 $
  *
  * Author: Gildas Bazin <gbazin@videolan.org>
  *

@@ -2,7 +2,6 @@
  * spu.c: transcoding stream output module (spu)
  *****************************************************************************
  * Copyright (C) 2003-2009 VLC authors and VideoLAN
- * $Id: 8908336666acb93dbeb1acfc66be9e0d0317a433 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Gildas Bazin <gbazin@videolan.org>
@@ -160,11 +159,6 @@ int transcode_spu_init( sout_stream_t *p_stream, const es_format_t *p_fmt,
 void transcode_spu_clean( sout_stream_t *p_stream, sout_stream_id_sys_t *id)
 {
     VLC_UNUSED(p_stream);
-    /* Close decoder */
-    if( id->p_decoder->p_module )
-        module_unneed( id->p_decoder, id->p_decoder->p_module );
-    if( id->p_decoder->p_description )
-        vlc_meta_Delete( id->p_decoder->p_description );
 
     /* Close encoder */
     if( id->encoder )

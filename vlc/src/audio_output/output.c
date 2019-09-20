@@ -2,7 +2,6 @@
  * output.c : internal management of output streams for the audio output
  *****************************************************************************
  * Copyright (C) 2002-2004 VLC authors and VideoLAN
- * $Id: 4567a40996a4440bfb10481b80977036402352c2 $
  *
  * Authors: Christophe Massiot <massiot@via.ecp.fr>
  *
@@ -44,14 +43,6 @@ struct aout_dev
 
 
 /* Local functions */
-static void aout_OutputAssertLocked (audio_output_t *aout)
-{
-    aout_owner_t *owner = aout_owner (aout);
-
-    vlc_assert_locked (&owner->lock);
-}
-
-static void aout_Destructor( vlc_object_t * p_this );
 
 static int var_Copy (vlc_object_t *src, const char *name, vlc_value_t prev,
                      vlc_value_t value, void *data)
@@ -69,6 +60,12 @@ static int var_CopyDevice (vlc_object_t *src, const char *name,
 
     (void) src; (void) name; (void) prev;
     return var_Set (dst, "audio-device", value);
+}
+
+static void aout_TimingNotify(audio_output_t *aout, vlc_tick_t system_ts,
+                              vlc_tick_t audio_ts)
+{
+    aout_RequestRetiming(aout, system_ts, audio_ts);
 }
 
 /**
@@ -92,7 +89,7 @@ static void aout_MuteNotify (audio_output_t *aout, bool mute)
 
 static void aout_PolicyNotify (audio_output_t *aout, bool cork)
 {
-    (cork ? var_IncInteger : var_DecInteger) (aout->obj.parent, "corks");
+    (cork ? var_IncInteger : var_DecInteger)(vlc_object_parent(aout), "corks");
 }
 
 static void aout_DeviceNotify (audio_output_t *aout, const char *id)
@@ -153,13 +150,14 @@ static int aout_GainNotify (audio_output_t *aout, float gain)
 {
     aout_owner_t *owner = aout_owner (aout);
 
-    aout_OutputAssertLocked (aout);
+    vlc_mutex_assert(&owner->lock);
     aout_volume_SetVolume (owner->volume, gain);
     /* XXX: ideally, return -1 if format cannot be amplified */
     return 0;
 }
 
 static const struct vlc_audio_output_events aout_events = {
+    aout_TimingNotify,
     aout_VolumeNotify,
     aout_MuteNotify,
     aout_PolicyNotify,
@@ -204,20 +202,6 @@ static int ViewpointCallback (vlc_object_t *obj, const char *var,
     return VLC_SUCCESS;
 }
 
-static void aout_OutputLock(audio_output_t *aout)
-{
-    aout_owner_t *owner = aout_owner(aout);
-
-    vlc_mutex_lock(&owner->lock);
-}
-
-static void aout_OutputUnlock(audio_output_t *aout)
-{
-    aout_owner_t *owner = aout_owner(aout);
-
-    vlc_mutex_unlock(&owner->lock);
-}
-
 #undef aout_New
 /**
  * Creates an audio output object and initializes an output module.
@@ -238,8 +222,7 @@ audio_output_t *aout_New (vlc_object_t *parent)
     vlc_mutex_init (&owner->vp.lock);
     vlc_viewpoint_init (&owner->vp.value);
     atomic_init (&owner->vp.update, false);
-
-    vlc_object_set_destructor (aout, aout_Destructor);
+    atomic_init(&owner->refs, 0);
 
     /* Audio output module callbacks */
     var_Create (aout, "volume", VLC_VAR_FLOAT);
@@ -263,9 +246,10 @@ audio_output_t *aout_New (vlc_object_t *parent)
     if (owner->module == NULL)
     {
         msg_Err (aout, "no suitable audio output module");
-        vlc_object_release (aout);
+        vlc_object_delete(aout);
         return NULL;
     }
+    assert(aout->start && aout->stop);
 
     /*
      * Persistent audio output variables
@@ -357,6 +341,14 @@ audio_output_t *aout_New (vlc_object_t *parent)
     return aout;
 }
 
+audio_output_t *aout_Hold(audio_output_t *aout)
+{
+    aout_owner_t *owner = aout_owner(aout);
+
+    atomic_fetch_add_explicit(&owner->refs, 1, memory_order_relaxed);
+    return aout;
+}
+
 /**
  * Deinitializes an audio output module and destroys an audio output object.
  */
@@ -364,31 +356,32 @@ void aout_Destroy (audio_output_t *aout)
 {
     aout_owner_t *owner = aout_owner (aout);
 
-    aout_OutputLock (aout);
+    vlc_mutex_lock(&owner->lock);
     module_unneed (aout, owner->module);
     /* Protect against late call from intf.c */
     aout->volume_set = NULL;
     aout->mute_set = NULL;
     aout->device_select = NULL;
-    aout_OutputUnlock (aout);
+    vlc_mutex_unlock(&owner->lock);
 
     var_DelCallback (aout, "viewpoint", ViewpointCallback, NULL);
     var_DelCallback (aout, "audio-filter", FilterCallback, NULL);
-    var_DelCallback (aout, "device", var_CopyDevice, aout->obj.parent);
-    var_DelCallback (aout, "mute", var_Copy, aout->obj.parent);
+    var_DelCallback(aout, "device", var_CopyDevice, vlc_object_parent(aout));
+    var_DelCallback(aout, "mute", var_Copy, vlc_object_parent(aout));
     var_SetFloat (aout, "volume", -1.f);
-    var_DelCallback (aout, "volume", var_Copy, aout->obj.parent);
+    var_DelCallback(aout, "volume", var_Copy, vlc_object_parent(aout));
     var_DelCallback (aout, "stereo-mode", StereoModeCallback, NULL);
-    vlc_object_release (aout);
+    aout_Release(aout);
 }
 
-/**
- * Destroys the audio output lock used (asynchronously) by interface functions.
- */
-static void aout_Destructor (vlc_object_t *obj)
+void aout_Release(audio_output_t *aout)
 {
-    audio_output_t *aout = (audio_output_t *)obj;
-    aout_owner_t *owner = aout_owner (aout);
+    aout_owner_t *owner = aout_owner(aout);
+
+    if (atomic_fetch_sub_explicit(&owner->refs, 1, memory_order_release))
+        return;
+
+    atomic_thread_fence(memory_order_acquire);
 
     vlc_mutex_destroy (&owner->dev.lock);
     for (aout_dev_t *dev = owner->dev.list, *next; dev != NULL; dev = next)
@@ -400,6 +393,7 @@ static void aout_Destructor (vlc_object_t *obj)
 
     vlc_mutex_destroy (&owner->vp.lock);
     vlc_mutex_destroy (&owner->lock);
+    vlc_object_delete(VLC_OBJECT(aout));
 }
 
 static void aout_PrepareStereoMode (audio_output_t *aout,
@@ -570,9 +564,10 @@ int aout_OutputNew (audio_output_t *aout, audio_sample_format_t *restrict fmt,
 
     aout->current_sink_info.headphones = false;
 
-    aout_OutputLock(aout);
+    vlc_mutex_lock(&owner->lock);
     int ret = aout->start(aout, fmt);
-    aout_OutputUnlock(aout);
+    assert(aout->flush && aout->play && aout->time_get && aout->pause);
+    vlc_mutex_unlock(&owner->lock);
     if (ret)
     {
         msg_Err (aout, "module not functional");
@@ -595,10 +590,10 @@ int aout_OutputNew (audio_output_t *aout, audio_sample_format_t *restrict fmt,
  */
 void aout_OutputDelete (audio_output_t *aout)
 {
-    aout_OutputLock(aout);
-    if (aout->stop != NULL)
-        aout->stop (aout);
-    aout_OutputUnlock(aout);
+    aout_owner_t *owner = aout_owner(aout);
+    vlc_mutex_lock(&owner->lock);
+    aout->stop (aout);
+    vlc_mutex_unlock(&owner->lock);
 }
 
 /**
@@ -618,11 +613,12 @@ float aout_VolumeGet (audio_output_t *aout)
  */
 int aout_VolumeSet (audio_output_t *aout, float vol)
 {
+    aout_owner_t *owner = aout_owner(aout);
     int ret;
 
-    aout_OutputLock(aout);
+    vlc_mutex_lock(&owner->lock);
     ret = aout->volume_set(aout, vol);
-    aout_OutputUnlock(aout);
+    vlc_mutex_unlock(&owner->lock);
     return ret ? -1 : 0;
 }
 
@@ -668,11 +664,12 @@ int aout_MuteGet (audio_output_t *aout)
  */
 int aout_MuteSet (audio_output_t *aout, bool mute)
 {
+    aout_owner_t *owner = aout_owner(aout);
     int ret;
 
-    aout_OutputLock(aout);
+    vlc_mutex_lock(&owner->lock);
     ret = aout->mute_set(aout, mute);
-    aout_OutputUnlock(aout);
+    vlc_mutex_unlock(&owner->lock);
     return ret ? -1 : 0;
 }
 
@@ -693,11 +690,12 @@ char *aout_DeviceGet (audio_output_t *aout)
  */
 int aout_DeviceSet (audio_output_t *aout, const char *id)
 {
+    aout_owner_t *owner = aout_owner(aout);
     int ret;
 
-    aout_OutputLock(aout);
+    vlc_mutex_lock(&owner->lock);
     ret = aout->device_select(aout, id);
-    aout_OutputUnlock(aout);
+    vlc_mutex_unlock(&owner->lock);
     return ret ? -1 : 0;
 }
 
