@@ -2,7 +2,6 @@
  * ram.c : RAM playlist format import
  *****************************************************************************
  * Copyright (C) 2009 VLC authors and VideoLAN
- * $Id: 966601ec1ae7a2053cbcbd0814f851d2dc2eddf6 $
  *
  * Authors: Srikanth Raju <srikiraju@gmail.com>
  *

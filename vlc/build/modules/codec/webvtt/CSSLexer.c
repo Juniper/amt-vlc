@@ -1405,7 +1405,7 @@ static yyconst flex_int16_t yy_chk[3982] =
 #define yymore() yymore_used_but_not_detected
 #define YY_MORE_ADJ 0
 #define YY_RESTORE_YY_MORE_OFFSET
-#line 1 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 1 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 /*****************************************************************************
  * CSSLexer.l : lexer for simplified CSS, based on W3C spec
  *****************************************************************************
@@ -1426,7 +1426,7 @@ static yyconst flex_int16_t yy_chk[3982] =
  * Inc., 51 Franklin Street, Fifth Floor, Boston MA 02110-1301, USA.
  *****************************************************************************/
 #define YY_NO_INPUT 1
-#line 30 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 30 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
@@ -1667,7 +1667,7 @@ YY_DECL
 	register int yy_act;
     struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
 
-#line 59 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 59 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 
 
 #line 1674 "codec/webvtt/CSSLexer.c"
@@ -1754,196 +1754,196 @@ do_action:	/* This label is used only to access EOF actions. */
 case 1:
 /* rule 1 can match eol */
 YY_RULE_SETUP
-#line 61 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 61 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 {return WHITESPACE;}
 	YY_BREAK
 case 2:
 /* rule 2 can match eol */
 YY_RULE_SETUP
-#line 63 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 63 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 /* ignore comments */
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 65 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 65 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 {return CDO;}
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 66 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 66 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 {return CDC;}
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 67 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 67 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 {return INCLUDES;}
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 68 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 68 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 {return DASHMATCH;}
 	YY_BREAK
 case 7:
 /* rule 7 can match eol */
 YY_RULE_SETUP
-#line 70 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 70 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { yylval->string = vlc_css_unquotedunescaped(yytext); return STRING;}
 	YY_BREAK
 case 8:
 /* rule 8 can match eol */
 YY_RULE_SETUP
-#line 72 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 72 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { yylval->string = vlc_css_unescaped(yytext); return IDENT;}
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 74 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 74 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 {return FONT_FACE_SYM;}
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 76 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 76 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 {return IMPORTANT_SYM;}
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 78 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 78 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { VAL( us_strtof(yytext, &d), EMS ); return LENGTH;}
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 79 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 79 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { VAL( atoi(yytext), EXS ); return LENGTH;}
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 80 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 80 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { VAL( atoi(yytext), PIXELS ); return LENGTH;}
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 81 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 81 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { VAL( us_strtof(yytext, &d) * 10, MILLIMETERS ); return LENGTH;}
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 82 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 82 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { VAL( atoi(yytext), MILLIMETERS ); return LENGTH;}
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 83 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 83 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { VAL( us_strtof(yytext, &d) * 25.4, MILLIMETERS ); return LENGTH;}
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 84 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 84 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { VAL( us_strtof(yytext, &d), POINTS ); return LENGTH;}
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 85 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 85 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { VAL( us_strtof(yytext, &d), POINTS ); return LENGTH;}
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-#line 86 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 86 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { VAL( us_strtof(yytext, &d), DEGREES ); return ANGLE;}
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 87 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 87 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { VAL( us_strtof(yytext, &d) * 0.0174533, DEGREES ); return ANGLE;}
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 88 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 88 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { VAL( us_strtof(yytext, &d) * 1.1111111, DEGREES ); return ANGLE;}
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-#line 89 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 89 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { VAL( atoi(yytext), MILLISECONDS ); return TIME;}
 	YY_BREAK
 case 23:
 YY_RULE_SETUP
-#line 90 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 90 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { VAL( atoi(yytext) * 1000, MILLISECONDS ); return TIME;}
 	YY_BREAK
 case 24:
 YY_RULE_SETUP
-#line 91 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 91 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { VAL( atoi(yytext), HERTZ ); return FREQ;}
 	YY_BREAK
 case 25:
 YY_RULE_SETUP
-#line 92 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 92 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { VAL( atoi(yytext) * 1000, HERTZ ); return FREQ;}
 	YY_BREAK
 case 26:
 /* rule 26 can match eol */
 YY_RULE_SETUP
-#line 93 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 93 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { VAL( 0, DIMENSION ); return DIMEN;}
 	YY_BREAK
 case 27:
 YY_RULE_SETUP
-#line 94 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 94 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { VAL( atoi(yytext), PERCENT ); return PERCENTAGE;}
 	YY_BREAK
 case 28:
 YY_RULE_SETUP
-#line 95 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 95 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { VAL( us_strtof(yytext, &d), NONE ); return NUMBER;}
 	YY_BREAK
 case 29:
 /* rule 29 can match eol */
 YY_RULE_SETUP
-#line 97 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 97 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { yylval->string = vlc_css_unquotedunescaped(yytext); return URI;}
 	YY_BREAK
 case 30:
 /* rule 30 can match eol */
 YY_RULE_SETUP
-#line 98 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 98 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { yylval->string = vlc_css_unquotedunescaped(yytext); return URI;}
 	YY_BREAK
 case 31:
 /* rule 31 can match eol */
 YY_RULE_SETUP
-#line 99 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 99 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { yylval->string = vlc_css_unescaped(yytext); return FUNCTION;}
 	YY_BREAK
 case 32:
 /* rule 32 can match eol */
 YY_RULE_SETUP
-#line 100 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 100 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 {yylval->string = vlc_css_unescaped(yytext); return IDSEL;}
 	YY_BREAK
 case 33:
 /* rule 33 can match eol */
 YY_RULE_SETUP
-#line 101 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 101 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 {yylval->string = vlc_css_unescaped(yytext); return HASH;}
 	YY_BREAK
 case 34:
 YY_RULE_SETUP
-#line 103 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 103 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { yylval->string = strdup(yytext); return UNICODERANGE;}
 	YY_BREAK
 case 35:
 YY_RULE_SETUP
-#line 104 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 104 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 { yylval->string = strdup(yytext); return UNICODERANGE;}
 	YY_BREAK
 case 36:
 YY_RULE_SETUP
-#line 106 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 106 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 {return *yytext;}
 	YY_BREAK
 case 37:
 YY_RULE_SETUP
-#line 108 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 108 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
 ECHO;
 	YY_BREAK
 #line 1950 "codec/webvtt/CSSLexer.c"
@@ -3071,4 +3071,4 @@ void yyfree (void * ptr , yyscan_t yyscanner)
 
 #define YYTABLES_NAME "yytables"
 
-#line 108 "/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"
+#line 108 "../../extras/package/macosx/../../../modules/codec/webvtt/CSSLexer.l"

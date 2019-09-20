@@ -2,7 +2,6 @@
  * vlc_variables.h: variables handling
  *****************************************************************************
  * Copyright (C) 2002-2004 VLC authors and VideoLAN
- * $Id: 7dde1248c1cae8d31d1e79515a628f4c503640a4 $
  *
  * Authors: Samuel Hocevar <sam@zoy.org>
  *          Gildas Bazin <gbazin@netcourrier.com>

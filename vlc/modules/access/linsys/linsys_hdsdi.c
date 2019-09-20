@@ -62,7 +62,7 @@
 #define SDIAUDIO_CHANNELS_FILE  "/sys/class/sdiaudio/sdiaudiorx%u/channels"
 #define NB_VBUFFERS             2
 #define CLOCK_GAP               VLC_TICK_FROM_MS(500)
-#define START_DATE              INT64_C(4294967296)
+#define START_DATE              INT64_C(0x100000000)
 
 #define MAX_AUDIOS              4
 
@@ -148,7 +148,7 @@ typedef struct
     unsigned int i_width, i_height, i_aspect, i_forced_aspect;
     unsigned int i_vblock_size, i_ablock_size;
     vlc_tick_t   i_next_vdate, i_next_adate;
-    int          i_incr, i_aincr;
+    vlc_tick_t   i_incr, i_aincr;
 
     /* ES stuff */
     int          i_id_video;
@@ -296,7 +296,6 @@ static void *Demux( void *opaque )
 static int Control( demux_t *p_demux, int i_query, va_list args )
 {
     bool *pb;
-    int64_t *pi64;
 
     switch( i_query )
     {
@@ -495,7 +494,7 @@ static int InitVideo( demux_t *p_demux )
     }
 
     p_sys->i_next_vdate = START_DATE;
-    p_sys->i_incr = 1000000 * p_sys->i_frame_rate_base / p_sys->i_frame_rate;
+    p_sys->i_incr = vlc_tick_from_samples(p_sys->i_frame_rate_base, p_sys->i_frame_rate);
     p_sys->i_vblock_size = p_sys->i_width * p_sys->i_height * 3 / 2
                             + sizeof(struct block_extension_t);
 
@@ -544,7 +543,7 @@ static int InitAudio( demux_t *p_demux )
 
     p_sys->i_next_adate = START_DATE;
     p_sys->i_ablock_size = p_sys->i_sample_rate * 4 * p_sys->i_frame_rate_base / p_sys->i_frame_rate;
-    p_sys->i_aincr = 1000000 * p_sys->i_ablock_size / (p_sys->i_sample_rate * 4);
+    p_sys->i_aincr = vlc_tick_from_samples(p_sys->i_ablock_size, p_sys->i_sample_rate * 4);
 
     return VLC_SUCCESS;
 }
@@ -630,8 +629,8 @@ static int HandleAudio( demux_t *p_demux, const uint8_t *p_buffer )
                         p_audio->i_channel * 2, p_sys->i_max_channel + 1 );
 
             p_block->i_dts = p_block->i_pts
-                = p_sys->i_next_adate + (vlc_tick_t)p_audio->i_delay
-                   * CLOCK_FREQ / p_sys->i_sample_rate;
+                = p_sys->i_next_adate + vlc_tick_from_samples(p_audio->i_delay,
+                                                              p_sys->i_sample_rate);
             p_block->i_length = p_sys->i_aincr;
             es_out_Send( p_demux->out, p_audio->p_es, p_block );
         }

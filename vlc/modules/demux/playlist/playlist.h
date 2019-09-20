@@ -2,7 +2,6 @@
  * playlist.h:  Playlist import module common functions
  *****************************************************************************
  * Copyright (C) 2004 VLC authors and VideoLAN
- * $Id: 6f7f99792c960de61d579a6af490b1a5e5427beb $
  *
  * Authors: Sigmund Augdal Helberg <dnumgis@videolan.org>
  *
@@ -56,6 +55,8 @@ int Import_BDMV ( vlc_object_t * );
 void Close_BDMV ( vlc_object_t * );
 
 int Import_iTML ( vlc_object_t * );
+
+int Import_WMS(vlc_object_t *);
 
 int Import_WPL ( vlc_object_t * );
 void Close_WPL ( vlc_object_t * );

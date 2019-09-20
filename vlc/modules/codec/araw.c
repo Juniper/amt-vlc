@@ -2,7 +2,6 @@
  * araw.c: Pseudo audio decoder; for raw pcm data
  *****************************************************************************
  * Copyright (C) 2001, 2003 VLC authors and VideoLAN
- * $Id: ba4670173561cdb6a24542ed71976d63f705fe4d $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *
@@ -59,7 +58,7 @@ vlc_module_begin ()
     add_submodule ()
     set_description( N_("Raw audio encoder") )
     set_capability( "encoder", 150 )
-    set_callbacks( EncoderOpen, NULL )
+    set_callback( EncoderOpen )
 #endif
 vlc_module_end ()
 

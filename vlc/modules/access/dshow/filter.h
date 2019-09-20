@@ -3,7 +3,6 @@
  * CapturePin, CaptureFilter, CaptureEnumPins implementations
  *****************************************************************************
  * Copyright (C) 2002-2004, 2008 VLC authors and VideoLAN
- * $Id: 597e81f5e9ca6dd4811c695fb8097159c91e06ea $
  *
  * Author: Gildas Bazin <gbazin@videolan.org>
  *

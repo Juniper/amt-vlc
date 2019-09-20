@@ -22,14 +22,14 @@
 #endif
 
 #include "mp4.h"
-#include "../meta_engine/ID3Genres.h"  /* for ATOM_gnre */
+#include "../../meta_engine/ID3Genres.h"  /* for ATOM_gnre */
 #include "languages.h"
 
 #include <vlc_meta.h>
 #include <vlc_charset.h>
 
-#include "../meta_engine/ID3Tag.h"
-#include "../meta_engine/ID3Meta.h"
+#include "../../meta_engine/ID3Tag.h"
+#include "../../meta_engine/ID3Meta.h"
 
 #include <assert.h>
 
@@ -108,6 +108,7 @@ static const struct
     { ATOM_gssd,    "YouTube Source Data" },
     { ATOM_gsst,    "YouTube Start Time" },
     { ATOM_gstd,    "YouTube Track Duration" },
+    { ATOM_purl,    "Podcast URL" },
 };
 
 static const struct
@@ -393,7 +394,7 @@ static void SetupmdirMeta( vlc_meta_t *p_meta, MP4_Box_t *p_box )
         if ( BOXDATA(p_data)->i_blob >= 6 &&
              BOXDATA(p_data)->e_wellknowntype == DATA_WKT_RESERVED )
         {
-            char psz_number[5];
+            char psz_number[6];
             snprintf( psz_number, sizeof( psz_number ), "%"PRIu16, GetWBE(&BOXDATA(p_data)->p_blob[2]) );
             vlc_meta_Set( p_meta, vlc_meta_DiscNumber, psz_number );
             snprintf( psz_number, sizeof( psz_number ), "%"PRIu16, GetWBE(&BOXDATA(p_data)->p_blob[4]) );

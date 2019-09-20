@@ -2,7 +2,6 @@
  * asx.c : ASX playlist format import
  *****************************************************************************
  * Copyright (C) 2005-2013 VLC authors and VideoLAN
- * $Id: 4ea05fed3f320fddddba23f8a4db2c2feca37562 $
  *
  * Authors: Derk-Jan Hartman <hartman at videolan dot org>
  *
@@ -208,7 +207,7 @@ static void ProcessEntry( int *pi_n_entry, xml_reader_t *p_xml_reader,
 
     do
     {
-        i_duration = INPUT_DURATION_ZERO;
+        i_duration = INPUT_DURATION_UNSET;
         i_type = xml_ReaderNextNode( p_xml_reader, &psz_node );
 
         if( i_type == XML_READER_ERROR || i_type == XML_READER_NONE )
@@ -298,14 +297,14 @@ static void ProcessEntry( int *pi_n_entry, xml_reader_t *p_xml_reader,
                 if( i_start )
                 {
                     if( asprintf( ppsz_options, ":start-time=%"PRId64 ,
-                                  i_start / CLOCK_FREQ ) != -1)
+                                  SEC_FROM_VLC_TICK(i_start) ) != -1)
                         i_options++;
                 }
                 if( i_duration)
                 {
                     if( asprintf( ppsz_options + i_options,
                                   ":stop-time=%"PRId64,
-                                  (i_start + i_duration) / CLOCK_FREQ ) != -1)
+                                  SEC_FROM_VLC_TICK(i_start + i_duration) ) != -1)
                         i_options++;
                 }
 
@@ -318,7 +317,6 @@ static void ProcessEntry( int *pi_n_entry, xml_reader_t *p_xml_reader,
                 input_item_AddOptions( p_entry, i_options,
                                        (const char **)ppsz_options,
                                        VLC_INPUT_OPTION_TRUSTED );
-                input_item_CopyOptions( p_entry, p_current_input );
 
                 /* Add the metadata */
                 if( psz_name )
@@ -763,7 +761,6 @@ static int ReadDir( stream_t *p_demux, input_item_node_t *p_subitems )
                 psz_txt = strdup( psz_node );
                 vlc_xml_decode( psz_txt );
                 p_input = input_item_New( psz_txt, psz_title_asx );
-                input_item_CopyOptions( p_input, p_current_input );
                 input_item_node_AppendItem( p_subitems, p_input );
 
                 input_item_Release( p_input );

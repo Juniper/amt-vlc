@@ -2,7 +2,6 @@
  * extended.cpp : Extended controls - Undocked
  ****************************************************************************
  * Copyright (C) 2006-2008 the VideoLAN team
- * $Id: 7b479da2f30e9d1bc80f1ab4758e74e96568d5fd $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *          Jean-Baptiste Kempf <jb@videolan.org>
@@ -30,7 +29,7 @@
 #include "dialogs/extended.hpp"
 
 #include "main_interface.hpp" /* Needed for external MI size */
-#include "input_manager.hpp"
+#include "components/player_controller.hpp"
 
 #include <QTabWidget>
 #include <QGridLayout>
@@ -145,7 +144,7 @@ ExtendedDialog::ExtendedDialog( intf_thread_t *_p_intf )
             move ( 450 , 0 );
     }
 
-    CONNECT( THEMIM->getIM(), playingStatusChanged( int ), this, changedItem( int ) );
+    connect( THEMIM, &PlayerController::playingStateChanged, this, &ExtendedDialog::changedItem );
 }
 
 ExtendedDialog::~ExtendedDialog()
@@ -164,9 +163,9 @@ int ExtendedDialog::currentTab()
     return mainTabW->currentIndex();
 }
 
-void ExtendedDialog::changedItem( int i_status )
+void ExtendedDialog::changedItem( PlayerController::PlayingState i_status )
 {
-    if( i_status != END_S ) return;
+    if( i_status != PlayerController::PLAYING_STATE_STOPPED ) return;
     syncW->clean();
     videoEffect->clean();
 }

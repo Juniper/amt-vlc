@@ -25,29 +25,19 @@
 #include "medialibrary.h"
 
 MetadataExtractor::MetadataExtractor( vlc_object_t* parent )
-    : m_obj( parent )
+    : m_currentCtx( nullptr )
+    , m_obj( parent )
 {
 }
 
-void MetadataExtractor::onInputEvent( const vlc_input_event* ev,
-                                      ParseContext& ctx )
+void MetadataExtractor::onParserEnded( ParseContext& ctx, int status )
 {
-    if ( ev->type != INPUT_EVENT_DEAD && ev->type != INPUT_EVENT_STATE )
-        return;
+    vlc::threads::mutex_locker lock( ctx.mde->m_mutex );
 
-    if ( ev->type == INPUT_EVENT_STATE )
-    {
-        vlc_mutex_locker lock( &ctx.m_mutex );
-        ctx.state = ev->state;
-        return;
-    }
-
-    {
-        vlc_mutex_locker lock( &ctx.m_mutex );
-        // We need to probe the item now, but not from the input thread
-        ctx.needsProbing = true;
-    }
-    vlc_cond_signal( &ctx.m_cond );
+    // We need to probe the item now, but not from the input thread
+    ctx.success = status == VLC_SUCCESS;
+    ctx.needsProbing = true;
+    ctx.mde->m_cond.signal();
 }
 
 void MetadataExtractor::populateItem( medialibrary::parser::IItem& item, input_item_t* inputItem )
@@ -83,7 +73,7 @@ void MetadataExtractor::populateItem( medialibrary::parser::IItem& item, input_i
                 emptyStringWrapper( vlc_meta_Get( inputItem->p_meta, pair.second ) ) );
     }
 
-    item.setDuration( inputItem->i_duration );
+    item.setDuration( MS_FROM_VLC_TICK(inputItem->i_duration) );
 
     for ( auto i = 0; i < inputItem->i_es; ++i )
     {
@@ -122,28 +112,28 @@ void MetadataExtractor::populateItem( medialibrary::parser::IItem& item, input_i
     }
 }
 
-void MetadataExtractor::onInputEvent( input_thread_t*, void *data,
-                                     const struct vlc_input_event *event )
+void MetadataExtractor::onParserEnded( input_item_t *, int status, void *data )
 {
     auto* ctx = static_cast<ParseContext*>( data );
-    ctx->mde->onInputEvent( event, *ctx );
+    ctx->mde->onParserEnded( *ctx, status );
 }
 
-void MetadataExtractor::onSubItemAdded( const vlc_event_t* event, ParseContext& ctx )
+void MetadataExtractor::onParserSubtreeAdded( input_item_t *,
+                                              input_item_node_t *subtree,
+                                              void *data )
 {
-    auto root = event->u.input_item_subitem_tree_added.p_root;
+    auto* ctx = static_cast<ParseContext*>( data );
+    ctx->mde->addSubtree( *ctx, subtree );
+}
+
+void MetadataExtractor::addSubtree( ParseContext& ctx, input_item_node_t *root )
+{
     for ( auto i = 0; i < root->i_children; ++i )
     {
         auto it = root->pp_children[i]->p_item;
         auto& subItem = ctx.item.createSubItem( it->psz_uri, i );
         populateItem( subItem, it );
     }
-}
-
-void MetadataExtractor::onSubItemAdded( const vlc_event_t* event, void* data )
-{
-    auto* ctx = static_cast<ParseContext*>( data );
-    ctx->mde->onSubItemAdded( event, *ctx );
 }
 
 medialibrary::parser::Status MetadataExtractor::run( medialibrary::parser::IItem& item )
@@ -157,39 +147,41 @@ medialibrary::parser::Status MetadataExtractor::run( medialibrary::parser::IItem
     if ( ctx.inputItem == nullptr )
         return medialibrary::parser::Status::Fatal;
 
-    ctx.inputItem->i_preparse_depth = 1;
-    ctx.input = {
-        input_CreatePreparser( m_obj, &MetadataExtractor::onInputEvent,
-                               std::addressof( ctx ), ctx.inputItem.get() ),
-        &input_Close
+    const input_item_parser_cbs_t cbs = {
+        &MetadataExtractor::onParserEnded,
+        &MetadataExtractor::onParserSubtreeAdded,
     };
-    if ( ctx.input == nullptr )
-        return medialibrary::parser::Status::Fatal;
-
-    if( vlc_event_attach( &ctx.inputItem->event_manager, vlc_InputItemSubItemTreeAdded,
-                          &MetadataExtractor::onSubItemAdded, std::addressof( ctx ) ) )
-        return medialibrary::parser::Status::Fatal;
-
-    input_Start( ctx.input.get() );
-
+    m_currentCtx = &ctx;
+    ctx.inputItem->i_preparse_depth = 1;
+    ctx.inputParser = {
+        input_item_Parse( ctx.inputItem.get(), m_obj, &cbs,
+                          std::addressof( ctx ) ),
+        &input_item_parser_id_Release
+    };
+    if ( ctx.inputParser == nullptr )
     {
-        vlc_mutex_locker lock( &ctx.m_mutex );
-        while ( ctx.needsProbing == false )
-        {
-            vlc_cond_wait( &ctx.m_cond, &ctx.m_mutex );
-            if ( ctx.needsProbing == true )
-            {
-                if ( ctx.state == END_S || ctx.state == ERROR_S )
-                    break;
-                // Reset the probing flag for next event
-                ctx.needsProbing = false;
-            }
-        }
+        m_currentCtx = nullptr;
+        return medialibrary::parser::Status::Fatal;
     }
 
-    if ( ctx.state == ERROR_S )
+    {
+        vlc::threads::mutex_locker lock( m_mutex );
+        auto deadline = vlc_tick_now() + VLC_TICK_FROM_SEC( 5 );
+        while ( ctx.needsProbing == false && ctx.inputParser != nullptr )
+        {
+            auto res = m_cond.timedwait( m_mutex, deadline );
+            if ( res != 0 )
+            {
+                msg_Dbg( m_obj, "Timed out while extracting %s metadata",
+                         item.mrl().c_str() );
+                break;
+            }
+        }
+        m_currentCtx = nullptr;
+    }
+
+    if ( !ctx.success || ctx.inputParser == nullptr )
         return medialibrary::parser::Status::Fatal;
-    assert( ctx.state == END_S );
 
     populateItem( item, ctx.inputItem.get() );
 
@@ -199,11 +191,6 @@ medialibrary::parser::Status MetadataExtractor::run( medialibrary::parser::IItem
 const char* MetadataExtractor::name() const
 {
     return "libvlccore extraction";
-}
-
-uint8_t MetadataExtractor::nbThreads() const
-{
-    return 1;
 }
 
 medialibrary::parser::Step MetadataExtractor::targetedStep() const
@@ -222,4 +209,11 @@ void MetadataExtractor::onFlushing()
 
 void MetadataExtractor::onRestarted()
 {
+}
+
+void MetadataExtractor::stop()
+{
+    vlc::threads::mutex_locker lock{ m_mutex };
+    if ( m_currentCtx != nullptr )
+        input_item_parser_id_Interrupt( m_currentCtx->inputParser.get() );
 }

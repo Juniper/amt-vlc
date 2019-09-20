@@ -25,7 +25,7 @@
 #include <vlc_aout.h>
 
 /**
- * @defgroup player Player
+ * @defgroup vlc_player Player
  * @ingroup input
  * VLC Player API
  * @brief
@@ -55,147 +55,176 @@ digraph player_states {
  */
 
 /**
+ * @defgroup vlc_player__instance Player instance
+ * @{
+ */
+
+/**
  * Player opaque structure.
  */
 typedef struct vlc_player_t vlc_player_t;
 
 /**
- * Player listener opaque structure.
+ * Player lock type (normal or reentrant)
+ */
+enum vlc_player_lock_type
+{
+    /**
+     * Normal lock
+     *
+     * If the player is already locked, subsequent calls to vlc_player_Lock()
+     * will deadlock.
+     */
+    VLC_PLAYER_LOCK_NORMAL,
+
+    /**
+     * Reentrant lock
+     *
+     * If the player is already locked, subsequent calls to vlc_player_Lock()
+     * will still succeed. To unlock the player, one call to
+     * vlc_player_Unlock() per vlc_player_Lock() is necessary.
+     */
+    VLC_PLAYER_LOCK_REENTRANT,
+};
+
+/**
+ * Action when the player is stopped
  *
- * This opaque structure is returned by vlc_player_AddListener() and can be
- * used to remove the listener via vlc_player_RemoveListener().
+ * @see vlc_player_SetMediaStoppedAction()
  */
-typedef struct vlc_player_listener_id vlc_player_listener_id;
+enum vlc_player_media_stopped_action {
+    /** Continue (or stop if there is no next media), default behavior */
+    VLC_PLAYER_MEDIA_STOPPED_CONTINUE,
+    /** Pause when reaching the end of file */
+    VLC_PLAYER_MEDIA_STOPPED_PAUSE,
+    /** Stop, even if there is a next media to play */
+    VLC_PLAYER_MEDIA_STOPPED_STOP,
+    /** Exit VLC */
+    VLC_PLAYER_MEDIA_STOPPED_EXIT,
+};
 
 /**
- * Player vout listener opaque structure.
+ * Callbacks for the owner of the player.
  *
- * This opaque structure is returned by vlc_player_vout_AddListener() and can
- * be used to remove the listener via vlc_player_vout_RemoveListener().
- */
-typedef struct vlc_player_vout_listener_id vlc_player_vout_listener_id;
-
-/**
- * Player aout listener opaque structure.
+ * These callbacks are needed to control the player flow (via the
+ * vlc_playlist_t as a owner for example). It can only be set when creating the
+ * player via vlc_player_New().
  *
- * This opaque structure is returned by vlc_player_aout_AddListener() and can
- * be used to remove the listener via vlc_player_aout_RemoveListener().
+ * All callbacks are called with the player locked (cf. vlc_player_Lock()), and
+ * from any thread (even the current one).
  */
-typedef struct vlc_player_aout_listener_id vlc_player_aout_listener_id;
-
-/**
- * Player program structure.
- */
-struct vlc_player_program
+struct vlc_player_media_provider
 {
-    /** Id used for vlc_player_SelectProgram() */
-    int group_id;
-    /** Program name, always valid */
-    const char *name;
-    /** True if the program is selected */
-    bool selected;
-    /** True if the program is scrambled */
-    bool scrambled;
+    /**
+     * Called when the player requires a new media
+     *
+     * @note The returned media must be already held with input_item_Hold()
+     *
+     * @param player locked player instance
+     * @param data opaque pointer set from vlc_player_New()
+     * @return the next media to play, held by the callee with input_item_Hold()
+     */
+    input_item_t *(*get_next)(vlc_player_t *player, void *data);
 };
 
 /**
- * Player track structure.
- */
-struct vlc_player_track
-{
-    /** Id used for any player actions, like vlc_player_SelectTrack() */
-    vlc_es_id_t *es_id;
-    /** Track name, always valid */
-    const char *name;
-    /** Es format */
-    es_format_t fmt;
-    /** True if the track is selected */
-    bool selected;
-};
-
-/**
- * Player chapter structure
- */
-struct vlc_player_chapter
-{
-    /** Chapter name, always valid */
-    const char *name;
-    /** Position of this chapter */
-    vlc_tick_t time;
-};
-
-/** vlc_player_title.flags: The title is a menu. */
-#define VLC_PLAYER_TITLE_MENU         0x01
-/** vlc_player_title.flags: The title is interactive. */
-#define VLC_PLAYER_TITLE_INTERACTIVE  0x02
-
-/** Player title structure */
-struct vlc_player_title
-{
-    /** Title name, always valid */
-    const char *name;
-    /** Length of the title */
-    vlc_tick_t length;
-    /** Bit flag of @ref VLC_PLAYER_TITLE_MENU and @ref
-     * VLC_PLAYER_TITLE_INTERACTIVE */
-    unsigned flags;
-    /** Number of chapters, can be 0 */
-    size_t chapter_count;
-    /** Array of chapters, can be NULL */
-    const struct vlc_player_chapter *chapters;
-};
-
-/**
- * Opaque structure representing a list of @ref vlc_player_title.
+ * Create a new player instance
  *
- * @see vlc_player_GetTitleList()
- * @see vlc_player_title_list_GetCount()
- * @see vlc_player_title_list_GetAt()
+ * @param parent parent VLC object
+ * @param media_provider pointer to a media_provider structure or NULL, the
+ * structure must be valid during the lifetime of the player
+ * @param media_provider_data opaque data used by provider callbacks
+ * @return a pointer to a valid player instance or NULL in case of error
  */
-typedef struct vlc_player_title_list vlc_player_title_list;
+VLC_API vlc_player_t *
+vlc_player_New(vlc_object_t *parent, enum vlc_player_lock_type lock_type,
+               const struct vlc_player_media_provider *media_provider,
+               void *media_provider_data);
 
 /**
- * Menu (VCD/DVD/BD) and viewpoint navigations
+ * Delete a player instance
  *
- * @see vlc_player_Navigate()
+ * This function stop any playback previously started and wait for their
+ * termination.
+ *
+ * @warning Blocking function if the player state is not STOPPED, don't call it
+ * from an UI thread in that case.
+ *
+ * @param player unlocked player instance created by vlc_player_New()
  */
-enum vlc_player_nav
-{
-    /** Activate the navigation item selected */
-    VLC_PLAYER_NAV_ACTIVATE,
-    /** Select a navigation item above or move the viewpoint up */
-    VLC_PLAYER_NAV_UP,
-    /** Select a navigation item under or move the viewpoint down */
-    VLC_PLAYER_NAV_DOWN,
-    /** Select a navigation item on the left or move the viewpoint left */
-    VLC_PLAYER_NAV_LEFT,
-    /** Select a navigation item on the right or move the viewpoint right */
-    VLC_PLAYER_NAV_RIGHT,
-    /** Activate the popup Menu (for BD) */
-    VLC_PLAYER_NAV_POPUP,
-    /** Activate disc Root Menu */
-    VLC_PLAYER_NAV_MENU,
-};
+VLC_API void
+vlc_player_Delete(vlc_player_t *player);
 
 /**
- * Action of vlc_player_cbs.on_track_list_changed,
- * vlc_player_cbs.on_program_list_changed callbacks
+ * Lock the player.
+ *
+ * All player functions (except vlc_player_Delete()) need to be called while
+ * the player lock is held.
+ *
+ * @param player unlocked player instance
  */
-enum vlc_player_list_action
-{
-    VLC_PLAYER_LIST_ADDED,
-    VLC_PLAYER_LIST_REMOVED,
-    VLC_PLAYER_LIST_UPDATED,
-};
+VLC_API void
+vlc_player_Lock(vlc_player_t *player);
 
 /**
- * action of vlc_player_cbs.on_vout_changed callback
+ * Unlock the player
+ *
+ * @param player locked player instance
  */
-enum vlc_player_vout_action
-{
-    VLC_PLAYER_VOUT_STARTED,
-    VLC_PLAYER_VOUT_STOPPED,
-};
+VLC_API void
+vlc_player_Unlock(vlc_player_t *player);
+
+/**
+ * Wait on a condition variable
+ *
+ * This call allow users to use their own condition with the player mutex.
+ *
+ * @param player locked player instance
+ * @param cond external condition
+ */
+VLC_API void
+vlc_player_CondWait(vlc_player_t *player, vlc_cond_t *cond);
+
+/**
+ * Setup an action when a media is stopped
+ *
+ * @param player locked player instance
+ * @param action action to do when a media is stopped
+ */
+VLC_API void
+vlc_player_SetMediaStoppedAction(vlc_player_t *player,
+                                 enum vlc_player_media_stopped_action action);
+
+/**
+ * Ask to start in a paused state
+ *
+ * This function can be used before vlc_player_Start()
+ *
+ * @param player locked player instance
+ * @param start_paused true to start in a paused state, false to cancel it
+ */
+VLC_API void
+vlc_player_SetStartPaused(vlc_player_t *player, bool start_paused);
+
+/**
+ * Enable or disable pause on cork event
+ *
+ * If enabled, the player will automatically pause and resume on cork events.
+ * In that case, cork events won't be propagated via callbacks.
+ * @see vlc_player_cbs.on_cork_changed
+ *
+ * @param player locked player instance
+ * @param enabled true to enable
+ */
+VLC_API void
+vlc_player_SetPauseOnCork(vlc_player_t *player, bool enabled);
+
+/** @} vlc_player__instance */
+
+/**
+ * @defgroup vlc_player__playback Playback control
+ * @{
+ */
 
 /**
  * State of the player
@@ -281,8 +310,7 @@ enum vlc_player_seek_speed
  *
  * @see vlc_player_SeekByPos()
  * @see vlc_player_SeekByTime()
- * @see vlc_player_SetAudioDelay()
- * @see vlc_player_SetSubtitleDelay()
+ * @see vlc_player_SetCategoryDelay()
  */
 enum vlc_player_whence
 {
@@ -293,19 +321,26 @@ enum vlc_player_whence
 };
 
 /**
- * Action when the player is stopped
+ * Menu (VCD/DVD/BD) and viewpoint navigations
  *
- * @see vlc_player_SetMediaStoppedAction()
+ * @see vlc_player_Navigate()
  */
-enum vlc_player_media_stopped_action {
-    /** Continue (or stop if there is no next media), default behavior */
-    VLC_PLAYER_MEDIA_STOPPED_CONTINUE,
-    /** Pause when reaching the end of file */
-    VLC_PLAYER_MEDIA_STOPPED_PAUSE,
-    /** Stop, even if there is a next media to play */
-    VLC_PLAYER_MEDIA_STOPPED_STOP,
-    /** Exit VLC */
-    VLC_PLAYER_MEDIA_STOPPED_EXIT,
+enum vlc_player_nav
+{
+    /** Activate the navigation item selected */
+    VLC_PLAYER_NAV_ACTIVATE,
+    /** Select a navigation item above or move the viewpoint up */
+    VLC_PLAYER_NAV_UP,
+    /** Select a navigation item under or move the viewpoint down */
+    VLC_PLAYER_NAV_DOWN,
+    /** Select a navigation item on the left or move the viewpoint left */
+    VLC_PLAYER_NAV_LEFT,
+    /** Select a navigation item on the right or move the viewpoint right */
+    VLC_PLAYER_NAV_RIGHT,
+    /** Activate the popup Menu (for BD) */
+    VLC_PLAYER_NAV_POPUP,
+    /** Activate disc Root Menu */
+    VLC_PLAYER_NAV_MENU,
 };
 
 /**
@@ -316,42 +351,6 @@ enum vlc_player_abloop
     VLC_PLAYER_ABLOOP_NONE,
     VLC_PLAYER_ABLOOP_A,
     VLC_PLAYER_ABLOOP_B,
-};
-
-/**
- * Subtitle synchronisation
- *
- * @see vlc_player_SetSubtitleSync()
- */
-enum vlc_player_subtitle_sync
-{
-    VLC_PLAYER_SUBTITLE_SYNC_RESET,
-    VLC_PLAYER_SUBTITLE_SYNC_MARK_AUDIO,
-    VLC_PLAYER_SUBTITLE_SYNC_MARK_SUBTITLE,
-    VLC_PLAYER_SUBTITLE_SYNC_APPLY,
-};
-
-/**
- * Player lock type (normal or reentrant)
- */
-enum vlc_player_lock_type
-{
-    /**
-     * Normal lock
-     *
-     * If the player is already locked, subsequent calls to vlc_player_Lock()
-     * will deadlock.
-     */
-    VLC_PLAYER_LOCK_NORMAL,
-
-    /**
-     * Reentrant lock
-     *
-     * If the player is already locked, subsequent calls to vlc_player_Lock()
-     * will still succeed. To unlock the player, one call to
-     * vlc_player_Unlock() per vlc_player_Lock() is necessary.
-     */
-    VLC_PLAYER_LOCK_REENTRANT,
 };
 
 /** Player capability: can seek */
@@ -373,745 +372,6 @@ enum vlc_player_lock_type
 #define VLC_PLAYER_TELETEXT_KEY_BLUE ('b' << 16)
 /** Player teletext key: Index */
 #define VLC_PLAYER_TELETEXT_KEY_INDEX ('i' << 16)
-
-/**
- * Callbacks for the owner of the player.
- *
- * These callbacks are needed to control the player flow (via the
- * vlc_playlist_t as a owner for example). It can only be set when creating the
- * player via vlc_player_New().
- *
- * All callbacks are called with the player locked (cf. vlc_player_Lock()), and
- * from any thread (even the current one).
- */
-struct vlc_player_media_provider
-{
-    /**
-     * Called when the player requires a new media
-     *
-     * @note The returned media must be already held with input_item_Hold()
-     *
-     * @param player locked player instance
-     * @param data opaque pointer set from vlc_player_New()
-     * @return the next media to play, held by the callee with input_item_Hold()
-     */
-    input_item_t *(*get_next)(vlc_player_t *player, void *data);
-};
-
-/**
- * Player callbacks
- *
- * Can be registered with vlc_player_AddListener().
- *
- * All callbacks are called with the player locked (cf. vlc_player_Lock()) and
- * from any threads (and even synchronously from a vlc_player function in some
- * cases). It is safe to call any vlc_player functions from these callbacks
- * except vlc_player_Delete().
- *
- * @warning To avoid deadlocks, users should never call vlc_player functions
- * with an external mutex locked and lock this same mutex from a player
- * callback.
- */
-struct vlc_player_cbs
-{
-    /**
-     * Called when the current media has changed
-     *
-     * @note This can be called from the PLAYING state (when the player plays
-     * the next media internally) or from the STOPPED state (from
-     * vlc_player_SetCurrentMedia() or from an internal transition).
-     *
-     * @see vlc_player_SetCurrentMedia()
-     * @see vlc_player_InvalidateNextMedia()
-     *
-     * @param player locked player instance
-     * @param new_media new media currently played or NULL (when there is no
-     * more media to play)
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_current_media_changed)(vlc_player_t *player,
-        input_item_t *new_media, void *data);
-
-    /**
-     * Called when the player state has changed
-     *
-     * @see vlc_player_state
-     *
-     * @param player locked player instance
-     * @param new_state new player state
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_state_changed)(vlc_player_t *player,
-        enum vlc_player_state new_state, void *data);
-
-    /**
-     * Called when a media triggered an error
-     *
-     * Can be called from any states. When it happens the player will stop
-     * itself. It is safe to play an other media or event restart the player
-     * (This will reset the error state).
-     *
-     * @param player locked player instance
-     * @param error player error
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_error_changed)(vlc_player_t *player,
-        enum vlc_player_error error, void *data);
-
-    /**
-     * Called when the player buffering (or cache) has changed
-     *
-     * This event is always called with the 0 and 1 values before a playback
-     * (in case of success).  Values in between depends on the media type.
-     *
-     * @param player locked player instance
-     * @param new_buffering buffering in the range [0:1]
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_buffering_changed)(vlc_player_t *player,
-        float new_buffering, void *data);
-
-    /**
-     * Called when the player rate has changed
-     *
-     * Triggered by vlc_player_ChangeRate(), not sent when the media starts
-     * with the default rate (1.f)
-     *
-     * @param player locked player instance
-     * @param new_rate player
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_rate_changed)(vlc_player_t *player,
-        float new_rate, void *data);
-
-    /**
-     * Called when the media capabilities has changed
-     *
-     * Always called when the media is opening. Can be called during playback.
-     *
-     * @param player locked player instance
-     * @param old_caps old player capabilities
-     * @param new_caps new player capabilities
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_capabilities_changed)(vlc_player_t *player,
-        int old_caps, int new_caps, void *data);
-
-    /**
-     * Called when the player position has changed
-     *
-     * @note A started and playing media doesn't have necessarily a valid time.
-     *
-     * @param player locked player instance
-     * @param new_time a valid time or VLC_TICK_INVALID
-     * @param new_pos a valid position
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_position_changed)(vlc_player_t *player,
-        vlc_tick_t new_time, float new_pos, void *data);
-
-    /**
-     * Called when the media length has changed
-     *
-     * May be called when the media is opening or during playback.
-     *
-     * @note A started and playing media doesn't have necessarily a valid length.
-     *
-     * @param player locked player instance
-     * @param new_length a valid time or VLC_TICK_INVALID
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_length_changed)(vlc_player_t *player,
-        vlc_tick_t new_length, void *data);
-
-    /**
-     * Called when a track is added, removed, or updated
-     *
-     * @note The track is only valid from this callback context. Users should
-     * duplicate this track via vlc_player_track_Dup() if they want to use it
-     * from an other context.
-     *
-     * @param player locked player instance
-     * @param action added, removed or updated
-     * @param track valid track
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_track_list_changed)(vlc_player_t *player,
-        enum vlc_player_list_action action,
-        const struct vlc_player_track *track, void *data);
-
-    /**
-     * Called when a new track is selected and/or unselected
-     *
-     * @note This event can be called with both unselected_id and selected_id
-     * valid. This mean that a new track is replacing the old one.
-     *
-     * @param player locked player instance
-     * @param unselected_id valid track id or NULL (when nothing is unselected)
-     * @param selected_id valid track id or NULL (when nothing is selected)
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_track_selection_changed)(vlc_player_t *player,
-        vlc_es_id_t *unselected_id, vlc_es_id_t *selected_id, void *data);
-
-    /**
-     * Called when a new program is added, removed or updated
-     *
-     * @note The program is only valid from this callback context. Users should
-     * duplicate this program via vlc_player_program_Dup() if they want to use
-     * it from an other context.
-     *
-     * @param player locked player instance
-     * @param action added, removed or updated
-     * @param prgm valid program
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_program_list_changed)(vlc_player_t *player,
-        enum vlc_player_list_action action,
-        const struct vlc_player_program *prgm, void *data);
-
-    /**
-     * Called when a new program is selected and/or unselected
-     *
-     * @note This event can be called with both unselected_id and selected_id
-     * valid. This mean that a new program is replacing the old one.
-     *
-     * @param player locked player instance
-     * @param unselected_id valid program id or -1 (when nothing is unselected)
-     * @param selected_id valid program id or -1 (when nothing is selected)
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_program_selection_changed)(vlc_player_t *player,
-        int unselected_id, int selected_id, void *data);
-
-    /**
-     * Called when the media titles has changed
-     *
-     * This event is not called when the opening media doesn't have any titles.
-     * This title list and all its elements are constant. If an element is to
-     * be updated, a new list will be sent from this callback.
-     *
-     * @note Users should hold this list with vlc_player_title_list_Hold() if
-     * they want to use it from an other context.
-     *
-     * @param player locked player instance
-     * @param titles valid title list or NULL
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_titles_changed)(vlc_player_t *player,
-        vlc_player_title_list *titles, void *data);
-
-    /**
-     * Called when a new title is selected
-     *
-     * There are no events when a title is unselected. Titles are automatically
-     * unselected when the title list changes. Titles and indexes are always
-     * valid inside the vlc_player_title_list sent by
-     * vlc_player_cbs.on_titles_changed.
-     *
-     * @param player locked player instance
-     * @param new_title new selected title
-     * @param new_idx index of this title
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_title_selection_changed)(vlc_player_t *player,
-        const struct vlc_player_title *new_title, size_t new_idx, void *data);
-
-    /**
-     * Called when a new chapter is selected
-     *
-     * There are no events when a chapter is unselected. Chapters are
-     * automatically unselected when the title list changes. Titles, chapters
-     * and indexes are always valid inside the vlc_player_title_list sent by
-     * vlc_player_cbs.on_titles_changed.
-     *
-     * @param player locked player instance
-     * @param title selected title
-     * @param title_idx selected title index
-     * @param chapter new selected chapter
-     * @param chapter_idx new selected chapter index
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_chapter_selection_changed)(vlc_player_t *player,
-        const struct vlc_player_title *title, size_t title_idx,
-        const struct vlc_player_chapter *new_chapter, size_t new_chapter_idx,
-        void *data);
-
-    /**
-     * Called when the media has a teletext menu
-     *
-     * @param player locked player instance
-     * @param has_teletext_menu true if the media has a teletext menu
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_teletext_menu_changed)(vlc_player_t *player,
-        bool has_teletext_menu, void *data);
-
-    /**
-     * Called when teletext is enabled or disabled
-     *
-     * @see vlc_player_SetTeletextEnabled()
-     *
-     * @param player locked player instance
-     * @param enabled true if teletext is enabled
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_teletext_enabled_changed)(vlc_player_t *player,
-        bool enabled, void *data);
-
-    /**
-     * Called when the teletext page has changed
-     *
-     * @see vlc_player_SelectTeletextPage()
-     *
-     * @param player locked player instance
-     * @param new_page page in the range ]0;888]
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_teletext_page_changed)(vlc_player_t *player,
-        unsigned new_page, void *data);
-
-    /**
-     * Called when the teletext transparency has changed
-     *
-     * @see vlc_player_SetTeletextTransparency()
-     *
-     * @param player locked player instance
-     * @param enabled true is the teletext overlay is transparent
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_teletext_transparency_changed)(vlc_player_t *player,
-        bool enabled, void *data);
-
-    /**
-     * Called when the player audio delay has changed
-     *
-     * @see vlc_player_SetAudioDelay()
-     *
-     * @param player locked player instance
-     * @param new_delay audio delay
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_audio_delay_changed)(vlc_player_t *player,
-        vlc_tick_t new_delay, void *data);
-
-    /**
-     * Called when the player subtitle delay has changed
-     *
-     * @see vlc_player_SetSubtitleDelay()
-     *
-     * @param player locked player instance
-     * @param new_delay subtitle delay
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_subtitle_delay_changed)(vlc_player_t *player,
-        vlc_tick_t new_delay, void *data);
-
-    /**
-     * Called when associated subtitle has changed
-     *
-     * @see vlc_player_SetAssociatedSubsFPS()
-     *
-     * @param player locked player instance
-     * @param sub_fps subtitle fps
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_associated_subs_fps_changed)(vlc_player_t *player,
-        float subs_fps, void *data);
-
-    /**
-     * Called when a new renderer item is set
-     *
-     * @see vlc_player_SetRenderer()
-     *
-     * @param player locked player instance
-     * @param new_item a valid renderer item or NULL (if unset)
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_renderer_changed)(vlc_player_t *player,
-        vlc_renderer_item_t *new_item, void *data);
-
-    /**
-     * Called when the player recording state has changed
-     *
-     * @see vlc_player_SetRecordingEnabled()
-     *
-     * @param player locked player instance
-     * @param recording true if recording is enabled
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_recording_changed)(vlc_player_t *player,
-        bool recording, void *data);
-
-    /**
-     * Called when the media signal has changed
-     *
-     * @param player locked player instance
-     * @param new_quality signal quality
-     * @param new_strength signal strength,
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_signal_changed)(vlc_player_t *player,
-        float quality, float strength, void *data);
-
-    /**
-     * Called when the player has new statisics
-     *
-     * @note The stats structure is only valid from this callback context. It
-     * can be copied in order to use it from an other context.
-     *
-     * @param player locked player instance
-     * @param stats valid stats, only valid from this context
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_statistics_changed)(vlc_player_t *player,
-        const struct input_stats_t *stats, void *data);
-
-    /**
-     * Called when the A to B loop has changed
-     *
-     * @see vlc_player_SetAtoBLoop()
-     *
-     * @param player locked player instance
-     * @param state A, when only A is set, B when both A and B are set, None by
-     * default
-     * @param time valid time or VLC_TICK_INVALID of the current state
-     * @param pos valid pos of the current state
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_atobloop_changed)(vlc_player_t *player,
-        enum vlc_player_abloop new_state, vlc_tick_t time, float pos,
-        void *data);
-
-    /**
-     * Called when media stopped action has changed
-     *
-     * @see vlc_player_SetMediaStoppedAction()
-     *
-     * @param player locked player instance
-     * @param new_action action to execute when a media is stopped
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_media_stopped_action_changed)(vlc_player_t *player,
-        enum vlc_player_media_stopped_action new_action, void *data);
-
-    /**
-     * Called when the media meta has changed
-     *
-     * @param player locked player instance
-     * @param media current media
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_media_meta_changed)(vlc_player_t *player,
-        input_item_t *media, void *data);
-
-    /**
-     * Called when media epg has changed
-     *
-     * @param player locked player instance
-     * @param media current media
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_media_epg_changed)(vlc_player_t *player,
-        input_item_t *media, void *data);
-
-    /**
-     * Called when the media has new subitems
-     *
-     * @param player locked player instance
-     * @param media current media
-     * @param new_subitems node representing all media subitems
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_media_subitems_changed)(vlc_player_t *player,
-        input_item_t *media, input_item_node_t *new_subitems, void *data);
-
-    /**
-     * Called when a vout is started or stopped
-     *
-     * @note In case, several media with only one video track are played
-     * successively, the same vout instance will be started and stopped several
-     * time.
-     *
-     * @param player locked player instance
-     * @param action started or stopped
-     * @param vout vout (can't be NULL)
-     * @param es_id the ES id associated with this vout
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_vout_changed)(vlc_player_t *player,
-        enum vlc_player_vout_action action, vout_thread_t *vout,
-        vlc_es_id_t *es_id, void *data);
-
-    /**
-     * Called when the player is corked
-     *
-     * The player can be corked when the audio output loose focus or when a
-     * renderer was paused from the outside.
-     *
-     * @note called only if pause on cork was not set to true (by
-     * vlc_player_SetPauseOnCork())
-     * @note a cork_count higher than 0 means the player is corked. In that
-     * case, the user should pause the player and release all external resource
-     * needed by the player. A value higher than 1 mean that the player was
-     * corked more than one time (for different reasons). A value of 0 means
-     * the player is no longer corked. In that case, the user could resume the
-     * player.
-     *
-     * @param player locked player instance
-     * @param cork_count 0 for uncorked, > 0 for corked
-     * @param data opaque pointer set by vlc_player_AddListener()
-     */
-    void (*on_cork_changed)(vlc_player_t *player, unsigned cork_count,
-                            void *data);
-};
-
-/**
- * Player vout callbacks
- *
- * Can be registered with vlc_player_vout_AddListener().
- *
- * These callbacks are *not* called with the player locked. It is safe to lock
- * the player and call any vlc_player functions from these callbacks.
- *
- * @note The state changed from the callbacks can be either applied on the
- * player (and all future video outputs), or on a specified video output. The
- * state is applied on the player when the vout argument is NULL.
- *
- * @warning To avoid deadlocks, users should never call vout_thread_t functions
- * from these callbacks.
- */
-struct vlc_player_vout_cbs
-{
-    /**
-     * Called when the player and/or vout fullscreen state has changed
-     *
-     * @see vlc_player_vout_SetFullscreen()
-     *
-     * @param player unlocked player instance
-     * @param vout cf. vlc_player_vout_cbs note
-     * @param enabled true when fullscreen is enabled
-     * @param data opaque pointer set by vlc_player_vout_AddListener()
-     */
-    void (*on_fullscreen_changed)(vlc_player_t *player,
-        vout_thread_t *vout, bool enabled, void *data);
-
-    /**
-     * Called when the player and/or vout wallpaper mode has changed
-     *
-     * @see vlc_player_vout_SetWallpaperModeEnabled()
-     *
-     * @param player unlocked player instance
-     * @param vout cf. vlc_player_vout_cbs note
-     * @param enabled true when wallpaper mode is enabled
-     * @param data opaque pointer set by vlc_player_vout_AddListener()
-     */
-    void (*on_wallpaper_mode_changed)(vlc_player_t *player,
-        vout_thread_t *vout, bool enabled, void *data);
-};
-
-/**
- * Player aout callbacks
- *
- * Can be registered with vlc_player_aout_AddListener().
- *
- * These callbacks are *not* called with the player locked. It is safe to lock
- * the player and call any vlc_player functions from these callbacks.
- *
- * @warning To avoid deadlocks, users should never call audio_output_t
- * functions from these callbacks.
- */
-struct vlc_player_aout_cbs
-{
-    /**
-     * Called when the volume has changed
-     *
-     * @see vlc_player_aout_SetVolume()
-     *
-     * @param player unlocked player instance
-     * @param new_volume volume in the range [0;2.f]
-     * @param data opaque pointer set by vlc_player_vout_AddListener()
-     */
-    void (*on_volume_changed)(vlc_player_t *player,
-        float new_volume, void *data);
-
-    /**
-     * Called when the mute state has changed
-     *
-     * @see vlc_player_aout_Mute()
-     *
-     * @param player unlocked player instance
-     * @param new_mute true if muted
-     * @param data opaque pointer set by vlc_player_vout_AddListener()
-     */
-    void (*on_mute_changed)(vlc_player_t *player,
-        bool new_muted, void *data);
-
-    /**
-     * Called when the audio device has changed
-     *
-     * @param player unlocked player instance
-     * @param device the device name
-     */
-    void (*on_device_changed)(vlc_player_t *player, const char *device,
-                              void *data);
-};
-
-/**
- * Duplicate a track
- *
- * This function can be used to pass a track from a callback to an other
- * context. The es_id will be held by the duplicated track.
- *
- * @see vlc_player_cbs.on_track_list_changed
- *
- * @return a duplicated track or NULL on allocation error
- */
-VLC_API struct vlc_player_track *
-vlc_player_track_Dup(const struct vlc_player_track *track);
-
-/**
- * Delete a duplicated track
- */
-VLC_API void
-vlc_player_track_Delete(struct vlc_player_track *track);
-
-/**
- * Duplicate a program
- *
- * This function can be used to pass a program from a callback to an other
- * context.
- *
- * @see vlc_player_cbs.on_program_list_changed
- *
- * @return a duplicated program or NULL on allocation error
- */
-VLC_API struct vlc_player_program *
-vlc_player_program_Dup(const struct vlc_player_program *prgm);
-
-/**
- * Delete a duplicated program
- */
-VLC_API void
-vlc_player_program_Delete(struct vlc_player_program *prgm);
-
-/**
- * Hold the title list of the player
- *
- * This function can be used to pass this title list from a callback to an
- * other thread.
- *
- * @see vlc_player_cbs.on_titles_changed
- *
- * @return the same instance
- */
-VLC_API vlc_player_title_list *
-vlc_player_title_list_Hold(vlc_player_title_list *titles);
-
-/**
- * Release of previously held title list
- */
-VLC_API void
-vlc_player_title_list_Release(vlc_player_title_list *titles);
-
-/**
- * Get the number of title of a list
- */
-VLC_API size_t
-vlc_player_title_list_GetCount(vlc_player_title_list *titles);
-
-/**
- * Get the title at a given index
- *
- * @param idx index in the range [0; count[
- * @return a valid title (can't be NULL)
- */
-VLC_API const struct vlc_player_title *
-vlc_player_title_list_GetAt(vlc_player_title_list *titles, size_t idx);
-
-/**
- * Create a new player instance
- *
- * @param parent parent VLC object
- * @param media_provider pointer to a media_provider structure or NULL, the
- * structure must be valid during the lifetime of the player
- * @param media_provider_data opaque data used by provider callbacks
- * @return a pointer to a valid player instance or NULL in case of error
- */
-VLC_API vlc_player_t *
-vlc_player_New(vlc_object_t *parent, enum vlc_player_lock_type lock_type,
-               const struct vlc_player_media_provider *media_provider,
-               void *media_provider_data);
-
-/**
- * Delete a player instance
- *
- * This function stop any playback previously started and wait for their
- * termination.
- *
- * @warning Blocking function if the player state is not STOPPED, don't call it
- * from an UI thread in that case.
- *
- * @param player unlocked player instance created by vlc_player_New()
- */
-VLC_API void
-vlc_player_Delete(vlc_player_t *player);
-
-/**
- * Lock the player.
- *
- * All player functions (except vlc_player_Delete()) need to be called while
- * the player lock is held.
- *
- * @param player unlocked player instance
- */
-VLC_API void
-vlc_player_Lock(vlc_player_t *player);
-
-/**
- * Unlock the player
- *
- * @param player locked player instance
- */
-VLC_API void
-vlc_player_Unlock(vlc_player_t *player);
-
-/**
- * Wait on a condition variable
- *
- * This call allow users to use their own condition with the player mutex.
- *
- * @param player locked player instance
- * @param cond external condition
- */
-VLC_API void
-vlc_player_CondWait(vlc_player_t *player, vlc_cond_t *cond);
-
-/**
- * Add a listener callback
- *
- * @note Every registered callbacks need to be removed by the caller with
- * vlc_player_RemoveListener().
- *
- * @param player locked player instance
- * @param cbs pointer to a vlc_player_cbs structure, the structure must be
- * valid during the lifetime of the player
- * @param cbs_data opaque pointer used by the callbacks
- * @return a valid listener id, or NULL in case of allocation error
- */
-VLC_API vlc_player_listener_id *
-vlc_player_AddListener(vlc_player_t *player,
-                       const struct vlc_player_cbs *cbs, void *cbs_data);
-
-/**
- * Remove a listener callback
- *
- * @param player locked player instance
- * @param listener_id listener id returned by vlc_player_AddListener()
- */
-VLC_API void
-vlc_player_RemoveListener(vlc_player_t *player,
-                          vlc_player_listener_id *listener_id);
 
 /**
  * Set the current media
@@ -1170,27 +430,6 @@ vlc_player_HoldCurrentMedia(vlc_player_t *player)
  */
 VLC_API void
 vlc_player_InvalidateNextMedia(vlc_player_t *player);
-
-/**
- * Ask to started in a paused state
- *
- * This function can be used before vlc_player_Start()
- *
- * @param player locked player instance
- * @param start_paused true to start in a paused state, false to cancel it
- */
-VLC_API void
-vlc_player_SetStartPaused(vlc_player_t *player, bool start_paused);
-
-/**
- * Setup an action when a media is stopped
- *
- * @param player locked player instance
- * @param action action to do when a media is stopped
- */
-VLC_API void
-vlc_player_SetMediaStoppedAction(vlc_player_t *player,
-                                 enum vlc_player_media_stopped_action action);
 
 /**
  * Start the playback of the current media.
@@ -1410,7 +649,7 @@ vlc_player_GetLength(vlc_player_t *player);
  *
  * @note A started and playing media doesn't have necessarily a valid time.
  *
- * @see vlc_player_cbs.vlc_player_cbs.on_position_changed
+ * @see vlc_player_cbs.on_position_changed
  *
  * @param player locked player instance
  * @return a valid time or VLC_TICK_INVALID (if no media is set, the media
@@ -1574,575 +813,187 @@ vlc_player_GetAtoBLoop(vlc_player_t *player, vlc_tick_t *a_time, float *a_pos,
                        vlc_tick_t *b_time, float *b_pos);
 
 /**
- * Get the number of tracks for an ES category
- *
- * @warning The returned size becomes invalid when the player is unlocked.
+ * Navigate (for DVD/Bluray menus or viewpoint)
  *
  * @param player locked player instance
- * @param cat VIDEO_ES, AUDIO_ES or SPU_ES
- * @return number of tracks, or 0 (in case of error, or if the media is not
- * started)
- */
-VLC_API size_t
-vlc_player_GetTrackCount(vlc_player_t *player, enum es_format_category_e cat);
-
-/**
- * Get the track at a specific index for an ES category
- *
- * @warning The behaviour is undefined if the index is not valid.
- *
- * @warning The returned pointer becomes invalid when the player is unlocked.
- * The referenced structure can be safely copied with vlc_player_track_Dup().
- *
- * @param player locked player instance
- * @param cat VIDEO_ES, AUDIO_ES or SPU_ES
- * @param index valid index in the range [0; count[
- * @return a valid track (can't be NULL if vlc_player_GetTrackCount() returned
- * a valid count)
- */
-VLC_API const struct vlc_player_track *
-vlc_player_GetTrackAt(vlc_player_t *player, enum es_format_category_e cat,
-                      size_t index);
-
-/**
- * Helper to get the video track count
- */
-static inline size_t
-vlc_player_GetVideoTrackCount(vlc_player_t *player)
-{
-    return vlc_player_GetTrackCount(player, VIDEO_ES);
-}
-
-/**
- * Helper to get a video track at a specific index
- */
-static inline const struct vlc_player_track *
-vlc_player_GetVideoTrackAt(vlc_player_t *player, size_t index)
-{
-    return vlc_player_GetTrackAt(player, VIDEO_ES, index);
-}
-
-/**
- * Helper to get the audio track count
- */
-static inline size_t
-vlc_player_GetAudioTrackCount(vlc_player_t *player)
-{
-    return vlc_player_GetTrackCount(player, AUDIO_ES);
-}
-
-/**
- * Helper to get an audio track at a specific index
- */
-static inline const struct vlc_player_track *
-vlc_player_GetAudioTrackAt(vlc_player_t *player, size_t index)
-{
-    return vlc_player_GetTrackAt(player, AUDIO_ES, index);
-}
-
-/**
- * Helper to get the subtitle track count
- */
-static inline size_t
-vlc_player_GetSubtitleTrackCount(vlc_player_t *player)
-{
-    return vlc_player_GetTrackCount(player, SPU_ES);
-}
-
-/**
- * Helper to get a subtitle track at a specific index
- */
-static inline const struct vlc_player_track *
-vlc_player_GetSubtitleTrackAt(vlc_player_t *player, size_t index)
-{
-    return vlc_player_GetTrackAt(player, SPU_ES, index);
-}
-
-/**
- * Get a track from an ES identifier
- *
- * @warning The returned pointer becomes invalid when the player is unlocked.
- * The referenced structure can be safely copied with vlc_player_track_Dup().
- *
- * @param player locked player instance
- * @param id an ES ID (retrieved from vlc_player_cbs.on_track_list_changed or
- * vlc_player_GetTrackAt())
- * @return a valid player track or NULL (if the track was terminated by the
- * playback thread)
- */
-VLC_API const struct vlc_player_track *
-vlc_player_GetTrack(vlc_player_t *player, vlc_es_id_t *es_id);
-
-/**
- * Get and the video output used by a ES identifier
- *
- * @warning A same vout can be associated with multiple ES during the lifetime
- * of the player. The information returned by this function becomes invalid
- * when the player is unlocked. The returned vout doesn't need to be released,
- * but must be held with vout_Hold() if it is accessed after the player is
- * unlocked.
- *
- * @param player locked player instance
- * @param id an ES ID (retrieved from vlc_player_cbs.on_track_list_changed or
- * vlc_player_GetTrackAt())
- * @return a valid vout or NULL (if the track is disabled, it it's not a video
- * track, or if the vout failed to start)
- */
-VLC_API vout_thread_t *
-vlc_player_GetVoutFromEsId(vlc_player_t *player, vlc_es_id_t *es_id);
-
-/**
- * Get the ES identifier of a video output
- *
- * @warning A same vout can be associated with multiple ES during the lifetime
- * of the player. The information returned by this function becomes invalid
- * when the player is unlocked. The returned es_id doesn't need to be released,
- * but must be held with vlc_es_id_Hold() if it accessed after the player is
- * unlocked.
- *
- * @param player locked player instance
- * @param vout vout (can't be NULL)
- * @return a valid ES identifier or NULL (if the vout is stopped)
- */
-VLC_API vlc_es_id_t *
-vlc_player_GetEsIdFromVout(vlc_player_t *player, vout_thread_t *vout);
-
-/**
- * Helper to get the selected track from an ES category
- *
- * @warning The player can have more than one selected track for a same ES
- * category. This function will only return the first selected one. Use
- * vlc_player_GetTrackAt() and vlc_player_GetTrackCount() to iterate through
- * several selected tracks.
- */
-static inline const struct vlc_player_track *
-vlc_player_GetSelectedTrack(vlc_player_t *player, enum es_format_category_e cat)
-{
-    size_t count = vlc_player_GetTrackCount(player, cat);
-    for (size_t i = 0; i < count; ++i)
-    {
-        const struct vlc_player_track *track =
-            vlc_player_GetTrackAt(player, cat, i);
-        assert(track);
-        if (track->selected)
-            return track;
-    }
-    return NULL;
-}
-
-/**
- * Select a track from an ES identifier
- *
- * @note A successful call will trigger the
- * vlc_player_cbs.on_track_selection_changed event.
- *
- * @param player locked player instance
- * @param id an ES ID (retrieved from vlc_player_cbs.on_track_list_changed or
- * vlc_player_GetTrackAt())
+ * @param nav navigation key
  */
 VLC_API void
-vlc_player_SelectTrack(vlc_player_t *player, vlc_es_id_t *es_id);
+vlc_player_Navigate(vlc_player_t *player, enum vlc_player_nav nav);
 
 /**
- * Select the next track
- *
- * If the last track is already selected, a call to this function will disable
- * this last track. And a second call will select the first track.
- *
- * @warning This function has no effects if there are several tracks selected
- * for a same category.
- *
- * @param player locked player instance
- * @param cat VIDEO_ES, AUDIO_ES or SPU_ES
- */
-VLC_API void
-vlc_player_SelectNextTrack(vlc_player_t *player,
-                           enum es_format_category_e cat);
-
-/**
- * Select the Previous track
- *
- * If the first track is already selected, a call to this function will disable
- * this first track. And a second call will select the last track.
- *
- * @warning This function has no effects if there are several tracks selected
- * for a same category.
- *
- * @param player locked player instance
- * @param cat VIDEO_ES, AUDIO_ES or SPU_ES
- */
-VLC_API void
-vlc_player_SelectPrevTrack(vlc_player_t *player,
-                           enum es_format_category_e cat);
-
-/**
- * Unselect a track from an ES identifier
- *
- * @note A successful call will trigger the
- * vlc_player_cbs.on_track_selection_changed event.
- *
- * @param player locked player instance
- * @param id an ES ID (retrieved from vlc_player_cbs.on_track_list_changed or
- * vlc_player_GetTrackAt())
- */
-VLC_API void
-vlc_player_UnselectTrack(vlc_player_t *player, vlc_es_id_t *es_id);
-
-/**
- * Helper to unselect all tracks from an ES category
- */
-static inline void
-vlc_player_UnselectTrackCategory(vlc_player_t *player,
-                                 enum es_format_category_e cat)
-{
-    size_t count = vlc_player_GetTrackCount(player, cat);
-    for (size_t i = 0; i < count; ++i)
-    {
-        const struct vlc_player_track *track =
-            vlc_player_GetTrackAt(player, cat, i);
-        assert(track);
-        if (track->selected)
-            vlc_player_UnselectTrack(player, track->es_id);
-    }
-}
-
-/**
- * Restart a track from an ES identifier
- *
- * @note A successful call will trigger the
- * vlc_player_cbs.on_track_selection_changed event.
- *
- * @param player locked player instance
- * @param id an ES ID (retrieved from vlc_player_cbs.on_track_list_changed or
- * vlc_player_GetTrackAt())
- */
-VLC_API void
-vlc_player_RestartTrack(vlc_player_t *player, vlc_es_id_t *es_id);
-
-/**
-  * Helper to restart all selected tracks from an ES category
+  * Update the viewpoint
+  *
+  * @param player locked player instance
+  * @param viewpoint the viewpoint value
+  * @param whence absolute or relative
+  * @return VLC_SUCCESS or a VLC error code
   */
-static inline void
-vlc_player_RestartTrackCategory(vlc_player_t *player,
-                                enum es_format_category_e cat)
-{
-    size_t count = vlc_player_GetTrackCount(player, cat);
-    for (size_t i = 0; i < count; ++i)
-    {
-        const struct vlc_player_track *track =
-            vlc_player_GetTrackAt(player, cat, i);
-        assert(track);
-        if (track->selected)
-            vlc_player_RestartTrack(player, track->es_id);
-    }
-}
-
-/**
- * Select the language for an ES category
- *
- * @warning The language will only be set for all future played media.
- *
- * @param player locked player instance
- * @param cat AUDIO_ES or SPU_ES
- * @param lang comma separated, two or three letters country code, 'any' as a
- * fallback or NULL to reset the default state
- */
 VLC_API void
-vlc_player_SelectCategoryLanguage(vlc_player_t *player,
-                                  enum es_format_category_e cat,
-                                  const char *lang);
+vlc_player_UpdateViewpoint(vlc_player_t *player,
+                           const vlc_viewpoint_t *viewpoint,
+                           enum vlc_player_whence whence);
 
 /**
- * Get the language of an ES category
+ * Check if the playing is recording
  *
- * @warning This only reflects the change made by
- * vlc_player_SelectCategoryLanguage(). The current playing track doesn't
- * necessarily correspond to the returned language.
- *
- * @see vlc_player_SelectCategoryLanguage
+ * @see vlc_player_cbs.on_recording_changed
  *
  * @param player locked player instance
- * @param cat AUDIO_ES or SPU_ES
- * @return valid language or NULL, need to be freed
- */
-VLC_API char *
-vlc_player_GetCategoryLanguage(vlc_player_t *player,
-                               enum es_format_category_e cat);
-
-/**
- * Helper to select the audio language
- */
-static inline void
-vlc_player_SelectAudioLanguage(vlc_player_t *player, const char *lang)
-{
-    vlc_player_SelectCategoryLanguage(player, AUDIO_ES, lang);
-}
-
-/**
- * Helper to select the spu language
- */
-static inline void
-vlc_player_SelectDefaultSubtitleTrack(vlc_player_t *player, const char *lang)
-{
-    vlc_player_SelectCategoryLanguage(player, SPU_ES, lang);
-}
-
-/**
- * Enable or disable a track category
- *
- * If a track category is disabled, the player won't select any tracks of this
- * category automatically or via an user action (vlc_player_SelectTrack()).
- *
- * @param player locked player instance
- * @param cat VIDEO_ES, AUDIO_ES or SPU_ES
- * @param enabled true to enable
- */
-VLC_API void
-vlc_player_SetTrackCategoryEnabled(vlc_player_t *player,
-                                   enum es_format_category_e cat, bool enabled);
-
-/**
- * Check if a track category is enabled
- *
- * @param player locked player instance
- * @param cat VIDEO_ES, AUDIO_ES or SPU_ES
+ * @return true if the player is recording
  */
 VLC_API bool
-vlc_player_IsTrackCategoryEnabled(vlc_player_t *player,
-                                  enum es_format_category_e cat);
+vlc_player_IsRecording(vlc_player_t *player);
 
 /**
- * Helper to enable or disable video tracks
- */
-static inline void
-vlc_player_SetVideoEnabled(vlc_player_t *player, bool enabled)
-{
-    vlc_player_SetTrackCategoryEnabled(player, VIDEO_ES, enabled);
-}
-
-/**
- * Helper to check if video tracks are enabled
- */
-static inline bool
-vlc_player_IsVideoEnabled(vlc_player_t *player)
-{
-    return vlc_player_IsTrackCategoryEnabled(player, VIDEO_ES);
-}
-
-/**
- * Helper to enable or disable audio tracks
- */
-static inline void
-vlc_player_SetAudioEnabled(vlc_player_t *player, bool enabled)
-{
-    vlc_player_SetTrackCategoryEnabled(player, AUDIO_ES, enabled);
-}
-
-/**
- * Helper to check if audio tracks are enabled
- */
-static inline bool
-vlc_player_IsAudioEnabled(vlc_player_t *player)
-{
-    return vlc_player_IsTrackCategoryEnabled(player, AUDIO_ES);
-}
-
-/**
- * Helper to enable or disable subtitle tracks
- */
-static inline void
-vlc_player_SetSubtitleEnabled(vlc_player_t *player, bool enabled)
-{
-    vlc_player_SetTrackCategoryEnabled(player, SPU_ES, enabled);
-}
-
-/**
- * Helper to check if subtitle tracks are enabled
- */
-static inline bool
-vlc_player_IsSubtitleEnabled(vlc_player_t *player)
-{
-    return vlc_player_IsTrackCategoryEnabled(player, SPU_ES);
-}
-
-/**
- * Helper to toggle subtitles
- */
-static inline void
-vlc_player_ToggleSubtitle(vlc_player_t *player)
-{
-    bool enabled = !vlc_player_IsSubtitleEnabled(player);
-    return vlc_player_SetSubtitleEnabled(player, enabled);
-}
-
-/**
- * Get the number of programs
+ * Enable or disable recording for the current media
  *
- * @warning The returned size becomes invalid when the player is unlocked.
+ * @note A successful call will trigger the vlc_player_cbs.on_recording_changed
+ * event.
  *
  * @param player locked player instance
- * @return number of programs, or 0 (in case of error, or if the media is not
- * started)
+ * @param enabled true to enable recording
  */
-VLC_API size_t
-vlc_player_GetProgramCount(vlc_player_t *player);
+VLC_API void
+vlc_player_SetRecordingEnabled(vlc_player_t *player, bool enabled);
 
 /**
- * Get the program at a specific index
+ * Helper to toggle the recording state
+ */
+static inline void
+vlc_player_ToggleRecording(vlc_player_t *player)
+{
+    vlc_player_SetRecordingEnabled(player, !vlc_player_IsRecording(player));
+}
+
+/**
+ * Add an associated (or external) media to the current media
  *
- * @warning The behaviour is undefined if the index is not valid.
+ * @param player locked player instance
+ * @param cat AUDIO_ES or SPU_ES
+ * @param uri absolute uri of the external media
+ * @param select true to select the track of this external media
+ * @param notify true to notify the OSD
+ * @param check_ext true to check subtitles extension
+ */
+VLC_API int
+vlc_player_AddAssociatedMedia(vlc_player_t *player,
+                              enum es_format_category_e cat, const char *uri,
+                              bool select, bool notify, bool check_ext);
+
+/**
+ * Get the signal quality and strength of the current media
+ *
+ * @param player locked player instance
+ */
+VLC_API int
+vlc_player_GetSignal(vlc_player_t *player, float *quality, float *strength);
+
+/**
+ * Get the statistics of the current media
  *
  * @warning The returned pointer becomes invalid when the player is unlocked.
- * The referenced structure can be safely copied with vlc_player_program_Dup().
+ * The referenced structure can be safely copied.
+ *
+ * @see vlc_player_cbs.on_statistics_changed
  *
  * @param player locked player instance
- * @param index valid index in the range [0; count[
- * @return a valid program (can't be NULL if vlc_player_GetProgramCount()
- * returned a valid count)
+ * @return pointer to the player stats structure or NULL
  */
-VLC_API const struct vlc_player_program *
-vlc_player_GetProgramAt(vlc_player_t *player, size_t index);
+VLC_API const struct input_stats_t *
+vlc_player_GetStatistics(vlc_player_t *player);
 
 /**
- * Get a program from an ES group identifier
+ * Get the V4L2 object used to do controls
  *
  * @param player locked player instance
- * @param group_id a program ID (retrieved from
- * vlc_player_cbs.on_program_list_changed or vlc_player_GetProgramAt())
- * @return a valid program or NULL (if the program was terminated by the
- * playback thread)
+ * @return the V4L2 object or NULL if not any. This object must be used with
+ * the player lock held.
  */
-VLC_API const struct vlc_player_program *
-vlc_player_GetProgram(vlc_player_t *player, int group_id);
+VLC_API vlc_object_t *
+vlc_player_GetV4l2Object(vlc_player_t *player) VLC_DEPRECATED;
+
+/** @} vlc_player__playback */
 
 /**
- * Select a program from an ES group identifier
- *
- * @param player locked player instance
- * @param group_id a program ID (retrieved from
- * vlc_player_cbs.on_program_list_changed or vlc_player_GetProgramAt())
+ * @defgroup vlc_player__titles Title and chapter control
+ * @{
  */
-VLC_API void
-vlc_player_SelectProgram(vlc_player_t *player, int group_id);
 
 /**
- * Select the next program
- *
- * @param player locked player instance
+ * Player chapter structure
  */
-VLC_API void
-vlc_player_SelectNextProgram(vlc_player_t *player);
-
-/**
- * Select the previous program
- *
- * @param player locked player instance
- */
-VLC_API void
-vlc_player_SelectPrevProgram(vlc_player_t *player);
-
-/**
- * Helper to get the current selected program
- */
-static inline const struct vlc_player_program *
-vlc_player_GetSelectedProgram(vlc_player_t *player)
+struct vlc_player_chapter
 {
-    size_t count = vlc_player_GetProgramCount(player);
-    for (size_t i = 0; i < count; ++i)
-    {
-        const struct vlc_player_program *program =
-            vlc_player_GetProgramAt(player, i);
-        assert(program);
-        if (program->selected)
-            return program;
-    }
-    return NULL;
-}
+    /** Chapter name, always valid */
+    const char *name;
+    /** Position of this chapter */
+    vlc_tick_t time;
+};
+
+/** vlc_player_title.flags: The title is a menu. */
+#define VLC_PLAYER_TITLE_MENU         0x01
+/** vlc_player_title.flags: The title is interactive. */
+#define VLC_PLAYER_TITLE_INTERACTIVE  0x02
+
+/** Player title structure */
+struct vlc_player_title
+{
+    /** Title name, always valid */
+    const char *name;
+    /** Length of the title */
+    vlc_tick_t length;
+    /** Bit flag of @ref VLC_PLAYER_TITLE_MENU and @ref
+     * VLC_PLAYER_TITLE_INTERACTIVE */
+    unsigned flags;
+    /** Number of chapters, can be 0 */
+    size_t chapter_count;
+    /** Array of chapters, can be NULL */
+    const struct vlc_player_chapter *chapters;
+};
 
 /**
- * Check if the media has a teletext menu
+ * Opaque structure representing a list of @ref vlc_player_title.
  *
- * @see vlc_player_cbs.on_teletext_menu_changed
- *
- * @param player locked player instance
- * @return true if the media has a teletext menu
+ * @see vlc_player_GetTitleList()
+ * @see vlc_player_title_list_GetCount()
+ * @see vlc_player_title_list_GetAt()
  */
-VLC_API bool
-vlc_player_HasTeletextMenu(vlc_player_t *player);
+typedef struct vlc_player_title_list vlc_player_title_list;
 
 /**
- * Enable or disable teletext
+ * Hold the title list of the player
  *
- * This function has an effect only if the player has a teletext menu.
+ * This function can be used to pass this title list from a callback to an
+ * other thread.
  *
- * @note A successful call will trigger the
- * vlc_player_cbs.on_teletext_enabled_changed event.
- * 
- * @param player locked player instance
- * @param enabled true to enable
+ * @see vlc_player_cbs.on_titles_changed
+ *
+ * @return the same instance
  */
-VLC_API void
-vlc_player_SetTeletextEnabled(vlc_player_t *player, bool enabled);
+VLC_API vlc_player_title_list *
+vlc_player_title_list_Hold(vlc_player_title_list *titles);
 
 /**
- * Check if teletext is enabled
- *
- * @see vlc_player_cbs.on_teletext_enabled_changed
- *
- * @param player locked player instance
- */
-VLC_API bool
-vlc_player_IsTeletextEnabled(vlc_player_t *player);
-
-/**
- * Select a teletext page or do an action from a key
- *
- * This function has an effect only if the player has a teletext menu.
- *
- * @note Page keys can be the following: @ref VLC_PLAYER_TELETEXT_KEY_RED,
- * @ref VLC_PLAYER_TELETEXT_KEY_GREEN, @ref VLC_PLAYER_TELETEXT_KEY_YELLOW,
- * @ref VLC_PLAYER_TELETEXT_KEY_BLUE or @ref VLC_PLAYER_TELETEXT_KEY_INDEX.
-
- * @note A successful call will trigger the
- * vlc_player_cbs.on_teletext_page_changed event.
- *
- * @param player locked player instance
- * @param page a page in the range ]0;888] or a valid key
+ * Release of previously held title list
  */
 VLC_API void
-vlc_player_SelectTeletextPage(vlc_player_t *player, unsigned page);
+vlc_player_title_list_Release(vlc_player_title_list *titles);
 
 /**
- * Get the current teletext page
- *
- * @see vlc_player_cbs.on_teletext_page_changed
- *
- * @param player locked player instance
+ * Get the number of title of a list
  */
-VLC_API unsigned
-vlc_player_GetTeletextPage(vlc_player_t *player);
+VLC_API size_t
+vlc_player_title_list_GetCount(vlc_player_title_list *titles);
 
 /**
- * Enable or disable teletext transparency
+ * Get the title at a given index
  *
- * This function has an effect only if the player has a teletext menu.
-
- * @note A successful call will trigger the
- * vlc_player_cbs.on_teletext_transparency_changed event.
- *
- * @param player locked player instance
- * @param enabled true to enable
+ * @param idx index in the range [0; count[
+ * @return a valid title (can't be NULL)
  */
-VLC_API void
-vlc_player_SetTeletextTransparency(vlc_player_t *player, bool enabled);
-
-/**
- * Check if teletext is transparent
- *
- * @param player locked player instance
- */
-VLC_API bool
-vlc_player_IsTeletextTransparent(vlc_player_t *player);
+VLC_API const struct vlc_player_title *
+vlc_player_title_list_GetAt(vlc_player_title_list *titles, size_t idx);
 
 /**
  * Get the title list of the current media
@@ -2294,20 +1145,803 @@ vlc_player_SelectNextChapter(vlc_player_t *player);
 VLC_API void
 vlc_player_SelectPrevChapter(vlc_player_t *player);
 
+/** @} vlc_player__titles */
+
 /**
- * Add an associated (or external) media to the current media
+ * @defgroup vlc_player__programs Program control
+ * @{
+ */
+
+/**
+ * Player program structure.
+ */
+struct vlc_player_program
+{
+    /** Id used for vlc_player_SelectProgram() */
+    int group_id;
+    /** Program name, always valid */
+    const char *name;
+    /** True if the program is selected */
+    bool selected;
+    /** True if the program is scrambled */
+    bool scrambled;
+};
+
+/**
+ * Duplicate a program
+ *
+ * This function can be used to pass a program from a callback to an other
+ * context.
+ *
+ * @see vlc_player_cbs.on_program_list_changed
+ *
+ * @return a duplicated program or NULL on allocation error
+ */
+VLC_API struct vlc_player_program *
+vlc_player_program_Dup(const struct vlc_player_program *prgm);
+
+/**
+ * Delete a duplicated program
+ */
+VLC_API void
+vlc_player_program_Delete(struct vlc_player_program *prgm);
+
+/**
+ * Get the number of programs
+ *
+ * @warning The returned size becomes invalid when the player is unlocked.
+ *
+ * @param player locked player instance
+ * @return number of programs, or 0 (in case of error, or if the media is not
+ * started)
+ */
+VLC_API size_t
+vlc_player_GetProgramCount(vlc_player_t *player);
+
+/**
+ * Get the program at a specific index
+ *
+ * @warning The behaviour is undefined if the index is not valid.
+ *
+ * @warning The returned pointer becomes invalid when the player is unlocked.
+ * The referenced structure can be safely copied with vlc_player_program_Dup().
+ *
+ * @param player locked player instance
+ * @param index valid index in the range [0; count[
+ * @return a valid program (can't be NULL if vlc_player_GetProgramCount()
+ * returned a valid count)
+ */
+VLC_API const struct vlc_player_program *
+vlc_player_GetProgramAt(vlc_player_t *player, size_t index);
+
+/**
+ * Get a program from an ES group identifier
+ *
+ * @param player locked player instance
+ * @param group_id a program ID (retrieved from
+ * vlc_player_cbs.on_program_list_changed or vlc_player_GetProgramAt())
+ * @return a valid program or NULL (if the program was terminated by the
+ * playback thread)
+ */
+VLC_API const struct vlc_player_program *
+vlc_player_GetProgram(vlc_player_t *player, int group_id);
+
+/**
+ * Select a program from an ES group identifier
+ *
+ * @param player locked player instance
+ * @param group_id a program ID (retrieved from
+ * vlc_player_cbs.on_program_list_changed or vlc_player_GetProgramAt())
+ */
+VLC_API void
+vlc_player_SelectProgram(vlc_player_t *player, int group_id);
+
+/**
+ * Select the next program
+ *
+ * @param player locked player instance
+ */
+VLC_API void
+vlc_player_SelectNextProgram(vlc_player_t *player);
+
+/**
+ * Select the previous program
+ *
+ * @param player locked player instance
+ */
+VLC_API void
+vlc_player_SelectPrevProgram(vlc_player_t *player);
+
+/**
+ * Helper to get the current selected program
+ */
+static inline const struct vlc_player_program *
+vlc_player_GetSelectedProgram(vlc_player_t *player)
+{
+    size_t count = vlc_player_GetProgramCount(player);
+    for (size_t i = 0; i < count; ++i)
+    {
+        const struct vlc_player_program *program =
+            vlc_player_GetProgramAt(player, i);
+        assert(program);
+        if (program->selected)
+            return program;
+    }
+    return NULL;
+}
+
+/** @} vlc_player__programs */
+
+/**
+ * @defgroup vlc_player__tracks Tracks control
+ * @{
+ */
+
+/**
+ * Player selection policy
+ *
+ * @see vlc_player_SelectEsId()
+ */
+enum vlc_player_select_policy
+{
+    /**
+     * Only one track per category is selected. Selecting a track with this
+     * policy will disable all other tracks for the same category.
+     */
+    VLC_PLAYER_SELECT_EXCLUSIVE,
+    /**
+     * Select multiple tracks for one category.
+     *
+     * Only one audio track can be selected at a time.
+     * Two subtitle tracks can be selected simultaneously.
+     * Multiple video tracks can be selected simultaneously.
+     */
+    VLC_PLAYER_SELECT_SIMULTANEOUS,
+};
+
+/**
+ * Player track structure.
+ *
+ * A track is a representation of an ES identifier at a given time. Once the
+ * player is unlocked, all content except the es_id pointer can be updated.
+ *
+ * @see vlc_player_cbs.on_track_list_changed
+ * @see vlc_player_GetTrack
+ */
+struct vlc_player_track
+{
+    /** Id used for any player actions, like vlc_player_SelectEsId() */
+    vlc_es_id_t *es_id;
+    /** Track name, always valid */
+    const char *name;
+    /** Es format */
+    es_format_t fmt;
+    /** True if the track is selected */
+    bool selected;
+};
+
+/**
+ * Duplicate a track
+ *
+ * This function can be used to pass a track from a callback to an other
+ * context. The es_id will be held by the duplicated track.
+ *
+ * @warning The returned track won't be updated if the original one is modified
+ * by the player.
+ *
+ * @see vlc_player_cbs.on_track_list_changed
+ *
+ * @return a duplicated track or NULL on allocation error
+ */
+VLC_API struct vlc_player_track *
+vlc_player_track_Dup(const struct vlc_player_track *track);
+
+/**
+ * Delete a duplicated track
+ */
+VLC_API void
+vlc_player_track_Delete(struct vlc_player_track *track);
+
+/**
+ * Get the number of tracks for an ES category
+ *
+ * @warning The returned size becomes invalid when the player is unlocked.
+ *
+ * @param player locked player instance
+ * @param cat VIDEO_ES, AUDIO_ES or SPU_ES
+ * @return number of tracks, or 0 (in case of error, or if the media is not
+ * started)
+ */
+VLC_API size_t
+vlc_player_GetTrackCount(vlc_player_t *player, enum es_format_category_e cat);
+
+/**
+ * Get the track at a specific index for an ES category
+ *
+ * @warning The behaviour is undefined if the index is not valid.
+ *
+ * @warning The returned pointer becomes invalid when the player is unlocked.
+ * The referenced structure can be safely copied with vlc_player_track_Dup().
+ *
+ * @param player locked player instance
+ * @param cat VIDEO_ES, AUDIO_ES or SPU_ES
+ * @param index valid index in the range [0; count[
+ * @return a valid track (can't be NULL if vlc_player_GetTrackCount() returned
+ * a valid count)
+ */
+VLC_API const struct vlc_player_track *
+vlc_player_GetTrackAt(vlc_player_t *player, enum es_format_category_e cat,
+                      size_t index);
+
+/**
+ * Helper to get the video track count
+ */
+static inline size_t
+vlc_player_GetVideoTrackCount(vlc_player_t *player)
+{
+    return vlc_player_GetTrackCount(player, VIDEO_ES);
+}
+
+/**
+ * Helper to get a video track at a specific index
+ */
+static inline const struct vlc_player_track *
+vlc_player_GetVideoTrackAt(vlc_player_t *player, size_t index)
+{
+    return vlc_player_GetTrackAt(player, VIDEO_ES, index);
+}
+
+/**
+ * Helper to get the audio track count
+ */
+static inline size_t
+vlc_player_GetAudioTrackCount(vlc_player_t *player)
+{
+    return vlc_player_GetTrackCount(player, AUDIO_ES);
+}
+
+/**
+ * Helper to get an audio track at a specific index
+ */
+static inline const struct vlc_player_track *
+vlc_player_GetAudioTrackAt(vlc_player_t *player, size_t index)
+{
+    return vlc_player_GetTrackAt(player, AUDIO_ES, index);
+}
+
+/**
+ * Helper to get the subtitle track count
+ */
+static inline size_t
+vlc_player_GetSubtitleTrackCount(vlc_player_t *player)
+{
+    return vlc_player_GetTrackCount(player, SPU_ES);
+}
+
+/**
+ * Helper to get a subtitle track at a specific index
+ */
+static inline const struct vlc_player_track *
+vlc_player_GetSubtitleTrackAt(vlc_player_t *player, size_t index)
+{
+    return vlc_player_GetTrackAt(player, SPU_ES, index);
+}
+
+/**
+ * Get a track from an ES identifier
+ *
+ * @warning The returned pointer becomes invalid when the player is unlocked.
+ * The referenced structure can be safely copied with vlc_player_track_Dup().
+ *
+ * @param player locked player instance
+ * @param id an ES ID (retrieved from vlc_player_cbs.on_track_list_changed or
+ * vlc_player_GetTrackAt())
+ * @return a valid player track or NULL (if the track was terminated by the
+ * playback thread)
+ */
+VLC_API const struct vlc_player_track *
+vlc_player_GetTrack(vlc_player_t *player, vlc_es_id_t *es_id);
+
+/**
+ * Get and the video output used by a ES identifier
+ *
+ * @warning A same vout can be associated with multiple ES during the lifetime
+ * of the player. The information returned by this function becomes invalid
+ * when the player is unlocked. The returned vout doesn't need to be released,
+ * but must be held with vout_Hold() if it is accessed after the player is
+ * unlocked.
+ *
+ * @param player locked player instance
+ * @param id an ES ID (retrieved from vlc_player_cbs.on_track_list_changed or
+ * vlc_player_GetTrackAt())
+ * @param order if not null, the order of the vout
+ * @return a valid vout or NULL (if the track is disabled, it it's not a video
+ * or spu track, or if the vout failed to start)
+ */
+VLC_API vout_thread_t *
+vlc_player_GetEsIdVout(vlc_player_t *player, vlc_es_id_t *es_id,
+                       enum vlc_vout_order *order);
+
+/**
+ * Get the ES identifier of a video output
+ *
+ * @warning A same vout can be associated with multiple ES during the lifetime
+ * of the player. The information returned by this function becomes invalid
+ * when the player is unlocked. The returned es_id doesn't need to be released,
+ * but must be held with vlc_es_id_Hold() if it accessed after the player is
+ * unlocked.
+ *
+ * @param player locked player instance
+ * @param vout vout (can't be NULL)
+ * @return a valid ES identifier or NULL (if the vout is stopped)
+ */
+VLC_API vlc_es_id_t *
+vlc_player_GetEsIdFromVout(vlc_player_t *player, vout_thread_t *vout);
+
+/**
+ * Helper to get the selected track from an ES category
+ *
+ * @warning The player can have more than one selected track for a same ES
+ * category. This function will only return the first selected one. Use
+ * vlc_player_GetTrackAt() and vlc_player_GetTrackCount() to iterate through
+ * several selected tracks.
+ */
+static inline const struct vlc_player_track *
+vlc_player_GetSelectedTrack(vlc_player_t *player, enum es_format_category_e cat)
+{
+    size_t count = vlc_player_GetTrackCount(player, cat);
+    for (size_t i = 0; i < count; ++i)
+    {
+        const struct vlc_player_track *track =
+            vlc_player_GetTrackAt(player, cat, i);
+        assert(track);
+        if (track->selected)
+            return track;
+    }
+    return NULL;
+}
+
+/**
+ * Select a track from an ES identifier
+ *
+ * @note A successful call will trigger the
+ * vlc_player_cbs.on_track_selection_changed event.
+ *
+ * @param player locked player instance
+ * @param id an ES ID (retrieved from vlc_player_cbs.on_track_list_changed or
+ * vlc_player_GetTrackAt())
+ * @param policy exclusive or simultaneous
+ * @return the number of track selected for es_id category
+ */
+VLC_API unsigned
+vlc_player_SelectEsId(vlc_player_t *player, vlc_es_id_t *es_id,
+                      enum vlc_player_select_policy policy);
+
+
+/**
+ * Helper to select a track
+ */
+static inline unsigned
+vlc_player_SelectTrack(vlc_player_t *player,
+                       const struct vlc_player_track *track,
+                       enum vlc_player_select_policy policy)
+{
+    return vlc_player_SelectEsId(player, track->es_id, policy);
+}
+
+/**
+ * Select multiple tracks from a list of ES identifiers.
+ *
+ * Any tracks of the category, not referenced in the list will be unselected.
+ *
+ * @warning there is no guarantee all requested tracks will be selected. The
+ * behaviour is undefined if the list is not null-terminated.
+ *
+ * @note A successful call will trigger the
+ * vlc_player_cbs.on_track_selection_changed event for each track that has
+ * its selection state changed.
+ *
+ * @see VLC_PLAYER_SELECT_SIMULTANEOUS
+ *
+ * @param player locked player instance
+ * @param cat VIDEO_ES, AUDIO_ES or SPU_ES
+ * @param es_id_list a null-terminated list of ES identifiers. es_ids not
+ * corresponding to the category will be ignored.
+ * (ES IDs can be retrieved from vlc_player_cbs.on_track_list_changed or
+ * vlc_player_GetTrackAt())
+ * @return the number of track selected for that category
+ */
+VLC_API unsigned
+vlc_player_SelectEsIdList(vlc_player_t *player,
+                          enum es_format_category_e cat,
+                          vlc_es_id_t *const es_id_list[]);
+
+/**
+ * Select the next track
+ *
+ * If the last track is already selected, a call to this function will disable
+ * this last track. And a second call will select the first track.
+ *
+ * @warning This function has no effects if there are several tracks selected
+ * for a same category. Therefore the default policy is
+ * VLC_PLAYER_SELECT_EXCLUSIVE.
+ *
+ * @param player locked player instance
+ * @param cat VIDEO_ES, AUDIO_ES or SPU_ES
+ */
+VLC_API void
+vlc_player_SelectNextTrack(vlc_player_t *player,
+                           enum es_format_category_e cat);
+
+/**
+ * Select the Previous track
+ *
+ * If the first track is already selected, a call to this function will disable
+ * this first track. And a second call will select the last track.
+ *
+ * @warning This function has no effects if there are several tracks selected
+ * for a same category. Therefore the default policy is
+ * VLC_PLAYER_SELECT_EXCLUSIVE.
+ *
+ * @param player locked player instance
+ * @param cat VIDEO_ES, AUDIO_ES or SPU_ES
+ */
+VLC_API void
+vlc_player_SelectPrevTrack(vlc_player_t *player,
+                           enum es_format_category_e cat);
+
+/**
+ * Unselect a track from an ES identifier
+ *
+ * @warning Other tracks of the same category won't be touched.
+ *
+ * @note A successful call will trigger the
+ * vlc_player_cbs.on_track_selection_changed event.
+ *
+ * @param player locked player instance
+ * @param id an ES ID (retrieved from vlc_player_cbs.on_track_list_changed or
+ * vlc_player_GetTrackAt())
+ */
+VLC_API void
+vlc_player_UnselectEsId(vlc_player_t *player, vlc_es_id_t *es_id);
+
+/**
+ * Helper to unselect a track
+ */
+static inline void
+vlc_player_UnselectTrack(vlc_player_t *player,
+                         const struct vlc_player_track *track)
+{
+    vlc_player_UnselectEsId(player, track->es_id);
+}
+
+/**
+ * Helper to unselect all tracks from an ES category
+ */
+static inline void
+vlc_player_UnselectTrackCategory(vlc_player_t *player,
+                                 enum es_format_category_e cat)
+{
+    size_t count = vlc_player_GetTrackCount(player, cat);
+    for (size_t i = 0; i < count; ++i)
+    {
+        const struct vlc_player_track *track =
+            vlc_player_GetTrackAt(player, cat, i);
+        assert(track);
+        if (track->selected)
+            vlc_player_UnselectTrack(player, track);
+    }
+}
+
+/**
+ * Restart a track from an ES identifier
+ *
+ * @note A successful call will trigger the
+ * vlc_player_cbs.on_track_selection_changed event.
+ *
+ * @param player locked player instance
+ * @param id an ES ID (retrieved from vlc_player_cbs.on_track_list_changed or
+ * vlc_player_GetTrackAt())
+ */
+VLC_API void
+vlc_player_RestartEsId(vlc_player_t *player, vlc_es_id_t *es_id);
+
+/**
+ * Helper to restart a track
+ */
+static inline void
+vlc_player_RestartTrack(vlc_player_t *player,
+                        const struct vlc_player_track *track)
+{
+    vlc_player_RestartEsId(player, track->es_id);
+}
+
+/**
+  * Helper to restart all selected tracks from an ES category
+  */
+static inline void
+vlc_player_RestartTrackCategory(vlc_player_t *player,
+                                enum es_format_category_e cat)
+{
+    size_t count = vlc_player_GetTrackCount(player, cat);
+    for (size_t i = 0; i < count; ++i)
+    {
+        const struct vlc_player_track *track =
+            vlc_player_GetTrackAt(player, cat, i);
+        assert(track);
+        if (track->selected)
+            vlc_player_RestartTrack(player, track);
+    }
+}
+
+/**
+ * Select the language for an ES category
+ *
+ * @warning The language will only be set for all future played media.
  *
  * @param player locked player instance
  * @param cat AUDIO_ES or SPU_ES
- * @param uri absolute uri of the external media
- * @param select true to select the track of this external media
- * @param notify true to notify the OSD
- * @param check_ext true to check subtitles extension
+ * @param lang comma separated, two or three letters country code, 'any' as a
+ * fallback or NULL to reset the default state
+ */
+VLC_API void
+vlc_player_SelectCategoryLanguage(vlc_player_t *player,
+                                  enum es_format_category_e cat,
+                                  const char *lang);
+
+/**
+ * Get the language of an ES category
+ *
+ * @warning This only reflects the change made by
+ * vlc_player_SelectCategoryLanguage(). The current playing track doesn't
+ * necessarily correspond to the returned language.
+ *
+ * @see vlc_player_SelectCategoryLanguage
+ *
+ * @param player locked player instance
+ * @param cat AUDIO_ES or SPU_ES
+ * @return valid language or NULL, need to be freed
+ */
+VLC_API char *
+vlc_player_GetCategoryLanguage(vlc_player_t *player,
+                               enum es_format_category_e cat);
+
+/**
+ * Helper to select the audio language
+ */
+static inline void
+vlc_player_SelectAudioLanguage(vlc_player_t *player, const char *lang)
+{
+    vlc_player_SelectCategoryLanguage(player, AUDIO_ES, lang);
+}
+
+/**
+ * Helper to select the subtitle language
+ */
+static inline void
+vlc_player_SelectSubtitleLanguage(vlc_player_t *player, const char *lang)
+{
+    vlc_player_SelectCategoryLanguage(player, SPU_ES, lang);
+}
+
+/**
+ * Enable or disable a track category
+ *
+ * If a track category is disabled, the player won't select any tracks of this
+ * category automatically or via an user action (vlc_player_SelectTrack()).
+ *
+ * @param player locked player instance
+ * @param cat VIDEO_ES, AUDIO_ES or SPU_ES
+ * @param enabled true to enable
+ */
+VLC_API void
+vlc_player_SetTrackCategoryEnabled(vlc_player_t *player,
+                                   enum es_format_category_e cat, bool enabled);
+
+/**
+ * Check if a track category is enabled
+ *
+ * @param player locked player instance
+ * @param cat VIDEO_ES, AUDIO_ES or SPU_ES
+ */
+VLC_API bool
+vlc_player_IsTrackCategoryEnabled(vlc_player_t *player,
+                                  enum es_format_category_e cat);
+
+/**
+ * Helper to enable or disable video tracks
+ */
+static inline void
+vlc_player_SetVideoEnabled(vlc_player_t *player, bool enabled)
+{
+    vlc_player_SetTrackCategoryEnabled(player, VIDEO_ES, enabled);
+}
+
+/**
+ * Helper to check if video tracks are enabled
+ */
+static inline bool
+vlc_player_IsVideoEnabled(vlc_player_t *player)
+{
+    return vlc_player_IsTrackCategoryEnabled(player, VIDEO_ES);
+}
+
+/**
+ * Helper to enable or disable audio tracks
+ */
+static inline void
+vlc_player_SetAudioEnabled(vlc_player_t *player, bool enabled)
+{
+    vlc_player_SetTrackCategoryEnabled(player, AUDIO_ES, enabled);
+}
+
+/**
+ * Helper to check if audio tracks are enabled
+ */
+static inline bool
+vlc_player_IsAudioEnabled(vlc_player_t *player)
+{
+    return vlc_player_IsTrackCategoryEnabled(player, AUDIO_ES);
+}
+
+/**
+ * Helper to enable or disable subtitle tracks
+ */
+static inline void
+vlc_player_SetSubtitleEnabled(vlc_player_t *player, bool enabled)
+{
+    vlc_player_SetTrackCategoryEnabled(player, SPU_ES, enabled);
+}
+
+/**
+ * Helper to check if subtitle tracks are enabled
+ */
+static inline bool
+vlc_player_IsSubtitleEnabled(vlc_player_t *player)
+{
+    return vlc_player_IsTrackCategoryEnabled(player, SPU_ES);
+}
+
+/**
+ * Helper to toggle subtitles
+ */
+static inline void
+vlc_player_ToggleSubtitle(vlc_player_t *player)
+{
+    bool enabled = !vlc_player_IsSubtitleEnabled(player);
+    return vlc_player_SetSubtitleEnabled(player, enabled);
+}
+
+/**
+ * Set the subtitle text scaling factor
+ *
+ * @note This function have an effect only if the subtitle track is a text type.
+ *
+ * @param player locked player instance
+ * @param scale factor in the range [10;500] (default: 100)
+ */
+VLC_API void
+vlc_player_SetSubtitleTextScale(vlc_player_t *player, unsigned scale);
+
+/**
+ * Get the subtitle text scaling factor
+ *
+ * @param player locked player instance
+ * @return scale factor
+ */
+VLC_API unsigned
+vlc_player_GetSubtitleTextScale(vlc_player_t *player);
+
+/** @} vlc_player__tracks */
+
+/**
+ * @defgroup vlc_player__tracks_sync Tracks synchronisation (delay)
+ * @{
+ */
+
+/**
+ * Get the delay of an ES category for the current media
+ *
+ * @see vlc_player_cbs.on_category_delay_changed
+ *
+ * @param player locked player instance
+ * @param cat AUDIO_ES or SPU_ES (VIDEO_ES not supported yet)
+ * @return a valid delay or 0
+ */
+VLC_API vlc_tick_t
+vlc_player_GetCategoryDelay(vlc_player_t *player, enum es_format_category_e cat);
+
+/**
+ * Set the delay of one category for the current media
+ *
+ * @note A successful call will trigger the
+ * vlc_player_cbs.on_category_delay_changed event.
+ *
+ * @warning This has no effect on tracks where the delay was set by
+ * vlc_player_SetEsIdDelay()
+ *
+ * @param player locked player instance
+ * @param cat AUDIO_ES or SPU_ES (VIDEO_ES not supported yet)
+ * @param delay a valid time
+ * @param whence absolute or relative
+ * @return VLC_SUCCESS or VLC_EGENERIC if the category is not handled
  */
 VLC_API int
-vlc_player_AddAssociatedMedia(vlc_player_t *player,
-                              enum es_format_category_e cat, const char *uri,
-                              bool select, bool notify, bool check_ext);
+vlc_player_SetCategoryDelay(vlc_player_t *player, enum es_format_category_e cat,
+                            vlc_tick_t delay, enum vlc_player_whence whence);
+
+/**
+ * Get the delay of a track
+ *
+ * @see vlc_player_cbs.on_track_delay_changed
+ *
+ * @param player locked player instance
+ * @param id an ES ID (retrieved from vlc_player_cbs.on_track_list_changed or
+ * vlc_player_GetTrackAt())
+ * @return a valid delay or INT64_MAX is no delay is set for this track
+ */
+VLC_API vlc_tick_t
+vlc_player_GetEsIdDelay(vlc_player_t *player, vlc_es_id_t *es_id);
+
+/**
+ * Set the delay of one track
+ *
+ * @note A successful call will trigger the
+ * vlc_player_cbs.on_track_delay_changed event.
+ *
+ * @warning Setting the delay of one specific track will override previous and
+ * future changes of delay made by vlc_player_SetCategoryDelay()
+ *
+ * @param player locked player instance
+ * @param id an ES ID (retrieved from vlc_player_cbs.on_track_list_changed or
+ * vlc_player_GetTrackAt())
+ * @param delay a valid time or INT64_MAX to use default category delay
+ * @param whence absolute or relative
+ * @return VLC_SUCCESS or VLC_EGENERIC if the category of the es_id is not
+ * handled (VIDEO_ES not supported yet)
+ */
+VLC_API int
+vlc_player_SetEsIdDelay(vlc_player_t *player, vlc_es_id_t *es_id,
+                        vlc_tick_t delay, enum vlc_player_whence whence);
+
+/**
+ * Helper to get the audio delay
+ */
+static inline vlc_tick_t
+vlc_player_GetAudioDelay(vlc_player_t *player)
+{
+    return vlc_player_GetCategoryDelay(player, AUDIO_ES);
+}
+
+/**
+ * Helper to set the audio delay
+ */
+static inline void
+vlc_player_SetAudioDelay(vlc_player_t *player, vlc_tick_t delay,
+                         enum vlc_player_whence whence)
+
+{
+    vlc_player_SetCategoryDelay(player, AUDIO_ES, delay, whence);
+}
+
+/**
+ * Helper to get the subtitle delay
+ */
+static inline vlc_tick_t
+vlc_player_GetSubtitleDelay(vlc_player_t *player)
+{
+    return vlc_player_GetCategoryDelay(player, SPU_ES);
+}
+
+/**
+ * Helper to set the subtitle delay
+ */
+static inline void
+vlc_player_SetSubtitleDelay(vlc_player_t *player, vlc_tick_t delay,
+                            enum vlc_player_whence whence)
+{
+    vlc_player_SetCategoryDelay(player, SPU_ES, delay, whence);
+}
 
 /**
  * Set the associated subtitle FPS
@@ -2336,6 +1970,105 @@ vlc_player_SetAssociatedSubsFPS(vlc_player_t *player, float fps);
 VLC_API float
 vlc_player_GetAssociatedSubsFPS(vlc_player_t *player);
 
+/** @} vlc_player__tracks_sync */
+
+/**
+ * @defgroup vlc_player__teletext Teletext control
+ * @{
+ */
+
+/**
+ * Check if the media has a teletext menu
+ *
+ * @see vlc_player_cbs.on_teletext_menu_changed
+ *
+ * @param player locked player instance
+ * @return true if the media has a teletext menu
+ */
+VLC_API bool
+vlc_player_HasTeletextMenu(vlc_player_t *player);
+
+/**
+ * Enable or disable teletext
+ *
+ * This function has an effect only if the player has a teletext menu.
+ *
+ * @note A successful call will trigger the
+ * vlc_player_cbs.on_teletext_enabled_changed event.
+ * 
+ * @param player locked player instance
+ * @param enabled true to enable
+ */
+VLC_API void
+vlc_player_SetTeletextEnabled(vlc_player_t *player, bool enabled);
+
+/**
+ * Check if teletext is enabled
+ *
+ * @see vlc_player_cbs.on_teletext_enabled_changed
+ *
+ * @param player locked player instance
+ */
+VLC_API bool
+vlc_player_IsTeletextEnabled(vlc_player_t *player);
+
+/**
+ * Select a teletext page or do an action from a key
+ *
+ * This function has an effect only if the player has a teletext menu.
+ *
+ * @note Page keys can be the following: @ref VLC_PLAYER_TELETEXT_KEY_RED,
+ * @ref VLC_PLAYER_TELETEXT_KEY_GREEN, @ref VLC_PLAYER_TELETEXT_KEY_YELLOW,
+ * @ref VLC_PLAYER_TELETEXT_KEY_BLUE or @ref VLC_PLAYER_TELETEXT_KEY_INDEX.
+
+ * @note A successful call will trigger the
+ * vlc_player_cbs.on_teletext_page_changed event.
+ *
+ * @param player locked player instance
+ * @param page a page in the range ]0;888] or a valid key
+ */
+VLC_API void
+vlc_player_SelectTeletextPage(vlc_player_t *player, unsigned page);
+
+/**
+ * Get the current teletext page
+ *
+ * @see vlc_player_cbs.on_teletext_page_changed
+ *
+ * @param player locked player instance
+ */
+VLC_API unsigned
+vlc_player_GetTeletextPage(vlc_player_t *player);
+
+/**
+ * Enable or disable teletext transparency
+ *
+ * This function has an effect only if the player has a teletext menu.
+
+ * @note A successful call will trigger the
+ * vlc_player_cbs.on_teletext_transparency_changed event.
+ *
+ * @param player locked player instance
+ * @param enabled true to enable
+ */
+VLC_API void
+vlc_player_SetTeletextTransparency(vlc_player_t *player, bool enabled);
+
+/**
+ * Check if teletext is transparent
+ *
+ * @param player locked player instance
+ */
+VLC_API bool
+vlc_player_IsTeletextTransparent(vlc_player_t *player);
+
+/** @} vlc_player__teletext */
+
+/**
+ * @defgroup vlc_player__renderer External renderer control
+ * @{
+ */
+
 /**
  * Set the renderer
  *
@@ -2362,192 +2095,65 @@ vlc_player_SetRenderer(vlc_player_t *player, vlc_renderer_item_t *renderer);
 VLC_API vlc_renderer_item_t *
 vlc_player_GetRenderer(vlc_player_t *player);
 
-/**
- * Navigate (for DVD/Bluray menus or viewpoint)
- *
- * @param player locked player instance
- * @param nav navigation key
- */
-VLC_API void
-vlc_player_Navigate(vlc_player_t *player, enum vlc_player_nav nav);
+/** @} vlc_player__renderer */
 
 /**
-  * Update the viewpoint
-  *
-  * @param player locked player instance
-  * @param viewpoint the viewpoint value
-  * @param whence absolute or relative
-  * @return VLC_SUCCESS or a VLC error code
-  */
-VLC_API void
-vlc_player_UpdateViewpoint(vlc_player_t *player,
-                           const vlc_viewpoint_t *viewpoint,
-                           enum vlc_player_whence whence);
+ * @defgroup vlc_player__aout Audio output control
+ * @{
+ */
 
 /**
- * Check if the playing is recording
+ * Player aout listener opaque structure.
  *
- * @see vlc_player_cbs.on_recording_changed
- *
- * @param player locked player instance
- * @return true if the player is recording
+ * This opaque structure is returned by vlc_player_aout_AddListener() and can
+ * be used to remove the listener via vlc_player_aout_RemoveListener().
  */
-VLC_API bool
-vlc_player_IsRecording(vlc_player_t *player);
+typedef struct vlc_player_aout_listener_id vlc_player_aout_listener_id;
 
 /**
- * Enable or disable recording for the current media
+ * Player aout callbacks
  *
- * @note A successful call will trigger the vlc_player_cbs.on_recording_changed
- * event.
+ * Can be registered with vlc_player_aout_AddListener().
  *
- * @param player locked player instance
- * @param enabled true to enable recording
+ * @warning To avoid deadlocks, users should never call audio_output_t and
+ * vlc_player_t functions from these callbacks.
  */
-VLC_API void
-vlc_player_SetRecordingEnabled(vlc_player_t *player, bool enabled);
-
-/**
- * Helper to toggle the recording state
- */
-static inline void
-vlc_player_ToggleRecording(vlc_player_t *player)
+struct vlc_player_aout_cbs
 {
-    vlc_player_SetRecordingEnabled(player, !vlc_player_IsRecording(player));
-}
+    /**
+     * Called when the volume has changed
+     *
+     * @see vlc_player_aout_SetVolume()
+     *
+     * @param aout the main aout of the player
+     * @param new_volume volume in the range [0;2.f]
+     * @param data opaque pointer set by vlc_player_aout_AddListener()
+     */
+    void (*on_volume_changed)(audio_output_t *aout, float new_volume,
+        void *data);
 
-/**
- * Get the audio delay for the current media
- *
- * @see vlc_player_cbs.on_audio_delay_changed
- *
- * @param player locked player instance
- */
-VLC_API vlc_tick_t
-vlc_player_GetAudioDelay(vlc_player_t *player);
+    /**
+     * Called when the mute state has changed
+     *
+     * @see vlc_player_aout_Mute()
+     *
+     * @param aout the main aout of the player
+     * @param new_mute true if muted
+     * @param data opaque pointer set by vlc_player_aout_AddListener()
+     */
+    void (*on_mute_changed)(audio_output_t *aout, bool new_muted,
+        void *data);
 
-/**
- * Set the audio delay for the current media
- *
- * @note A successful call will trigger the
- * vlc_player_cbs.on_audio_delay_changed event.
- *
- * @param player locked player instance
- * @param delay a valid time
- * @param whence absolute or relative
- */
-VLC_API void
-vlc_player_SetAudioDelay(vlc_player_t *player, vlc_tick_t delay,
-                         enum vlc_player_whence whence);
-
-/**
- * Get the subtitle delay for the current media
- *
- * @see vlc_player_cbs.on_subtitle_delay_changed
- *
- * @param player locked player instance
- */
-VLC_API vlc_tick_t
-vlc_player_GetSubtitleDelay(vlc_player_t *player);
-
-/**
- * Set subtitle synchronisation
- *
- * This function can be used to synchronise subtitles with the audio.
- *
- * Call this function with VLC_PLAYER_SUBTITLE_SYNC_MARK_AUDIO when your hear a
- * voice you want to synchronise with subtitles. Then, call this function with
- * VLC_PLAYER_SUBTITLE_SYNC_MARK_SUBTITLE when the subtitle corresponding to
- * the voice is displayed. Finally call this function with
- * VLC_PLAYER_SUBTITLE_SYNC_APPLY to apply the subtitle delay. Calling this
- * function with VLC_PLAYER_SUBTITLE_SYNC_RESET will reset the subtitle
- * synchronisation and set a subtitle delay of 0.
- *
- * @param player locked player instance
- * @param sync synchronisation action
- */
-VLC_API void
-vlc_player_SetSubtitleSync(vlc_player_t *player,
-                           enum vlc_player_subtitle_sync sync);
-
-/**
- * Set the subtitle delay for the current media
- *
- * @note A successful call will trigger the
- * vlc_player_cbs.on_subtitle_delay_changed event.
- *
- * @param player locked player instance
- * @param delay a valid time
- * @param whence absolute or relative
- */
-VLC_API void
-vlc_player_SetSubtitleDelay(vlc_player_t *player, vlc_tick_t delay,
-                            enum vlc_player_whence whence);
-
-/**
- * Set the subtitle text scaling factor
- *
- * @note This function have an effect only if the subtitle track is a text type.
- *
- * @param player locked player instance
- * @param scale factor in the range [10;500] (default: 100)
- */
-VLC_API void
-vlc_player_SetSubtitleTextScale(vlc_player_t *player, unsigned scale);
-
-/**
- * Get the subtitle text scaling factor
- *
- * @param player locked player instance
- * @return scale factor
- */
-VLC_API unsigned
-vlc_player_GetSubtitleTextScale(vlc_player_t *player);
-
-/**
- * Get the signal quality and strength of the current media
- *
- * @param player locked player instance
- */
-VLC_API int
-vlc_player_GetSignal(vlc_player_t *player, float *quality, float *strength);
-
-/**
- * Get the statistics of the current media
- *
- * @warning The returned pointer becomes invalid when the player is unlocked.
- * The referenced structure can be safely copied.
- *
- * @see vlc_player_cbs.on_statistics_changed
- *
- * @param player locked player instance
- * @return pointer to the player stats structure or NULL
- */
-VLC_API const struct input_stats_t *
-vlc_player_GetStatistics(vlc_player_t *player);
-
-/**
- * Enable or disable pause on cork event
- *
- * If enabled, the player will automatically pause and resume on cork events.
- * In that case, cork events won't be propagated via callbacks.
- * @see vlc_player_cbs.on_cork_changed
- *
- * @param player locked player instance
- * @param enabled true to enable
- */
-VLC_API void
-vlc_player_SetPauseOnCork(vlc_player_t *player, bool enabled);
-
-/**
- * Get the V4L2 object used to do controls
- *
- * @param player locked player instance
- * @return the V4L2 object or NULL if not any. This object must be used with
- * the player lock held.
- */
-VLC_API vlc_object_t *
-vlc_player_GetV4l2Object(vlc_player_t *player) VLC_DEPRECATED;
+    /**
+     * Called when the audio device has changed
+     *
+     * @param aout the main aout of the player
+     * @param device the device name
+     * @param data opaque pointer set by vlc_player_aout_AddListener()
+     */
+    void (*on_device_changed)(audio_output_t *aout, const char *device,
+        void *data);
+};
 
 /**
  * Get the audio output
@@ -2691,6 +2297,70 @@ vlc_player_aout_ToggleMute(vlc_player_t *player)
  */
 VLC_API int
 vlc_player_aout_EnableFilter(vlc_player_t *player, const char *name, bool add);
+
+/** @} vlc_player__aout */
+
+/**
+ * @defgroup vlc_player__vout Video output control
+ * @{
+ */
+
+/**
+ * Player vout listener opaque structure.
+ *
+ * This opaque structure is returned by vlc_player_vout_AddListener() and can
+ * be used to remove the listener via vlc_player_vout_RemoveListener().
+ */
+typedef struct vlc_player_vout_listener_id vlc_player_vout_listener_id;
+
+/**
+ * action of vlc_player_cbs.on_vout_changed callback
+ */
+enum vlc_player_vout_action
+{
+    VLC_PLAYER_VOUT_STARTED,
+    VLC_PLAYER_VOUT_STOPPED,
+};
+
+/**
+ * Player vout callbacks
+ *
+ * Can be registered with vlc_player_vout_AddListener().
+ *
+ * @note The state changed from the callbacks can be either applied on the
+ * player (and all future video outputs), or on a specified video output. The
+ * state is applied on the player when the vout argument is NULL.
+ *
+ * @warning To avoid deadlocks, users should never call vout_thread_t and
+ * vlc_player_t functions from these callbacks.
+ */
+struct vlc_player_vout_cbs
+{
+    /**
+     * Called when the player and/or vout fullscreen state has changed
+     *
+     * @see vlc_player_vout_SetFullscreen()
+     *
+     * @param vout cf. vlc_player_vout_cbs note
+     * @param enabled true when fullscreen is enabled
+     * @param data opaque pointer set by vlc_player_vout_AddListener()
+     */
+    void (*on_fullscreen_changed)(vout_thread_t *vout, bool enabled,
+        void *data);
+
+    /**
+     * Called when the player and/or vout wallpaper mode has changed
+     *
+     * @see vlc_player_vout_SetWallpaperModeEnabled()
+     *
+     * @param vout cf. vlc_player_vout_cbs note
+     * @param enabled true when wallpaper mode is enabled
+     * @param data opaque pointer set by vlc_player_vout_AddListener()
+     */
+    void (*on_wallpaper_mode_changed)(vout_thread_t *vout, bool enabled,
+        void *data);
+};
+
 
 /**
  * Get and hold the main video output
@@ -2852,8 +2522,531 @@ vlc_player_vout_Snapshot(vlc_player_t *player);
  * @param fmt format string
  */
 VLC_API void
-vlc_player_vout_OSDMessage(vlc_player_t *player, const char *fmt, ...);
+vlc_player_osd_Message(vlc_player_t *player, const char *fmt, ...);
 
+/** @} vlc_player__vout */
 
-/** @} */
+/**
+ * @defgroup vlc_player__events Player events
+ * @{
+ */
+
+/**
+ * Player listener opaque structure.
+ *
+ * This opaque structure is returned by vlc_player_AddListener() and can be
+ * used to remove the listener via vlc_player_RemoveListener().
+ */
+typedef struct vlc_player_listener_id vlc_player_listener_id;
+
+/**
+ * Action of vlc_player_cbs.on_track_list_changed,
+ * vlc_player_cbs.on_program_list_changed callbacks
+ */
+enum vlc_player_list_action
+{
+    VLC_PLAYER_LIST_ADDED,
+    VLC_PLAYER_LIST_REMOVED,
+    VLC_PLAYER_LIST_UPDATED,
+};
+
+/**
+ * Player callbacks
+ *
+ * Can be registered with vlc_player_AddListener().
+ *
+ * All callbacks are called with the player locked (cf. vlc_player_Lock()) and
+ * from any threads (and even synchronously from a vlc_player function in some
+ * cases). It is safe to call any vlc_player functions from these callbacks
+ * except vlc_player_Delete().
+ *
+ * @warning To avoid deadlocks, users should never call vlc_player functions
+ * with an external mutex locked and lock this same mutex from a player
+ * callback.
+ */
+struct vlc_player_cbs
+{
+    /**
+     * Called when the current media has changed
+     *
+     * @note This can be called from the PLAYING state (when the player plays
+     * the next media internally) or from the STOPPED state (from
+     * vlc_player_SetCurrentMedia() or from an internal transition).
+     *
+     * @see vlc_player_SetCurrentMedia()
+     * @see vlc_player_InvalidateNextMedia()
+     *
+     * @param player locked player instance
+     * @param new_media new media currently played or NULL (when there is no
+     * more media to play)
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_current_media_changed)(vlc_player_t *player,
+        input_item_t *new_media, void *data);
+
+    /**
+     * Called when the player state has changed
+     *
+     * @see vlc_player_state
+     *
+     * @param player locked player instance
+     * @param new_state new player state
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_state_changed)(vlc_player_t *player,
+        enum vlc_player_state new_state, void *data);
+
+    /**
+     * Called when a media triggered an error
+     *
+     * Can be called from any states. When it happens the player will stop
+     * itself. It is safe to play an other media or event restart the player
+     * (This will reset the error state).
+     *
+     * @param player locked player instance
+     * @param error player error
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_error_changed)(vlc_player_t *player,
+        enum vlc_player_error error, void *data);
+
+    /**
+     * Called when the player buffering (or cache) has changed
+     *
+     * This event is always called with the 0 and 1 values before a playback
+     * (in case of success).  Values in between depends on the media type.
+     *
+     * @param player locked player instance
+     * @param new_buffering buffering in the range [0:1]
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_buffering_changed)(vlc_player_t *player,
+        float new_buffering, void *data);
+
+    /**
+     * Called when the player rate has changed
+     *
+     * Triggered by vlc_player_ChangeRate(), not sent when the media starts
+     * with the default rate (1.f)
+     *
+     * @param player locked player instance
+     * @param new_rate player
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_rate_changed)(vlc_player_t *player,
+        float new_rate, void *data);
+
+    /**
+     * Called when the media capabilities has changed
+     *
+     * Always called when the media is opening. Can be called during playback.
+     *
+     * @param player locked player instance
+     * @param old_caps old player capabilities
+     * @param new_caps new player capabilities
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_capabilities_changed)(vlc_player_t *player,
+        int old_caps, int new_caps, void *data);
+
+    /**
+     * Called when the player position has changed
+     *
+     * @note A started and playing media doesn't have necessarily a valid time.
+     *
+     * @param player locked player instance
+     * @param new_time a valid time or VLC_TICK_INVALID
+     * @param new_pos a valid position
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_position_changed)(vlc_player_t *player,
+        vlc_tick_t new_time, float new_pos, void *data);
+
+    /**
+     * Called when the media length has changed
+     *
+     * May be called when the media is opening or during playback.
+     *
+     * @note A started and playing media doesn't have necessarily a valid length.
+     *
+     * @param player locked player instance
+     * @param new_length a valid time or VLC_TICK_INVALID
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_length_changed)(vlc_player_t *player,
+        vlc_tick_t new_length, void *data);
+
+    /**
+     * Called when a track is added, removed, or updated
+     *
+     * @note The track is only valid from this callback context. Users should
+     * duplicate this track via vlc_player_track_Dup() if they want to use it
+     * from an other context.
+     *
+     * @param player locked player instance
+     * @param action added, removed or updated
+     * @param track valid track
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_track_list_changed)(vlc_player_t *player,
+        enum vlc_player_list_action action,
+        const struct vlc_player_track *track, void *data);
+
+    /**
+     * Called when a new track is selected and/or unselected
+     *
+     * @note This event can be called with both unselected_id and selected_id
+     * valid. This mean that a new track is replacing the old one.
+     *
+     * @param player locked player instance
+     * @param unselected_id valid track id or NULL (when nothing is unselected)
+     * @param selected_id valid track id or NULL (when nothing is selected)
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_track_selection_changed)(vlc_player_t *player,
+        vlc_es_id_t *unselected_id, vlc_es_id_t *selected_id, void *data);
+
+    /**
+     * Called when a track delay has changed
+     *
+     * @param player locked player instance
+     * @param es_id valid track id
+     * @param delay a valid delay or INT64_MAX if the delay of this track is
+     * canceled
+     */
+    void (*on_track_delay_changed)(vlc_player_t *player,
+        vlc_es_id_t *es_id, vlc_tick_t delay, void *data);
+
+    /**
+     * Called when a new program is added, removed or updated
+     *
+     * @note The program is only valid from this callback context. Users should
+     * duplicate this program via vlc_player_program_Dup() if they want to use
+     * it from an other context.
+     *
+     * @param player locked player instance
+     * @param action added, removed or updated
+     * @param prgm valid program
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_program_list_changed)(vlc_player_t *player,
+        enum vlc_player_list_action action,
+        const struct vlc_player_program *prgm, void *data);
+
+    /**
+     * Called when a new program is selected and/or unselected
+     *
+     * @note This event can be called with both unselected_id and selected_id
+     * valid. This mean that a new program is replacing the old one.
+     *
+     * @param player locked player instance
+     * @param unselected_id valid program id or -1 (when nothing is unselected)
+     * @param selected_id valid program id or -1 (when nothing is selected)
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_program_selection_changed)(vlc_player_t *player,
+        int unselected_id, int selected_id, void *data);
+
+    /**
+     * Called when the media titles has changed
+     *
+     * This event is not called when the opening media doesn't have any titles.
+     * This title list and all its elements are constant. If an element is to
+     * be updated, a new list will be sent from this callback.
+     *
+     * @note Users should hold this list with vlc_player_title_list_Hold() if
+     * they want to use it from an other context.
+     *
+     * @param player locked player instance
+     * @param titles valid title list or NULL
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_titles_changed)(vlc_player_t *player,
+        vlc_player_title_list *titles, void *data);
+
+    /**
+     * Called when a new title is selected
+     *
+     * There are no events when a title is unselected. Titles are automatically
+     * unselected when the title list changes. Titles and indexes are always
+     * valid inside the vlc_player_title_list sent by
+     * vlc_player_cbs.on_titles_changed.
+     *
+     * @param player locked player instance
+     * @param new_title new selected title
+     * @param new_idx index of this title
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_title_selection_changed)(vlc_player_t *player,
+        const struct vlc_player_title *new_title, size_t new_idx, void *data);
+
+    /**
+     * Called when a new chapter is selected
+     *
+     * There are no events when a chapter is unselected. Chapters are
+     * automatically unselected when the title list changes. Titles, chapters
+     * and indexes are always valid inside the vlc_player_title_list sent by
+     * vlc_player_cbs.on_titles_changed.
+     *
+     * @param player locked player instance
+     * @param title selected title
+     * @param title_idx selected title index
+     * @param chapter new selected chapter
+     * @param chapter_idx new selected chapter index
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_chapter_selection_changed)(vlc_player_t *player,
+        const struct vlc_player_title *title, size_t title_idx,
+        const struct vlc_player_chapter *new_chapter, size_t new_chapter_idx,
+        void *data);
+
+    /**
+     * Called when the media has a teletext menu
+     *
+     * @param player locked player instance
+     * @param has_teletext_menu true if the media has a teletext menu
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_teletext_menu_changed)(vlc_player_t *player,
+        bool has_teletext_menu, void *data);
+
+    /**
+     * Called when teletext is enabled or disabled
+     *
+     * @see vlc_player_SetTeletextEnabled()
+     *
+     * @param player locked player instance
+     * @param enabled true if teletext is enabled
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_teletext_enabled_changed)(vlc_player_t *player,
+        bool enabled, void *data);
+
+    /**
+     * Called when the teletext page has changed
+     *
+     * @see vlc_player_SelectTeletextPage()
+     *
+     * @param player locked player instance
+     * @param new_page page in the range ]0;888]
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_teletext_page_changed)(vlc_player_t *player,
+        unsigned new_page, void *data);
+
+    /**
+     * Called when the teletext transparency has changed
+     *
+     * @see vlc_player_SetTeletextTransparency()
+     *
+     * @param player locked player instance
+     * @param enabled true is the teletext overlay is transparent
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_teletext_transparency_changed)(vlc_player_t *player,
+        bool enabled, void *data);
+
+    /**
+     * Called when the player category delay has changed for the current media
+     *
+     * @see vlc_player_SetCategoryDelay()
+     *
+     * @param player locked player instance
+     * @param cat AUDIO_ES or SPU_ES
+     * @param new_delay audio delay
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_category_delay_changed)(vlc_player_t *player,
+         enum es_format_category_e cat, vlc_tick_t new_delay, void *data);
+
+    /**
+     * Called when associated subtitle has changed
+     *
+     * @see vlc_player_SetAssociatedSubsFPS()
+     *
+     * @param player locked player instance
+     * @param sub_fps subtitle fps
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_associated_subs_fps_changed)(vlc_player_t *player,
+        float subs_fps, void *data);
+
+    /**
+     * Called when a new renderer item is set
+     *
+     * @see vlc_player_SetRenderer()
+     *
+     * @param player locked player instance
+     * @param new_item a valid renderer item or NULL (if unset)
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_renderer_changed)(vlc_player_t *player,
+        vlc_renderer_item_t *new_item, void *data);
+
+    /**
+     * Called when the player recording state has changed
+     *
+     * @see vlc_player_SetRecordingEnabled()
+     *
+     * @param player locked player instance
+     * @param recording true if recording is enabled
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_recording_changed)(vlc_player_t *player,
+        bool recording, void *data);
+
+    /**
+     * Called when the media signal has changed
+     *
+     * @param player locked player instance
+     * @param new_quality signal quality
+     * @param new_strength signal strength,
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_signal_changed)(vlc_player_t *player,
+        float quality, float strength, void *data);
+
+    /**
+     * Called when the player has new statisics
+     *
+     * @note The stats structure is only valid from this callback context. It
+     * can be copied in order to use it from an other context.
+     *
+     * @param player locked player instance
+     * @param stats valid stats, only valid from this context
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_statistics_changed)(vlc_player_t *player,
+        const struct input_stats_t *stats, void *data);
+
+    /**
+     * Called when the A to B loop has changed
+     *
+     * @see vlc_player_SetAtoBLoop()
+     *
+     * @param player locked player instance
+     * @param state A, when only A is set, B when both A and B are set, None by
+     * default
+     * @param time valid time or VLC_TICK_INVALID of the current state
+     * @param pos valid pos of the current state
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_atobloop_changed)(vlc_player_t *player,
+        enum vlc_player_abloop new_state, vlc_tick_t time, float pos,
+        void *data);
+
+    /**
+     * Called when media stopped action has changed
+     *
+     * @see vlc_player_SetMediaStoppedAction()
+     *
+     * @param player locked player instance
+     * @param new_action action to execute when a media is stopped
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_media_stopped_action_changed)(vlc_player_t *player,
+        enum vlc_player_media_stopped_action new_action, void *data);
+
+    /**
+     * Called when the media meta has changed
+     *
+     * @param player locked player instance
+     * @param media current media
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_media_meta_changed)(vlc_player_t *player,
+        input_item_t *media, void *data);
+
+    /**
+     * Called when media epg has changed
+     *
+     * @param player locked player instance
+     * @param media current media
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_media_epg_changed)(vlc_player_t *player,
+        input_item_t *media, void *data);
+
+    /**
+     * Called when the media has new subitems
+     *
+     * @param player locked player instance
+     * @param media current media
+     * @param new_subitems node representing all media subitems
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_media_subitems_changed)(vlc_player_t *player,
+        input_item_t *media, input_item_node_t *new_subitems, void *data);
+
+    /**
+     * Called when a vout is started or stopped
+     *
+     * @note In case, several media with only one video track are played
+     * successively, the same vout instance will be started and stopped several
+     * time.
+     *
+     * @param player locked player instance
+     * @param action started or stopped
+     * @param vout vout (can't be NULL)
+     * @param order vout order
+     * @param es_id the ES id associated with this vout
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_vout_changed)(vlc_player_t *player,
+        enum vlc_player_vout_action action, vout_thread_t *vout,
+        enum vlc_vout_order order, vlc_es_id_t *es_id, void *data);
+
+    /**
+     * Called when the player is corked
+     *
+     * The player can be corked when the audio output loose focus or when a
+     * renderer was paused from the outside.
+     *
+     * @note called only if pause on cork was not set to true (by
+     * vlc_player_SetPauseOnCork())
+     * @note a cork_count higher than 0 means the player is corked. In that
+     * case, the user should pause the player and release all external resource
+     * needed by the player. A value higher than 1 mean that the player was
+     * corked more than one time (for different reasons). A value of 0 means
+     * the player is no longer corked. In that case, the user could resume the
+     * player.
+     *
+     * @param player locked player instance
+     * @param cork_count 0 for uncorked, > 0 for corked
+     * @param data opaque pointer set by vlc_player_AddListener()
+     */
+    void (*on_cork_changed)(vlc_player_t *player, unsigned cork_count,
+                            void *data);
+};
+
+/**
+ * Add a listener callback
+ *
+ * @note Every registered callbacks need to be removed by the caller with
+ * vlc_player_RemoveListener().
+ *
+ * @param player locked player instance
+ * @param cbs pointer to a vlc_player_cbs structure, the structure must be
+ * valid during the lifetime of the player
+ * @param cbs_data opaque pointer used by the callbacks
+ * @return a valid listener id, or NULL in case of allocation error
+ */
+VLC_API vlc_player_listener_id *
+vlc_player_AddListener(vlc_player_t *player,
+                       const struct vlc_player_cbs *cbs, void *cbs_data);
+
+/**
+ * Remove a listener callback
+ *
+ * @param player locked player instance
+ * @param listener_id listener id returned by vlc_player_AddListener()
+ */
+VLC_API void
+vlc_player_RemoveListener(vlc_player_t *player,
+                          vlc_player_listener_id *listener_id);
+
+/** @} vlc_player__events */
+
+/** @} vlc_player */
+
 #endif

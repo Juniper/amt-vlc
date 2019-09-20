@@ -2,7 +2,6 @@
  * mirror.c : Mirror video plugin for vlc
  *****************************************************************************
  * Copyright (C) 2009 VLC authors and VideoLAN
- * $Id: faf680c1373dd3a3e49a582755d6f18a9e18858a $
  *
  * Authors: Branko Kokanovic <branko.kokanovic@gmail.com>
  *

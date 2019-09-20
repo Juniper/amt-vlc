@@ -92,6 +92,11 @@ static void CloseEncoder(vlc_object_t *);
 #define SIGNALING_COMPATIBLE 1
 #define SIGNALING_HIERARCHICAL 2
 
+#define FDKENC_VER_AT_LEAST(vl0, vl1) \
+    (defined(AACENCODER_LIB_VL0) && \
+        ((AACENCODER_LIB_VL0 > vl0) || \
+         (AACENCODER_LIB_VL0 == vl0 && AACENCODER_LIB_VL1 >= vl1)))
+
 static const int pi_aot_values[] = { PROFILE_AAC_LC, PROFILE_AAC_HE, PROFILE_AAC_HE_v2, PROFILE_AAC_LD, PROFILE_AAC_ELD };
 static const char *const ppsz_aot_descriptions[] =
 { N_("AAC-LC"), N_("HE-AAC"), N_("HE-AAC-v2"), N_("AAC-LD"), N_("AAC-ELD") };
@@ -288,7 +293,11 @@ static int OpenEncoder(vlc_object_t *p_this)
     p_sys->i_maxoutputsize = 768*p_enc->fmt_in.audio.i_channels;
     p_enc->fmt_in.audio.i_bitspersample = 16;
     p_sys->i_frame_size = info.frameLength;
+#if FDKENC_VER_AT_LEAST(4, 0)
+    p_sys->i_encoderdelay = info.nDelay;
+#else
     p_sys->i_encoderdelay = info.encoderDelay;
+#endif
 
     p_enc->fmt_out.i_extra = info.confSize;
     if (p_enc->fmt_out.i_extra) {
@@ -328,13 +337,11 @@ static block_t *EncodeAudio(encoder_t *p_enc, block_t *p_aout_buf)
     if (likely(p_aout_buf)) {
         p_buffer = (int16_t *)p_aout_buf->p_buffer;
         i_samples = p_aout_buf->i_nb_samples;
-        i_pts_out = p_aout_buf->i_pts - (vlc_tick_t)((double)CLOCK_FREQ *
-               (double)p_sys->i_encoderdelay /
-               (double)p_enc->fmt_out.audio.i_rate);
+        i_pts_out = p_aout_buf->i_pts - vlc_tick_from_samples(p_sys->i_encoderdelay,
+                                                   p_enc->fmt_out.audio.i_rate);
         if (p_sys->i_pts_last == 0)
-            p_sys->i_pts_last = i_pts_out - (vlc_tick_t)((double)CLOCK_FREQ *
-               (double)(p_sys->i_frame_size) /
-               (double)p_enc->fmt_out.audio.i_rate);
+            p_sys->i_pts_last = i_pts_out - vlc_tick_from_samples(p_sys->i_frame_size,
+                                                   p_enc->fmt_out.audio.i_rate);
     } else {
         i_samples = 0;
         i_pts_out = p_sys->i_pts_last;
@@ -353,21 +360,27 @@ static block_t *EncodeAudio(encoder_t *p_enc, block_t *p_aout_buf)
         int out_identifier = OUT_BITSTREAM_DATA;
         int out_size, out_elem_size;
         void *in_ptr, *out_ptr;
+        uint8_t dummy_buf[1];
 
         if (unlikely(i_samples == 0)) {
             // this forces the encoder to purge whatever is left in the internal buffer
+            /* Must be a non-null pointer, even if it's a dummy. We could use
+             * the address of anything else on the stack as well. */
+            in_ptr        = dummy_buf;
+            in_size       = 0;
+
             in_args.numInSamples = -1;
         } else {
             in_ptr = p_buffer + (i_samples - i_samples_left)*p_enc->fmt_in.audio.i_channels;
             in_size = 2*p_enc->fmt_in.audio.i_channels*i_samples_left;
-            in_elem_size = 2;
             in_args.numInSamples = p_enc->fmt_in.audio.i_channels*i_samples_left;
-            in_buf.numBufs = 1;
-            in_buf.bufs = &in_ptr;
-            in_buf.bufferIdentifiers = &in_identifier;
-            in_buf.bufSizes = &in_size;
-            in_buf.bufElSizes = &in_elem_size;
         }
+        in_elem_size = 2;
+        in_buf.numBufs = 1;
+        in_buf.bufs = &in_ptr;
+        in_buf.bufferIdentifiers = &in_identifier;
+        in_buf.bufSizes = &in_size;
+        in_buf.bufElSizes = &in_elem_size;
         block_t *p_block;
         p_block = block_Alloc(p_sys->i_maxoutputsize);
         p_block->i_buffer = p_sys->i_maxoutputsize;
@@ -407,19 +420,18 @@ static block_t *EncodeAudio(encoder_t *p_enc, block_t *p_aout_buf)
                     // in the library buffer from the prior block
                     double d_samples_delay = (double)p_sys->i_frame_size - (double)out_args.numInSamples /
                                              (double)p_enc->fmt_in.audio.i_channels;
-                    i_pts_out -= (vlc_tick_t)((double)CLOCK_FREQ * d_samples_delay /
-                                           (double)p_enc->fmt_out.audio.i_rate);
-                    p_block->i_length = (vlc_tick_t)((double)CLOCK_FREQ * (double)p_sys->i_frame_size /
-                        (double)p_enc->fmt_out.audio.i_rate);
+                    i_pts_out -= vlc_tick_from_samples( d_samples_delay,
+                                                   p_enc->fmt_out.audio.i_rate);
+                    p_block->i_length = vlc_tick_from_samples(p_sys->i_frame_size,
+                                p_enc->fmt_out.audio.i_rate);
                     p_block->i_nb_samples = d_samples_delay;
                     //p_block->i_length = i_pts_out - p_sys->i_pts_last;
                 } else {
-                    double d_samples_forward = (double)out_args.numInSamples/(double)p_enc->fmt_in.audio.i_channels;
-                    double d_length = ((double)CLOCK_FREQ * d_samples_forward /
-                                            (double)p_enc->fmt_out.audio.i_rate);
-                    i_pts_out += (vlc_tick_t) d_length;
-                    p_block->i_length = (vlc_tick_t) d_length;
-                    p_block->i_nb_samples = d_samples_forward;
+                    vlc_tick_t d_length = vlc_tick_from_samples(out_args.numInSamples,
+                                                    p_enc->fmt_out.audio.i_rate * p_enc->fmt_in.audio.i_channels);
+                    i_pts_out += d_length;
+                    p_block->i_length = d_length;
+                    p_block->i_nb_samples = out_args.numInSamples / p_enc->fmt_in.audio.i_channels;
                 }
             }
             p_block->i_dts = p_block->i_pts = i_pts_out;

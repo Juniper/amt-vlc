@@ -45,8 +45,6 @@ struct demux_cc
         :p_demux(demux)
         ,p_renderer(renderer)
         ,m_enabled( true )
-        ,m_pause_date( VLC_TICK_INVALID )
-        ,m_pause_delay( VLC_TICK_INVALID )
     {
         init();
     }
@@ -104,7 +102,7 @@ struct demux_cc
                               &i_nb_titles, &i_title_offset,
                               &i_chapter_offset ) == VLC_SUCCESS )
             {
-                int64_t i_longest_duration = 0;
+                vlc_tick_t i_longest_duration = 0;
                 int i_longest_title = 0;
                 bool b_is_interactive = false;
                 for( int i = 0 ; i < i_nb_titles; ++i )
@@ -177,21 +175,14 @@ struct demux_cc
                                          cc_input_arg { false } );
     }
 
-    void setPauseState(bool paused, vlc_tick_t delay)
+    void setPauseState(bool paused)
     {
-        p_renderer->pf_set_pause_state( p_renderer->p_opaque, paused, delay );
+        p_renderer->pf_set_pause_state( p_renderer->p_opaque, paused );
     }
 
     vlc_tick_t getCCTime()
     {
-        vlc_tick_t system, delay;
-        if( es_out_ControlGetPcrSystem( p_demux->p_next->out, &system, &delay ) )
-            return VLC_TICK_INVALID;
-
-        vlc_tick_t cc_time = p_renderer->pf_get_time( p_renderer->p_opaque );
-        if( cc_time != VLC_TICK_INVALID )
-            return cc_time - system + m_pause_delay;
-        return VLC_TICK_INVALID;
+        return p_renderer->pf_get_time( p_renderer->p_opaque );
     }
 
     vlc_tick_t getTime()
@@ -199,7 +190,7 @@ struct demux_cc
         if( m_start_time < 0 )
             return -1;
 
-        int64_t time = m_start_time;
+        vlc_tick_t time = m_start_time;
         vlc_tick_t cc_time = getCCTime();
 
         if( cc_time != VLC_TICK_INVALID )
@@ -210,7 +201,7 @@ struct demux_cc
 
     double getPosition()
     {
-        if( m_length >= 0 && m_start_pos >= 0 )
+        if( m_length > 0 && m_start_pos >= 0 )
         {
             m_last_pos = ( getCCTime() / double( m_length ) ) + m_start_pos;
             return m_last_pos;
@@ -320,7 +311,7 @@ struct demux_cc
             vlc_tick_t time = getTime();
             if( time >= 0 )
             {
-                *va_arg(args, int64_t *) = time;
+                *va_arg(args, vlc_tick_t *) = time;
                 return VLC_SUCCESS;
             }
             return VLC_EGENERIC;
@@ -333,7 +324,7 @@ struct demux_cc
             va_copy( ap, args );
             ret = demux_vaControl( p_demux_filter->p_next, i_query, args );
             if( ret == VLC_SUCCESS )
-                m_length = *va_arg( ap, int64_t * );
+                m_length = *va_arg( ap, vlc_tick_t * );
             va_end( ap );
             return ret;
         }
@@ -353,8 +344,6 @@ struct demux_cc
 
         case DEMUX_SET_POSITION:
         {
-            m_pause_delay = m_pause_date = VLC_TICK_INVALID;
-
             double pos = va_arg( args, double );
             /* Force unprecise seek */
             int ret = demux_Control( p_demux->p_next, DEMUX_SET_POSITION, pos, false );
@@ -367,9 +356,7 @@ struct demux_cc
         }
         case DEMUX_SET_TIME:
         {
-            m_pause_delay = m_pause_date = VLC_TICK_INVALID;
-
-            vlc_tick_t time = va_arg( args, int64_t );
+            vlc_tick_t time = va_arg( args, vlc_tick_t );
             /* Force unprecise seek */
             int ret = demux_Control( p_demux->p_next, DEMUX_SET_TIME, time, false );
             if( ret != VLC_SUCCESS )
@@ -387,24 +374,11 @@ struct demux_cc
             int paused = va_arg( ap, int );
             va_end( ap );
 
-            if (paused)
-            {
-                if (m_pause_date == VLC_TICK_INVALID)
-                    m_pause_date = vlc_tick_now();
-            }
-            else
-            {
-                if (m_pause_date != VLC_TICK_INVALID)
-                {
-                    m_pause_delay += vlc_tick_now() - m_pause_date;
-                    m_pause_date = VLC_TICK_INVALID;
-                }
-            }
-
-            setPauseState( paused != 0, m_pause_delay );
+            setPauseState( paused != 0 );
             break;
         }
         case DEMUX_SET_ES:
+        case DEMUX_SET_ES_LIST:
             /* Seek back to the last known pos when changing tracks. This will
              * flush sout streams, make sout del/add called right away and
              * clear CC buffers. */
@@ -449,14 +423,12 @@ protected:
     double        m_last_pos;
     vlc_tick_t    m_start_time;
     vlc_tick_t    m_last_time;
-    vlc_tick_t    m_pause_date;
-    vlc_tick_t    m_pause_delay;
 };
 
 static void on_paused_changed_cb( void *data, bool paused )
 {
     demux_t *p_demux = reinterpret_cast<demux_t*>(data);
-    vlc_object_t *obj = p_demux->p_next->obj.parent;
+    vlc_object_t *obj = vlc_object_parent(p_demux->p_next);
 
     /* XXX: Ugly: Notify the parent of the input_thread_t that the corks state
      * changed */
@@ -469,7 +441,7 @@ static void on_paused_changed_cb( void *data, bool paused )
             ( paused ? var_IncInteger : var_DecInteger )( obj, "corks" );
             return;
         }
-        obj = obj->obj.parent;
+        obj = vlc_object_parent(obj);
     }
 }
 

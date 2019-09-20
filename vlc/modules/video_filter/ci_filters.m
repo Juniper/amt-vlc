@@ -41,9 +41,6 @@
 #include <CoreImage/CIFilter.h>
 #include <CoreImage/CIVector.h>
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wpartial-availability"
-
 enum    filter_type
 {
     FILTER_NONE = -1,
@@ -531,12 +528,12 @@ Close_RemoveConverters(filter_t *filter, struct ci_filters_ctx *ctx)
     if (ctx->src_converter)
     {
         module_unneed(ctx->src_converter, ctx->src_converter->p_module);
-        vlc_object_release(ctx->src_converter);
+        vlc_object_delete(ctx->src_converter);
     }
     if (ctx->dst_converter)
     {
         module_unneed(ctx->dst_converter, ctx->dst_converter->p_module);
-        vlc_object_release(ctx->dst_converter);
+        vlc_object_delete(ctx->dst_converter);
     }
 }
 
@@ -547,7 +544,7 @@ static picture_t *CVPX_to_CVPX_converter_BufferNew(filter_t *p_filter)
 
 static const struct filter_video_callbacks image_filter_cbs =
 {
-    .buffer_new = CVPX_to_CVPX_converter_BufferNew,
+    CVPX_to_CVPX_converter_BufferNew,
 };
 
 static filter_t *
@@ -576,7 +573,7 @@ CVPX_to_CVPX_converter_Create(filter_t *filter, bool to_rgba)
     converter->p_module = module_need(converter, "video converter", NULL, false);
     if (!converter->p_module)
     {
-        vlc_object_release(converter);
+        vlc_object_delete(converter);
         return NULL;
     }
 
@@ -587,7 +584,6 @@ static int
 Open(vlc_object_t *obj, char const *psz_filter)
 {
     filter_t *filter = (filter_t *)obj;
-    filter_sys_t *p_sys = filter->p_sys;
 
     switch (filter->fmt_in.video.i_chroma)
     {
@@ -595,17 +591,12 @@ Open(vlc_object_t *obj, char const *psz_filter)
         case VLC_CODEC_CVPX_UYVY:
         case VLC_CODEC_CVPX_I420:
         case VLC_CODEC_CVPX_BGRA:
-            if (&kCGColorSpaceITUR_709 == nil)
-            {
-                msg_Warn(obj, "iOS/macOS version is too old, aborting...");
-                return VLC_EGENERIC;
-            }
             break;
         default:
             return VLC_EGENERIC;
     }
 
-    filter->p_sys = calloc(1, sizeof(filter_sys_t));
+    filter_sys_t *p_sys = filter->p_sys = calloc(1, sizeof(filter_sys_t));
     if (!filter->p_sys)
         return VLC_ENOMEM;
 
@@ -666,8 +657,8 @@ Open(vlc_object_t *obj, char const *psz_filter)
         if (Open_CreateFilters(filter, &ctx->fchain, filter_types))
             goto error;
 
-        var_Create(filter->obj.parent, "ci-filters-ctx", VLC_VAR_ADDRESS);
-        var_SetAddress(filter->obj.parent, "ci-filters-ctx", ctx);
+        var_Create(vlc_object_parent(filter), "ci-filters-ctx", VLC_VAR_ADDRESS);
+        var_SetAddress(vlc_object_parent(filter), "ci-filters-ctx", ctx);
     }
     else if (Open_CreateFilters(filter, &ctx->fchain, filter_types))
         goto error;
@@ -754,7 +745,7 @@ Close(vlc_object_t *obj)
         if (ctx->cvpx_pool)
             CVPixelBufferPoolRelease(ctx->cvpx_pool);
         free(ctx);
-        var_Destroy(filter->obj.parent, "ci-filters-ctx");
+        var_Destroy(vlc_object_parent(filter), "ci-filters-ctx");
     }
     free(p_sys);
 }
@@ -798,5 +789,3 @@ vlc_module_begin()
     add_shortcut("ci")
     add_string("ci-filter", "CIComicEffect", CI_CUSTOM_FILTER_TEXT, CI_CUSTOM_FILTER_LONGTEXT, true);
 vlc_module_end()
-
-#pragma clang diagnostic pop

@@ -2,7 +2,6 @@
  * info_panels.cpp : Panels for the information dialogs
  ****************************************************************************
  * Copyright (C) 2006-2007 the VideoLAN team
- * $Id: 4f86cb7f80f481582602c7d93261ecf4a21c59bd $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *          Jean-Baptiste Kempf <jb@videolan.org>
@@ -72,7 +71,7 @@ MetaPanel::MetaPanel( QWidget *parent,
     QLabel *label;
 
 #define ADD_META( string, widget, col, colspan ) {                        \
-    label = new QLabel( qtr( string ) ); label->setFont( smallFont );     \
+    label = new QLabel( qfu( string ) ); label->setFont( smallFont );     \
     label->setContentsMargins( 3, 2, 0, 0 );                              \
     metaLayout->addWidget( label, line++, col, 1, colspan );              \
     widget = new QLineEdit;                                               \
@@ -86,7 +85,7 @@ MetaPanel::MetaPanel( QWidget *parent,
     ADD_META( VLC_META_ALBUM, collection_text, 0, 7 );
 
     /* Date */
-    label = new QLabel( qtr( VLC_META_DATE ) );
+    label = new QLabel( qfu( VLC_META_DATE ) );
     label->setFont( smallFont ); label->setContentsMargins( 3, 2, 0, 0 );
     metaLayout->addWidget( label, line - 1, 7, 1, 2 );
 
@@ -103,7 +102,7 @@ MetaPanel::MetaPanel( QWidget *parent,
     ADD_META( VLC_META_GENRE, genre_text, 0, 7 );
 
     /* Number - on the same line */
-    label = new QLabel( qtr( VLC_META_TRACK_NUMBER ) );
+    label = new QLabel( qfu( VLC_META_TRACK_NUMBER ) );
     label->setFont( smallFont ); label->setContentsMargins( 3, 2, 0, 0 );
     metaLayout->addWidget( label, line - 1, 7, 1, 3  );
 
@@ -173,7 +172,7 @@ MetaPanel::MetaPanel( QWidget *parent,
     CONNECT( seqtot_text, textEdited( QString ), this, enterEditMode() );
 
     CONNECT( date_text, textEdited( QString ), this, enterEditMode() );
-//    CONNECT( THEMIM->getIM(), artChanged( QString ), this, enterEditMode() );
+//    CONNECT( THEMIM, artChanged( QString ), this, enterEditMode() );
 
     /* We are not yet in Edit Mode */
     b_inEditMode = false;
@@ -300,7 +299,7 @@ void MetaPanel::saveMeta()
     input_item_SetPublisher( p_input, qtu( publisher_text->text() ) );
     input_item_SetDescription( p_input, qtu( description_text->toPlainText() ) );
 
-    input_item_WriteMeta( VLC_OBJECT(THEPL), p_input );
+    input_item_WriteMeta( VLC_OBJECT(p_intf), p_input );
 
     /* Reset the status of the mode. No need to emit any signal because parent
        is the only caller */
@@ -517,7 +516,7 @@ void InfoPanel::update( input_item_t *p_item)
                                     + qfu(info->psz_value));
             current_item->addChild(child_item);
         }
-        InfoTree->setItemExpanded( current_item, true);
+        current_item->setExpanded( true );
     }
 }
 
@@ -635,14 +634,10 @@ void InputStatsPanel::hideEvent( QHideEvent * event )
 /**
  * Update the Statistics
  **/
-void InputStatsPanel::update( input_item_t *p_item )
+void InputStatsPanel::update( const input_stats_t& stats )
 {
     if ( !isVisible() ) return;
-    assert( p_item );
 
-    vlc_mutex_locker(&p_item->lock);
-    if( p_item->p_stats == NULL )
-        return;
 
 #define UPDATE_INT( widget, calc... ) \
     { widget->setText( 1, QString::number( (qulonglong)calc ) ); }
@@ -650,24 +645,24 @@ void InputStatsPanel::update( input_item_t *p_item )
 #define UPDATE_FLOAT( widget, format, calc... ) \
     { QString str; widget->setText( 1 , str.sprintf( format, ## calc ) );  }
 
-    UPDATE_INT( read_media_stat, (p_item->p_stats->i_read_bytes / 1024 ) );
-    UPDATE_FLOAT( input_bitrate_stat,  "%6.0f", (float)(p_item->p_stats->f_input_bitrate *  8000 ));
-    UPDATE_INT( demuxed_stat,    (p_item->p_stats->i_demux_read_bytes / 1024 ) );
-    UPDATE_FLOAT( stream_bitrate_stat, "%6.0f", (float)(p_item->p_stats->f_demux_bitrate *  8000 ));
-    UPDATE_INT( corrupted_stat,      p_item->p_stats->i_demux_corrupted );
-    UPDATE_INT( discontinuity_stat,  p_item->p_stats->i_demux_discontinuity );
+    UPDATE_INT( read_media_stat, (stats.i_read_bytes / 1024 ) );
+    UPDATE_FLOAT( input_bitrate_stat,  "%6.0f", (float)(stats.f_input_bitrate *  8000 ));
+    UPDATE_INT( demuxed_stat,    (stats.i_demux_read_bytes / 1024 ) );
+    UPDATE_FLOAT( stream_bitrate_stat, "%6.0f", (float)(stats.f_demux_bitrate *  8000 ));
+    UPDATE_INT( corrupted_stat,      stats.i_demux_corrupted );
+    UPDATE_INT( discontinuity_stat,  stats.i_demux_discontinuity );
 
-    statsView->addValue( p_item->p_stats->f_input_bitrate * 8000 );
+    statsView->addValue( stats.f_input_bitrate * 8000 );
 
     /* Video */
-    UPDATE_INT( vdecoded_stat,     p_item->p_stats->i_decoded_video );
-    UPDATE_INT( vdisplayed_stat,   p_item->p_stats->i_displayed_pictures );
-    UPDATE_INT( vlost_frames_stat, p_item->p_stats->i_lost_pictures );
+    UPDATE_INT( vdecoded_stat,     stats.i_decoded_video );
+    UPDATE_INT( vdisplayed_stat,   stats.i_displayed_pictures );
+    UPDATE_INT( vlost_frames_stat, stats.i_lost_pictures );
 
     /* Audio*/
-    UPDATE_INT( adecoded_stat, p_item->p_stats->i_decoded_audio );
-    UPDATE_INT( aplayed_stat,  p_item->p_stats->i_played_abuffers );
-    UPDATE_INT( alost_stat,    p_item->p_stats->i_lost_abuffers );
+    UPDATE_INT( adecoded_stat, stats.i_decoded_audio );
+    UPDATE_INT( aplayed_stat,  stats.i_played_abuffers );
+    UPDATE_INT( alost_stat,    stats.i_lost_abuffers );
 
 #undef UPDATE_INT
 #undef UPDATE_FLOAT

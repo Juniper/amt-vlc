@@ -2,7 +2,6 @@
  * text_layout.h : Text shaping and layout
  *****************************************************************************
  * Copyright (C) 2015 VLC authors and VideoLAN
- * $Id: bb31aac1b6b7d66c157e4178400989bf250dc62a $
  *
  * Authors: Laurent Aimar <fenrir@videolan.org>
  *          Sigmund Augdal Helberg <dnumgis@videolan.org>
@@ -46,7 +45,6 @@ typedef struct
     const ruby_block_t *p_ruby;
     int            i_line_offset;       /* underline/strikethrough offset */
     int            i_line_thickness;    /* underline/strikethrough thickness */
-    bool           b_in_karaoke;
 } line_character_t;
 
 struct line_desc_t
@@ -86,7 +84,6 @@ typedef struct
     uni_char_t *p_uchars;       /*!< array of size \p i_count character codepoints */
     text_style_t **pp_styles;   /*!< array of size \p i_count character styles */
     ruby_block_t **pp_ruby;     /*!< array of size \p  */
-    uint32_t *pi_k_durations;   /*!< array of size \p i_count karaoke timestamps */
     size_t i_count;             /*!< length of the arrays */
 
     bool b_balanced;            /*!< true for grid-mode text */

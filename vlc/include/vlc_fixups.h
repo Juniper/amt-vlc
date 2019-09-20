@@ -90,6 +90,7 @@ typedef struct
 
 #if !defined (HAVE_ALIGNED_ALLOC) || \
     !defined (HAVE_MEMRCHR) || \
+    !defined (HAVE_POSIX_MEMALIGN) || \
     !defined (HAVE_QSORT_R) || \
     !defined (HAVE_STRLCPY) || \
     !defined (HAVE_STRNDUP) || \
@@ -299,6 +300,10 @@ int setenv (const char *, const char *, int);
 int unsetenv (const char *);
 #endif
 
+#ifndef HAVE_POSIX_MEMALIGN
+int posix_memalign(void **, size_t, size_t);
+#endif
+
 #ifndef HAVE_ALIGNED_ALLOC
 void *aligned_alloc(size_t, size_t);
 #endif
@@ -490,6 +495,16 @@ void twalk( const void *root, void(*action)(const void *nodep, VISIT which, int 
 void *lfind( const void *key, const void *base, size_t *nmemb,
              size_t size, int(*cmp)(const void *, const void *) );
 #endif /* HAVE_SEARCH_H */
+
+#ifdef _WIN64
+# ifdef HAVE_SEARCH_H
+#  include <search.h>
+# endif
+/* the Win32 prototype of lfind() expects an unsigned* for 'nelp' */
+# define lfind(a,b,c,d,e) \
+         lfind((a),(b), &(unsigned){ (*(c) > UINT_MAX) ? UINT_MAX : *(c) }, (d),(e))
+#endif /* _WIN64 */
+
 #ifndef HAVE_TDESTROY
 void tdestroy( void *root, void (*free_node)(void *nodep) );
 #endif

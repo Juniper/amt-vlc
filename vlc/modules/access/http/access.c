@@ -22,6 +22,9 @@
 # include "config.h"
 #endif
 
+#undef MODULE_STRING
+#define MODULE_STRING "http"
+
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
@@ -118,13 +121,6 @@ static block_t *LiveRead(stream_t *access, bool *restrict eof)
     if (b == NULL) /* TODO: loop instead of EOF, see vlc_http_live_read() */
         *eof = true;
     return b;
-}
-
-static int NoSeek(stream_t *access, uint64_t pos)
-{
-    (void) access;
-    (void) pos;
-    return VLC_EGENERIC;
 }
 
 static int LiveControl(stream_t *access, int query, va_list args)
@@ -250,7 +246,7 @@ static int Open(vlc_object_t *obj)
     if (live)
     {
         access->pf_block = LiveRead;
-        access->pf_seek = NoSeek;
+        access->pf_seek = NULL;
         access->pf_control = LiveControl;
     }
     else
@@ -295,7 +291,6 @@ vlc_module_begin()
 
     add_bool("http-continuous", false, N_("Continuous stream"),
              N_("Keep reading a resource that keeps being updated."), true)
-        change_safe()
         change_volatile()
     add_bool("http-forward-cookies", true, N_("Cookies forwarding"),
              N_("Forward cookies across HTTP redirections."), true)

@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="12121" systemVersion="17E139j" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="14490.70" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
     <dependencies>
-        <development version="7000" identifier="xcode"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="12121"/>
+        <deployment identifier="macosx"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="14490.70"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <objects>
         <customObject id="-2" userLabel="File's Owner" customClass="VLCMainMenu">
@@ -67,7 +68,6 @@
                 <outlet property="info" destination="1192" id="BPE-5A-AU4"/>
                 <outlet property="jumpToTime" destination="5138" id="XK6-rV-lr9"/>
                 <outlet property="license" destination="2834" id="0tU-nu-6dP"/>
-                <outlet property="loop" destination="5151" id="scu-xu-Tvh"/>
                 <outlet property="mcopyItem" destination="197" id="aBx-7l-f4e"/>
                 <outlet property="messages" destination="1003" id="q4C-pt-kQo"/>
                 <outlet property="minimize" destination="5606" id="tN3-Ho-T0c"/>
@@ -117,7 +117,15 @@
                 <outlet property="services" destination="1996" id="X3H-XI-xFK"/>
                 <outlet property="show_all" destination="150" id="XQ2-CW-0PI"/>
                 <outlet property="snapshot" destination="2249" id="6bO-HY-I3I"/>
+                <outlet property="sortPlaylist" destination="lkj-Wj-TYr" id="T45-2w-c0O"/>
                 <outlet property="stop" destination="5156" id="irh-Cr-vBT"/>
+                <outlet property="subtitleSize" destination="5543" id="PTJ-Qy-QQd"/>
+                <outlet property="subtitleSizeLabel" destination="Jqh-Tt-S94" id="xLh-4s-Sis"/>
+                <outlet property="subtitleSizeLargerLabel" destination="S6g-As-Drf" id="29s-r1-Oqc"/>
+                <outlet property="subtitleSizeSlider" destination="bMX-Y8-2vL" id="7Ai-PA-3Qr"/>
+                <outlet property="subtitleSizeSmallerLabel" destination="DE3-cs-bVc" id="74W-Xn-pGS"/>
+                <outlet property="subtitleSizeTextField" destination="uVr-yv-xcp" id="45Z-1j-gDB"/>
+                <outlet property="subtitleSizeView" destination="GSo-om-Xt7" id="qOx-XX-QUJ"/>
                 <outlet property="subtitle_bgcolor" destination="5581" id="moz-G5-DBl"/>
                 <outlet property="subtitle_bgcolorMenu" destination="5582" id="gPd-5S-3xK"/>
                 <outlet property="subtitle_bgopacity" destination="5568" id="aPB-o5-iU6"/>
@@ -127,8 +135,6 @@
                 <outlet property="subtitle_bgopacity_view" destination="5547" id="KR2-v5-OeA"/>
                 <outlet property="subtitle_outlinethickness" destination="5571" id="Zml-NY-nvy"/>
                 <outlet property="subtitle_outlinethicknessMenu" destination="5572" id="x2V-5T-aCd"/>
-                <outlet property="subtitle_size" destination="5543" id="rxS-Zy-Moz"/>
-                <outlet property="subtitle_sizeMenu" destination="5544" id="5PH-co-f3W"/>
                 <outlet property="subtitle_textcolor" destination="5576" id="RjP-9r-hxv"/>
                 <outlet property="subtitle_textcolorMenu" destination="5577" id="RDh-MP-fR3"/>
                 <outlet property="subtitle_track" destination="5459" id="fwz-2h-teb"/>
@@ -143,10 +149,6 @@
                 <outlet property="teletext_yellow" destination="5500" id="auC-nl-mJx"/>
                 <outlet property="title" destination="5148" id="HFs-7N-MNr"/>
                 <outlet property="titleMenu" destination="5159" id="Akr-s6-bqw"/>
-                <outlet property="toggleEffectsButton" destination="5537" id="Gg8-nl-gzx"/>
-                <outlet property="toggleJumpButtons" destination="5240" id="53V-UC-536"/>
-                <outlet property="togglePlaymodeButtons" destination="5242" id="9TB-F7-ttT"/>
-                <outlet property="toggleSidebar" destination="5413" id="cz7-Zr-1lC"/>
                 <outlet property="trackSynchronization" destination="4412" id="BHW-NJ-jbd"/>
                 <outlet property="videoMenu" destination="334" id="7Ri-Tc-yej"/>
                 <outlet property="videoeffects" destination="2390" id="fXe-JA-9GI"/>
@@ -158,6 +160,14 @@
                 <outlet property="vol_down" destination="1065" id="iI9-ay-pAs"/>
                 <outlet property="vol_up" destination="1064" id="8I9-3j-p1J"/>
                 <outlet property="voutMenu" destination="2730" id="ZHq-j3-Ggd"/>
+                <outlet property="voutMenuAudiotrack" destination="n8w-vf-ZVR" id="b8A-Vn-Xoe"/>
+                <outlet property="voutMenuAudiotrackMenu" destination="y7z-2t-aNd" id="fzG-vh-4te"/>
+                <outlet property="voutMenuOpenSubtitleFile" destination="dqb-Ht-ibF" id="4Y5-vb-c51"/>
+                <outlet property="voutMenuRecord" destination="LA2-yH-mAD" id="SJJ-ZD-ee1"/>
+                <outlet property="voutMenuSubtitlestrack" destination="5H6-1N-Hjz" id="LdO-F9-cTL"/>
+                <outlet property="voutMenuSubtitlestrackMenu" destination="juF-Df-Fzd" id="exR-TY-zmI"/>
+                <outlet property="voutMenuVideotrack" destination="mqn-dW-9kE" id="Y9j-G3-FF3"/>
+                <outlet property="voutMenuVideotrackMenu" destination="UmV-y6-gd3" id="RqR-qO-YSj"/>
                 <outlet property="voutMenufullscreen" destination="2732" id="NC7-qA-BIE"/>
                 <outlet property="voutMenumute" destination="2743" id="k5B-Oz-GjX"/>
                 <outlet property="voutMenunext" destination="2739" id="CkI-w1-GZo"/>
@@ -368,30 +378,6 @@
                     <modifierMask key="keyEquivalentModifierMask"/>
                     <menu key="submenu" title="View" id="5238">
                         <items>
-                            <menuItem title="Show Previous &amp; Next Buttons" id="5240">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="toggleJumpButtons:" target="-2" id="rFJ-9Z-m4G"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Show Shuffle &amp; Repeat Buttons" id="5242">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="togglePlaymodeButtons:" target="-2" id="p7O-r4-WDX"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Show Audio Effects Button" id="5537">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="toggleEffectsButton:" target="-2" id="QSm-2E-Nlo"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Show Sidebar" id="5413">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="toggleSidebar:" target="-2" id="e7y-3l-ZUS"/>
-                                </connections>
-                            </menuItem>
                             <menuItem isSeparatorItem="YES" id="5250"/>
                             <menuItem title="Playlist Table Columns" id="5247">
                                 <modifierMask key="keyEquivalentModifierMask"/>
@@ -460,20 +446,18 @@
                                     <action selector="random:" target="-2" id="oVh-n6-tgV"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Repeat Item" keyEquivalent="r" id="5143">
+                            <menuItem title="Repeat Item" keyEquivalent="L" id="5143">
                                 <connections>
                                     <action selector="repeat:" target="-2" id="ThK-0C-9oZ"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Repeat Playlist" keyEquivalent="l" id="5151">
-                                <connections>
-                                    <action selector="loop:" target="-2" id="Oqv-EO-vhg"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="A→B Loop" keyEquivalent="L" id="5409">
+                            <menuItem title="A→B Loop" keyEquivalent="l" id="5409">
                                 <connections>
                                     <action selector="toggleAtoBloop:" target="-2" id="Wrv-He-P33"/>
                                 </connections>
+                            </menuItem>
+                            <menuItem title="Sort Playlist" id="lkj-Wj-TYr">
+                                <modifierMask key="keyEquivalentModifierMask"/>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="5141"/>
                             <menuItem title="Quit after Playback" id="5140">
@@ -639,9 +623,8 @@
                                 <menu key="submenu" title="Subtitle track" id="5460"/>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="5580"/>
-                            <menuItem title="Size" id="5543">
+                            <menuItem title="Size (View)" id="5543">
                                 <modifierMask key="keyEquivalentModifierMask"/>
-                                <menu key="submenu" title="Size" id="5544"/>
                             </menuItem>
                             <menuItem title="Text Color" id="5576">
                                 <modifierMask key="keyEquivalentModifierMask"/>
@@ -898,6 +881,12 @@
                         <action selector="stop:" target="-2" id="3I6-RI-EYq"/>
                     </connections>
                 </menuItem>
+                <menuItem title="Record" enabled="NO" id="LA2-yH-mAD">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <connections>
+                        <action selector="toggleRecord:" target="-2" id="hpP-Ik-xWJ"/>
+                    </connections>
+                </menuItem>
                 <menuItem isSeparatorItem="YES" id="2737">
                     <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                 </menuItem>
@@ -932,6 +921,23 @@
                 <menuItem isSeparatorItem="YES" id="2738">
                     <modifierMask key="keyEquivalentModifierMask" command="YES"/>
                 </menuItem>
+                <menuItem title="Audio track" id="n8w-vf-ZVR">
+                    <menu key="submenu" title="Audio track" id="y7z-2t-aNd"/>
+                </menuItem>
+                <menuItem title="Video track" id="mqn-dW-9kE">
+                    <menu key="submenu" title="Video track" id="UmV-y6-gd3"/>
+                </menuItem>
+                <menuItem title="Open File..." id="dqb-Ht-ibF">
+                    <connections>
+                        <action selector="addSubtitleFile:" target="-2" id="YXj-Mu-ank"/>
+                    </connections>
+                </menuItem>
+                <menuItem title="Subtitle track" id="5H6-1N-Hjz">
+                    <menu key="submenu" title="Subtitle track" id="juF-Df-Fzd"/>
+                </menuItem>
+                <menuItem isSeparatorItem="YES" id="K9n-42-WrB">
+                    <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                </menuItem>
                 <menuItem title="Fullscreen" id="2732">
                     <connections>
                         <action selector="toggleFullscreen:" target="-2" id="7fK-95-1OE"/>
@@ -946,6 +952,7 @@
                     </connections>
                 </menuItem>
             </items>
+            <point key="canvasLocation" x="-35" y="361"/>
         </menu>
         <customView id="4596" userLabel="Rate Menu View">
             <rect key="frame" x="0.0" y="0.0" width="307" height="53"/>
@@ -1026,7 +1033,7 @@
                 <constraint firstItem="4599" firstAttribute="right" secondItem="4597" secondAttribute="right" id="wQZ-1a-DAZ"/>
                 <constraint firstItem="4600" firstAttribute="left" secondItem="4597" secondAttribute="left" id="zGp-3d-2RP"/>
             </constraints>
-            <point key="canvasLocation" x="288.5" y="149.5"/>
+            <point key="canvasLocation" x="423" y="153"/>
         </customView>
         <customView id="5547" userLabel="Sub BG Opacity">
             <rect key="frame" x="0.0" y="0.0" width="309" height="39"/>
@@ -1073,5 +1080,74 @@
             <point key="canvasLocation" x="296.5" y="285.5"/>
         </customView>
         <userDefaultsController representsSharedInstance="YES" id="uFO-sP-uo6"/>
+        <customView id="GSo-om-Xt7" userLabel="Subtitle Size View">
+            <rect key="frame" x="0.0" y="0.0" width="307" height="53"/>
+            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+            <subviews>
+                <slider verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="bMX-Y8-2vL">
+                    <rect key="frame" x="28" y="4" width="261" height="15"/>
+                    <sliderCell key="cell" controlSize="mini" continuous="YES" enabled="NO" state="on" alignment="left" minValue="10" maxValue="500" doubleValue="100" tickMarkPosition="above" numberOfTickMarks="17" sliderType="linear" id="OPq-bA-vRD"/>
+                    <connections>
+                        <action selector="subtitleSize:" target="-2" id="4G5-va-xcG"/>
+                    </connections>
+                </slider>
+                <textField verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="DE3-cs-bVc">
+                    <rect key="frame" x="26" y="19" width="44" height="14"/>
+                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" enabled="NO" sendsActionOnEndEditing="YES" alignment="left" title="Smaller" id="hxi-rv-sC7">
+                        <font key="font" metaFont="smallSystem"/>
+                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                    </textFieldCell>
+                </textField>
+                <textField verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="S6g-As-Drf">
+                    <rect key="frame" x="253" y="19" width="38" height="14"/>
+                    <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="Larger" id="RQ6-7K-AGB">
+                        <font key="font" metaFont="smallSystem"/>
+                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                    </textFieldCell>
+                </textField>
+                <box horizontalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="Vem-jM-Vb3">
+                    <rect key="frame" x="156" y="11" width="5" height="8"/>
+                    <constraints>
+                        <constraint firstAttribute="height" constant="8" id="id8-4P-5M4"/>
+                    </constraints>
+                </box>
+                <textField verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Jqh-Tt-S94">
+                    <rect key="frame" x="19" y="35" width="85" height="18"/>
+                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" enabled="NO" sendsActionOnEndEditing="YES" title="Subtitle Size" id="yvk-IW-B4l">
+                        <font key="font" metaFont="system" size="14"/>
+                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                    </textFieldCell>
+                </textField>
+                <textField verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="uVr-yv-xcp">
+                    <rect key="frame" x="273" y="35" width="18" height="18"/>
+                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" alignment="right" title="1x" id="Mvq-OA-4Tt">
+                        <font key="font" metaFont="system" size="14"/>
+                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                        <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                    </textFieldCell>
+                </textField>
+            </subviews>
+            <constraints>
+                <constraint firstItem="bMX-Y8-2vL" firstAttribute="top" secondItem="Vem-jM-Vb3" secondAttribute="bottom" constant="-8" id="0bg-Km-JNT"/>
+                <constraint firstItem="Vem-jM-Vb3" firstAttribute="centerX" secondItem="bMX-Y8-2vL" secondAttribute="centerX" id="31A-hu-zHO"/>
+                <constraint firstAttribute="bottom" secondItem="bMX-Y8-2vL" secondAttribute="bottom" constant="4" id="54h-q1-adq"/>
+                <constraint firstItem="S6g-As-Drf" firstAttribute="right" secondItem="bMX-Y8-2vL" secondAttribute="right" id="5a8-fp-fQO"/>
+                <constraint firstAttribute="trailing" secondItem="bMX-Y8-2vL" secondAttribute="trailing" constant="18" id="7yN-xS-oYm"/>
+                <constraint firstItem="DE3-cs-bVc" firstAttribute="left" secondItem="bMX-Y8-2vL" secondAttribute="left" id="8a5-cN-2yz"/>
+                <constraint firstItem="uVr-yv-xcp" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="Jqh-Tt-S94" secondAttribute="trailing" constant="10" id="ACe-IL-9DG"/>
+                <constraint firstItem="Jqh-Tt-S94" firstAttribute="top" secondItem="GSo-om-Xt7" secondAttribute="top" id="Ar2-W0-5Xu"/>
+                <constraint firstItem="DE3-cs-bVc" firstAttribute="centerY" secondItem="S6g-As-Drf" secondAttribute="centerY" id="UaQ-Um-sWN"/>
+                <constraint firstItem="bMX-Y8-2vL" firstAttribute="top" secondItem="DE3-cs-bVc" secondAttribute="bottom" id="c6I-Na-KV1"/>
+                <constraint firstItem="Jqh-Tt-S94" firstAttribute="leading" secondItem="GSo-om-Xt7" secondAttribute="leading" constant="21" id="cYQ-Os-xxJ"/>
+                <constraint firstItem="uVr-yv-xcp" firstAttribute="trailing" secondItem="bMX-Y8-2vL" secondAttribute="trailing" id="eoR-UG-pdH"/>
+                <constraint firstItem="uVr-yv-xcp" firstAttribute="centerY" secondItem="Jqh-Tt-S94" secondAttribute="centerY" id="s3X-tb-Ora"/>
+                <constraint firstItem="bMX-Y8-2vL" firstAttribute="top" secondItem="Jqh-Tt-S94" secondAttribute="bottom" constant="16" id="ybL-Ac-zUJ"/>
+                <constraint firstItem="bMX-Y8-2vL" firstAttribute="leading" secondItem="GSo-om-Xt7" secondAttribute="leading" constant="28" id="yyk-px-6zZ"/>
+            </constraints>
+            <point key="canvasLocation" x="423" y="362"/>
+        </customView>
     </objects>
 </document>

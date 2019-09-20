@@ -50,21 +50,19 @@
 
 #include "../../video_chroma/d3d11_fmt.h"
 
-#define D3D_DecoderType     ID3D11VideoDecoder
-#define D3D_DecoderDevice   ID3D11VideoDevice
-#define D3D_DecoderSurface  ID3D11VideoDecoderOutputView
+typedef picture_sys_d3d11_t VA_PICSYS;
+#include "va_surface.h"
+
 #include "directx_va.h"
 
 static int Open(vlc_va_t *, AVCodecContext *, enum PixelFormat,
-                const es_format_t *, picture_sys_t *p_sys);
-static void Close(vlc_va_t *, void **);
+                const es_format_t *, void *);
 
 vlc_module_begin()
     set_description(N_("Direct3D11 Video Acceleration"))
-    set_capability("hw decoder", 110)
     set_category(CAT_INPUT)
     set_subcategory(SUBCAT_INPUT_VCODEC)
-    set_callbacks(Open, Close)
+    set_va_callback(Open, 110)
 vlc_module_end()
 
 /*
@@ -99,7 +97,6 @@ DEFINE_GUID(DXVA2_NoEncrypt,                        0x1b81bed0, 0xa0c7, 0x11d3, 
 
 struct vlc_va_sys_t
 {
-    directx_sys_t                dx_sys;
     UINT                         totalTextureSlices;
     unsigned                     textureWidth;
     unsigned                     textureHeight;
@@ -108,7 +105,6 @@ struct vlc_va_sys_t
     d3d11_device_t               d3d_dev;
 
     /* Video service */
-    ID3D11VideoContext           *d3dvidctx;
     DXGI_FORMAT                  render;
 
     /* pool */
@@ -116,41 +112,38 @@ struct vlc_va_sys_t
 
     /* Video decoder */
     D3D11_VIDEO_DECODER_CONFIG   cfg;
+    GUID                         decoder_guid;
+    ID3D11VideoDevice            *d3ddec;
 
     /* avcodec internals */
     struct AVD3D11VAContext      hw;
 
-    ID3D11ShaderResourceView     *resourceView[MAX_SURFACE_COUNT * D3D11_MAX_SHADER_VIEW];
+    /* pool */
+    va_pool_t                     va_pool;
+    ID3D11VideoDecoderOutputView *hw_surface[MAX_SURFACE_COUNT];
+
+    ID3D11ShaderResourceView     *renderSrc[MAX_SURFACE_COUNT * D3D11_MAX_SHADER_VIEW];
 };
 
 /* */
 static int D3dCreateDevice(vlc_va_t *);
 static void D3dDestroyDevice(vlc_va_t *);
-static char *DxDescribe(vlc_va_sys_t *);
 
-static int DxCreateVideoService(vlc_va_t *);
-static void DxDestroyVideoService(vlc_va_t *);
 static int DxGetInputList(vlc_va_t *, input_list_t *);
 static int DxSetupOutput(vlc_va_t *, const GUID *, const video_format_t *);
 
 static int DxCreateDecoderSurfaces(vlc_va_t *, int codec_id,
                                    const video_format_t *fmt, unsigned surface_count);
-static void DxDestroySurfaces(vlc_va_t *);
-static void SetupAVCodecContext(vlc_va_t *);
+static void DxDestroySurfaces(vlc_va_sys_t *);
 
-void SetupAVCodecContext(vlc_va_t *va)
+static void SetupAVCodecContext(vlc_va_sys_t *sys, unsigned surfaces)
 {
-    vlc_va_sys_t *sys = va->sys;
-    directx_sys_t *dx_sys = &sys->dx_sys;
-
-    sys->hw.video_context = sys->d3dvidctx;
-    sys->hw.decoder = dx_sys->decoder;
     sys->hw.cfg = &sys->cfg;
-    sys->hw.surface_count = dx_sys->va_pool.surface_count;
-    sys->hw.surface = dx_sys->hw_surface;
+    sys->hw.surface_count = surfaces;
+    sys->hw.surface = sys->hw_surface;
     sys->hw.context_mutex = sys->d3d_dev.context_mutex;
 
-    if (IsEqualGUID(&dx_sys->input, &DXVA_Intel_H264_NoFGT_ClearVideo))
+    if (IsEqualGUID(&sys->decoder_guid, &DXVA_Intel_H264_NoFGT_ClearVideo))
         sys->hw.workaround |= FF_DXVA2_WORKAROUND_INTEL_CLEARVIDEO;
 }
 
@@ -159,7 +152,7 @@ static void d3d11_pic_context_destroy(struct picture_context_t *opaque)
     struct va_pic_context *pic_ctx = (struct va_pic_context*)opaque;
     if (pic_ctx->va_surface)
         va_surface_Release(pic_ctx->va_surface);
-    ReleasePictureSys(&pic_ctx->picsys);
+    ReleaseD3D11PictureSys(&pic_ctx->picsys);
     free(pic_ctx);
 }
 
@@ -174,7 +167,7 @@ static struct picture_context_t *d3d11_pic_context_copy(struct picture_context_t
     struct va_pic_context *src_ctx = (struct va_pic_context*)ctx;
     struct va_pic_context *pic_ctx = CreatePicContext(src_ctx->picsys.decoder,
                                                       src_ctx->picsys.resource[0], src_ctx->picsys.context,
-                                                      src_ctx->picsys.slice_index, src_ctx->picsys.resourceView);
+                                                      src_ctx->picsys.slice_index, src_ctx->picsys.renderSrc);
     if (unlikely(pic_ctx==NULL))
         return NULL;
     if (src_ctx->va_surface) {
@@ -189,7 +182,7 @@ static struct va_pic_context *CreatePicContext(
                                                   ID3D11Resource *p_resource,
                                                   ID3D11DeviceContext *context,
                                                   UINT slice,
-                                                  ID3D11ShaderResourceView *resourceView[D3D11_MAX_SHADER_VIEW])
+                                                  ID3D11ShaderResourceView *renderSrc[D3D11_MAX_SHADER_VIEW])
 {
     struct va_pic_context *pic_ctx = calloc(1, sizeof(*pic_ctx));
     if (unlikely(pic_ctx==NULL))
@@ -207,19 +200,18 @@ static struct va_pic_context *CreatePicContext(
     for (int i=0;i<D3D11_MAX_SHADER_VIEW; i++)
     {
         pic_ctx->picsys.resource[i] = p_resource;
-        pic_ctx->picsys.resourceView[i] = resourceView[i];
+        pic_ctx->picsys.renderSrc[i] = renderSrc[i];
     }
-    AcquirePictureSys(&pic_ctx->picsys);
+    AcquireD3D11PictureSys(&pic_ctx->picsys);
     pic_ctx->picsys.context = context;
 done:
     return pic_ctx;
 }
 
-static struct va_pic_context* NewSurfacePicContext(vlc_va_t *va, int surface_index)
+static struct va_pic_context* NewSurfacePicContext(vlc_va_t *va, int surface_index, vlc_va_surface_t *va_surface)
 {
     vlc_va_sys_t *sys = va->sys;
-    directx_sys_t *dx_sys = &sys->dx_sys;
-    ID3D11VideoDecoderOutputView *surface = dx_sys->hw_surface[surface_index];
+    ID3D11VideoDecoderOutputView *surface = sys->hw_surface[surface_index];
     ID3D11ShaderResourceView *resourceView[D3D11_MAX_SHADER_VIEW];
     ID3D11Resource *p_resource;
     ID3D11VideoDecoderOutputView_GetResource(surface, &p_resource);
@@ -228,7 +220,7 @@ static struct va_pic_context* NewSurfacePicContext(vlc_va_t *va, int surface_ind
     ID3D11VideoDecoderOutputView_GetDesc(surface, &viewDesc);
 
     for (int i=0; i<D3D11_MAX_SHADER_VIEW; i++)
-        resourceView[i] = sys->resourceView[viewDesc.Texture2D.ArraySlice*D3D11_MAX_SHADER_VIEW + i];
+        resourceView[i] = sys->renderSrc[viewDesc.Texture2D.ArraySlice*D3D11_MAX_SHADER_VIEW + i];
 
     struct va_pic_context *pic_ctx = CreatePicContext(
                                                   surface,
@@ -242,17 +234,19 @@ static struct va_pic_context* NewSurfacePicContext(vlc_va_t *va, int surface_ind
     /* all the resources are acquired during surfaces init, and a second time in
      * CreatePicContext(), undo one of them otherwise we need an extra release
      * when the pool is emptied */
-    ReleasePictureSys(&pic_ctx->picsys);
+    ReleaseD3D11PictureSys(&pic_ctx->picsys);
+    pic_ctx->va_surface = va_surface;
     return pic_ctx;
 }
 
 static int Get(vlc_va_t *va, picture_t *pic, uint8_t **data)
 {
-    picture_sys_t *p_sys = pic->p_sys;
+    vlc_va_sys_t *sys = va->sys;
+    picture_sys_d3d11_t *p_sys = pic->p_sys;
 #if D3D11_DIRECT_DECODE
-    if (va->sys->dx_sys.can_extern_pool)
+    if (sys->va_pool.can_extern_pool)
     {
-        /* copy the original picture_sys_t in the va_pic_context */
+        /* copy the original picture_sys_d3d11_t in the va_pic_context */
         if (!pic->context)
         {
             assert(p_sys!=NULL);
@@ -261,11 +255,11 @@ static int Get(vlc_va_t *va, picture_t *pic, uint8_t **data)
                 HRESULT hr;
                 D3D11_VIDEO_DECODER_OUTPUT_VIEW_DESC viewDesc;
                 ZeroMemory(&viewDesc, sizeof(viewDesc));
-                viewDesc.DecodeProfile = va->sys->dx_sys.input;
+                viewDesc.DecodeProfile = sys->decoder_guid;
                 viewDesc.ViewDimension = D3D11_VDOV_DIMENSION_TEXTURE2D;
                 viewDesc.Texture2D.ArraySlice = p_sys->slice_index;
 
-                hr = ID3D11VideoDevice_CreateVideoDecoderOutputView( va->sys->dx_sys.d3ddec,
+                hr = ID3D11VideoDevice_CreateVideoDecoderOutputView( sys->d3ddec,
                                                                      p_sys->resource[KNOWN_DXGI_INDEX],
                                                                      &viewDesc,
                                                                      &p_sys->decoder );
@@ -276,9 +270,9 @@ static int Get(vlc_va_t *va, picture_t *pic, uint8_t **data)
             pic->context = (picture_context_t*)CreatePicContext(
                                              p_sys->decoder,
                                              p_sys->resource[KNOWN_DXGI_INDEX],
-                                             va->sys->d3d_dev.d3dcontext,
+                                             sys->d3d_dev.d3dcontext,
                                              p_sys->slice_index,
-                                             p_sys->resourceView );
+                                             p_sys->renderSrc );
             if (pic->context == NULL)
                 return VLC_EGENERIC;
         }
@@ -286,111 +280,135 @@ static int Get(vlc_va_t *va, picture_t *pic, uint8_t **data)
     else
 #endif
     {
-        int res = va_pool_Get(&va->sys->dx_sys.va_pool, pic);
-        if (unlikely(res != VLC_SUCCESS))
-            return res;
+        picture_context_t *pic_ctx = va_pool_Get(&sys->va_pool);
+        if (unlikely(pic_ctx == NULL))
+            return VLC_ENOITEM;
+        pic->context = pic_ctx;
     }
     *data = (uint8_t*)((struct va_pic_context *)pic->context)->picsys.decoder;
     return VLC_SUCCESS;
 }
 
-static void Close(vlc_va_t *va, void **ctx)
+static void Close(vlc_va_t *va)
 {
     vlc_va_sys_t *sys = va->sys;
 
-    (void) ctx;
-
-    directx_va_Close(va, &sys->dx_sys);
+    va_pool_Close(va, &sys->va_pool);
 
     D3D11_Destroy( &sys->hd3d );
 
-    free((char *)va->description);
     free(sys);
 }
 
+static const struct vlc_va_operations ops = { Get, Close, };
+
 static int Open(vlc_va_t *va, AVCodecContext *ctx, enum PixelFormat pix_fmt,
-                const es_format_t *fmt, picture_sys_t *p_sys)
+                const es_format_t *fmt, void *picsys)
 {
     int err = VLC_EGENERIC;
-    directx_sys_t *dx_sys;
 
     ctx->hwaccel_context = NULL;
 
     if (pix_fmt != AV_PIX_FMT_D3D11VA_VLD)
         return VLC_EGENERIC;
 
+#if !VLC_WINSTORE_APP
+    /* Allow using D3D11VA automatically starting from Windows 8.1 */
+    if (!va->obj.force)
+    {
+        bool isWin81OrGreater = false;
+        HMODULE hKernel32 = GetModuleHandle(TEXT("kernel32.dll"));
+        if (likely(hKernel32 != NULL))
+            isWin81OrGreater = GetProcAddress(hKernel32, "IsProcessCritical") != NULL;
+        if (!isWin81OrGreater)
+            return VLC_EGENERIC;
+    }
+#endif
+
     vlc_va_sys_t *sys = calloc(1, sizeof (*sys));
     if (unlikely(sys == NULL))
         return VLC_ENOMEM;
-
-    dx_sys = &sys->dx_sys;
-
-    dx_sys->va_pool.pf_create_device           = D3dCreateDevice;
-    dx_sys->va_pool.pf_destroy_device          = D3dDestroyDevice;
-    dx_sys->va_pool.pf_create_video_service    = DxCreateVideoService;
-    dx_sys->va_pool.pf_destroy_video_service   = DxDestroyVideoService;
-    dx_sys->va_pool.pf_create_decoder_surfaces = DxCreateDecoderSurfaces;
-    dx_sys->va_pool.pf_destroy_surfaces        = DxDestroySurfaces;
-    dx_sys->va_pool.pf_setup_avcodec_ctx       = SetupAVCodecContext;
-    dx_sys->va_pool.pf_new_surface_context     = NewSurfacePicContext;
-    dx_sys->pf_get_input_list          = DxGetInputList;
-    dx_sys->pf_setup_output            = DxSetupOutput;
-
-    va->sys = sys;
-
-    sys->d3d_dev.d3ddevice = NULL;
-    va->sys->render = DXGI_FORMAT_UNKNOWN;
-    if ( p_sys != NULL && p_sys->context != NULL ) {
-        void *d3dvidctx = NULL;
-        HRESULT hr = ID3D11DeviceContext_QueryInterface(p_sys->context, &IID_ID3D11VideoContext, &d3dvidctx);
-        if (FAILED(hr)) {
-           msg_Err(va, "Could not Query ID3D11VideoContext Interface from the picture. (hr=0x%lX)", hr);
-        } else {
-            ID3D11DeviceContext_GetDevice( p_sys->context, &sys->d3d_dev.d3ddevice );
-            HANDLE context_lock = INVALID_HANDLE_VALUE;
-            UINT dataSize = sizeof(context_lock);
-            hr = ID3D11Device_GetPrivateData(sys->d3d_dev.d3ddevice, &GUID_CONTEXT_MUTEX, &dataSize, &context_lock);
-            if (FAILED(hr))
-                msg_Warn(va, "No mutex found to lock the decoder");
-            sys->d3d_dev.context_mutex = context_lock;
-
-            sys->d3d_dev.d3dcontext = p_sys->context;
-            sys->d3d_dev.owner = false;
-            D3D11_GetDriverVersion(va, &sys->d3d_dev);
-            sys->d3dvidctx = d3dvidctx;
-
-            assert(p_sys->texture[KNOWN_DXGI_INDEX] != NULL);
-            D3D11_TEXTURE2D_DESC dstDesc;
-            ID3D11Texture2D_GetDesc( p_sys->texture[KNOWN_DXGI_INDEX], &dstDesc);
-            sys->render = dstDesc.Format;
-            va->sys->textureWidth = dstDesc.Width;
-            va->sys->textureHeight = dstDesc.Height;
-            va->sys->totalTextureSlices = dstDesc.ArraySize;
-        }
-    }
 
     err = D3D11_Create( va, &sys->hd3d, false );
     if (err != VLC_SUCCESS)
         goto error;
 
-    err = directx_va_Open(va, &sys->dx_sys);
+    va->sys = sys;
+
+    sys->d3d_dev.d3ddevice = NULL;
+    sys->render = DXGI_FORMAT_UNKNOWN;
+    picture_sys_d3d11_t *p_sys = picsys;
+    if ( p_sys != NULL && p_sys->context != NULL ) {
+        HRESULT hr = D3D11_CreateDeviceExternal(va, p_sys->context, true, &sys->d3d_dev);
+        if (FAILED(hr))
+            msg_Err(va, "can't use the provided D3D11 context");
+        else
+        {
+            if (sys->d3d_dev.context_mutex == INVALID_HANDLE_VALUE)
+                msg_Warn(va, "No mutex found to lock the decoder");
+            void *d3dvidctx = NULL;
+            hr = ID3D11DeviceContext_QueryInterface(p_sys->context, &IID_ID3D11VideoContext, &d3dvidctx);
+            if (FAILED(hr)) {
+               msg_Err(va, "Could not Query ID3D11VideoContext Interface from the picture. (hr=0x%lX)", hr);
+               D3D11_ReleaseDevice(&sys->d3d_dev);
+            } else {
+                sys->hw.video_context = d3dvidctx;
+
+                assert(p_sys->texture[KNOWN_DXGI_INDEX] != NULL);
+                D3D11_TEXTURE2D_DESC dstDesc;
+                ID3D11Texture2D_GetDesc( p_sys->texture[KNOWN_DXGI_INDEX], &dstDesc);
+                sys->render = dstDesc.Format;
+                if (dstDesc.BindFlags & D3D11_BIND_DECODER)
+                {
+                    sys->textureWidth = dstDesc.Width;
+                    sys->textureHeight = dstDesc.Height;
+                    sys->totalTextureSlices = dstDesc.ArraySize;
+                }
+            }
+        }
+    }
+
+    static const struct va_pool_cfg pool_cfg = {
+        D3dCreateDevice,
+        D3dDestroyDevice,
+        DxCreateDecoderSurfaces,
+        DxDestroySurfaces,
+        SetupAVCodecContext,
+        NewSurfacePicContext,
+    };
+
+    err = va_pool_Open(va, &pool_cfg, &sys->va_pool);
     if (err!=VLC_SUCCESS)
         goto error;
 
-    err = directx_va_Setup(va, &sys->dx_sys, ctx, fmt, isXboxHardware(sys->d3d_dev.d3ddevice));
+    video_format_t fmt_out;
+    static const directx_sys_t dx_sys = { DxGetInputList, DxSetupOutput };
+    err = directx_va_Setup(va, &dx_sys, ctx, fmt, isXboxHardware(sys->d3d_dev.d3ddevice), &fmt_out, &sys->hw.surface_count, &sys->decoder_guid);
     if (err != VLC_SUCCESS)
         goto error;
 
+    err = va_pool_SetupDecoder(va, &sys->va_pool, ctx, &fmt_out, sys->hw.surface_count);
+    if (err != VLC_SUCCESS)
+        goto error;
+
+    IDXGIAdapter *p_adapter = D3D11DeviceAdapter(sys->d3d_dev.d3ddevice);
+    if (p_adapter) {
+        DXGI_ADAPTER_DESC adapterDesc;
+        if (SUCCEEDED(IDXGIAdapter_GetDesc(p_adapter, &adapterDesc))) {
+            msg_Info(va, "Using D3D11VA (%ls, vendor %x(%s), device %x, revision %x)",
+                        adapterDesc.Description,
+                        adapterDesc.VendorId, DxgiVendorStr(adapterDesc.VendorId), adapterDesc.DeviceId, adapterDesc.Revision);
+        }
+        IDXGIAdapter_Release(p_adapter);
+    }
+
     ctx->hwaccel_context = &sys->hw;
 
-    /* TODO print the hardware name/vendor for debugging purposes */
-    va->description = DxDescribe(sys);
-    va->get     = Get;
-
+    va->ops = &ops;
     return VLC_SUCCESS;
 
 error:
-    Close(va, NULL);
+    Close(va);
     return err;
 }
 
@@ -405,29 +423,28 @@ static int D3dCreateDevice(vlc_va_t *va)
     if (sys->d3d_dev.d3ddevice && sys->d3d_dev.d3dcontext) {
         msg_Dbg(va, "Reusing Direct3D11 device");
         ID3D11DeviceContext_AddRef(sys->d3d_dev.d3dcontext);
-        return VLC_SUCCESS;
     }
-
+    else
+    {
 #if VLC_WINSTORE_APP
-    sys->d3d_dev.d3dcontext = var_InheritInteger(va, "winrt-d3dcontext");
-    if (likely(sys->d3d_dev.d3dcontext))
-    {
-        ID3D11Device* d3ddevice = NULL;
-        ID3D11DeviceContext_GetDevice(sys->d3d_dev.d3dcontext, &sys->d3d_dev.d3ddevice);
-        ID3D11DeviceContext_AddRef(sys->d3d_dev.d3dcontext);
-        ID3D11Device_Release(sys->d3d_dev.d3ddevice);
-    }
+        if (sys->d3d_dev.d3dcontext == NULL)
+            sys->d3d_dev.d3dcontext = var_InheritInteger(va, "winrt-d3dcontext"); /* LEGACY */
 #endif
-
-    /* */
-    if (!sys->d3d_dev.d3ddevice)
-    {
-        hr = D3D11_CreateDevice(va, &sys->hd3d, true, &sys->d3d_dev);
-        if (FAILED(hr)) {
-            msg_Err(va, "D3D11CreateDevice failed. (hr=0x%lX)", hr);
-            return VLC_EGENERIC;
+        if (sys->d3d_dev.d3dcontext != NULL)
+        {
+            ID3D11DeviceContext_GetDevice(sys->d3d_dev.d3dcontext, &sys->d3d_dev.d3ddevice);
+            ID3D11DeviceContext_AddRef(sys->d3d_dev.d3dcontext);
+            ID3D11Device_Release(sys->d3d_dev.d3ddevice);
         }
-	}
+        else
+        {
+            hr = D3D11_CreateDevice(va, &sys->hd3d, NULL, true, &sys->d3d_dev);
+            if (FAILED(hr)) {
+                msg_Err(va, "D3D11CreateDevice failed. (hr=0x%lX)", hr);
+                return VLC_EGENERIC;
+            }
+        }
+    }
 
     void *d3dvidctx = NULL;
     hr = ID3D11DeviceContext_QueryInterface(sys->d3d_dev.d3dcontext, &IID_ID3D11VideoContext, &d3dvidctx);
@@ -437,7 +454,18 @@ static int D3dCreateDevice(vlc_va_t *va)
        ID3D11Device_Release(sys->d3d_dev.d3ddevice);
        return VLC_EGENERIC;
     }
-    sys->d3dvidctx = d3dvidctx;
+    sys->hw.video_context = d3dvidctx;
+
+    void *d3dviddev = NULL;
+    hr = ID3D11Device_QueryInterface(sys->d3d_dev.d3ddevice, &IID_ID3D11VideoDevice, &d3dviddev);
+    if (FAILED(hr)) {
+       msg_Err(va, "Could not Query ID3D11VideoDevice Interface. (hr=0x%lX)", hr);
+       ID3D11DeviceContext_Release(sys->d3d_dev.d3dcontext);
+       ID3D11Device_Release(sys->d3d_dev.d3ddevice);
+       ID3D11VideoContext_Release(sys->hw.video_context);
+       return VLC_EGENERIC;
+    }
+    sys->d3ddec = d3dviddev;
 
     return VLC_SUCCESS;
 }
@@ -448,66 +476,11 @@ static int D3dCreateDevice(vlc_va_t *va)
 static void D3dDestroyDevice(vlc_va_t *va)
 {
     vlc_va_sys_t *sys = va->sys;
-    if (sys->d3dvidctx)
-        ID3D11VideoContext_Release(sys->d3dvidctx);
+    if (sys->d3ddec)
+        ID3D11VideoDevice_Release(sys->d3ddec);
+    if (sys->hw.video_context)
+        ID3D11VideoContext_Release(sys->hw.video_context);
     D3D11_ReleaseDevice( &sys->d3d_dev );
-}
-
-/**
- * It describes our Direct3D object
- */
-static char *DxDescribe(vlc_va_sys_t *sys)
-{
-
-    IDXGIAdapter *p_adapter = D3D11DeviceAdapter(sys->d3d_dev.d3ddevice);
-    if (!p_adapter) {
-       return NULL;
-    }
-
-    char *description = NULL;
-    DXGI_ADAPTER_DESC adapterDesc;
-    if (SUCCEEDED(IDXGIAdapter_GetDesc(p_adapter, &adapterDesc))) {
-        char *utfdesc = FromWide(adapterDesc.Description);
-        if (likely(utfdesc!=NULL))
-        {
-            if (asprintf(&description, "D3D11VA (%s, vendor %x(%s), device %x, revision %x)",
-                         utfdesc,
-                         adapterDesc.VendorId, DxgiVendorStr(adapterDesc.VendorId), adapterDesc.DeviceId, adapterDesc.Revision) < 0)
-                description = NULL;
-            free(utfdesc);
-        }
-    }
-
-    IDXGIAdapter_Release(p_adapter);
-    return description;
-}
-
-/**
- * It creates a DirectX video service
- */
-static int DxCreateVideoService(vlc_va_t *va)
-{
-    directx_sys_t *dx_sys = &va->sys->dx_sys;
-
-    void *d3dviddev = NULL;
-    HRESULT hr = ID3D11Device_QueryInterface(va->sys->d3d_dev.d3ddevice, &IID_ID3D11VideoDevice, &d3dviddev);
-    if (FAILED(hr)) {
-       msg_Err(va, "Could not Query ID3D11VideoDevice Interface. (hr=0x%lX)", hr);
-       return VLC_EGENERIC;
-    }
-    dx_sys->d3ddec = d3dviddev;
-
-    return VLC_SUCCESS;
-}
-
-/**
- * It destroys a DirectX video service
- */
-static void DxDestroyVideoService(vlc_va_t *va)
-{
-    directx_sys_t *dx_sys = &va->sys->dx_sys;
-    if (dx_sys->d3ddec)
-        ID3D11VideoDevice_Release(dx_sys->d3ddec);
 }
 
 static void ReleaseInputList(input_list_t *p_list)
@@ -517,10 +490,10 @@ static void ReleaseInputList(input_list_t *p_list)
 
 static int DxGetInputList(vlc_va_t *va, input_list_t *p_list)
 {
-    directx_sys_t *dx_sys = &va->sys->dx_sys;
+    vlc_va_sys_t *sys = va->sys;
     HRESULT hr;
 
-    UINT input_count = ID3D11VideoDevice_GetVideoDecoderProfileCount(dx_sys->d3ddec);
+    UINT input_count = ID3D11VideoDevice_GetVideoDecoderProfileCount(sys->d3ddec);
 
     p_list->count = input_count;
     p_list->list = calloc(input_count, sizeof(*p_list->list));
@@ -530,7 +503,7 @@ static int DxGetInputList(vlc_va_t *va, input_list_t *p_list)
     p_list->pf_release = ReleaseInputList;
 
     for (unsigned i = 0; i < input_count; i++) {
-        hr = ID3D11VideoDevice_GetVideoDecoderProfile(dx_sys->d3ddec, i, &p_list->list[i]);
+        hr = ID3D11VideoDevice_GetVideoDecoderProfile(sys->d3ddec, i, &p_list->list[i]);
         if (FAILED(hr))
         {
             msg_Err(va, "GetVideoDecoderProfile %d failed. (hr=0x%lX)", i, hr);
@@ -548,13 +521,12 @@ extern const GUID DXVA_ModeVP9_VLD_10bit_Profile2;
 static int DxSetupOutput(vlc_va_t *va, const GUID *input, const video_format_t *fmt)
 {
     vlc_va_sys_t *sys = va->sys;
-    directx_sys_t *dx_sys = &sys->dx_sys;
     HRESULT hr;
 
 #ifndef NDEBUG
     BOOL bSupported = false;
     for (int format = 0; format < 188; format++) {
-        hr = ID3D11VideoDevice_CheckVideoDecoderFormat(dx_sys->d3ddec, input, format, &bSupported);
+        hr = ID3D11VideoDevice_CheckVideoDecoderFormat(sys->d3ddec, input, format, &bSupported);
         if (SUCCEEDED(hr) && bSupported)
             msg_Dbg(va, "format %s is supported for output", DxgiFormatToStr(format));
     }
@@ -570,10 +542,13 @@ static int DxSetupOutput(vlc_va_t *va, const GUID *input, const video_format_t *
     if (FAILED(hr))
         return VLC_EGENERIC;
 
+    char *psz_decoder_name = directx_va_GetDecoderName(input);
+
     if (!directx_va_canUseDecoder(va, adapterDesc.VendorId, adapterDesc.DeviceId,
                                   input, sys->d3d_dev.WDDM.build))
     {
-        msg_Warn(va, "GPU blacklisted for %s codec", directx_va_GetDecoderName(input));
+        msg_Warn(va, "GPU blacklisted for %s codec", psz_decoder_name);
+        free(psz_decoder_name);
         return VLC_EGENERIC;
     }
 
@@ -587,13 +562,11 @@ static int DxSetupOutput(vlc_va_t *va, const GUID *input, const video_format_t *
     processorInput[idx++] = DXGI_FORMAT_420_OPAQUE;
     processorInput[idx++] = DXGI_FORMAT_UNKNOWN;
 
-    char *psz_decoder_name = directx_va_GetDecoderName(input);
-
     /* */
     for (idx = 0; processorInput[idx] != DXGI_FORMAT_UNKNOWN; ++idx)
     {
         BOOL is_supported = false;
-        hr = ID3D11VideoDevice_CheckVideoDecoderFormat(dx_sys->d3ddec, input, processorInput[idx], &is_supported);
+        hr = ID3D11VideoDevice_CheckVideoDecoderFormat(sys->d3ddec, input, processorInput[idx], &is_supported);
         if (SUCCEEDED(hr) && is_supported)
             msg_Dbg(va, "%s output is supported for decoder %s.", DxgiFormatToStr(processorInput[idx]), psz_decoder_name);
         else
@@ -629,7 +602,7 @@ static int DxSetupOutput(vlc_va_t *va, const GUID *input, const video_format_t *
         decoderDesc.OutputFormat = processorInput[idx];
 
         UINT cfg_count = 0;
-        hr = ID3D11VideoDevice_GetVideoDecoderConfigCount( dx_sys->d3ddec, &decoderDesc, &cfg_count );
+        hr = ID3D11VideoDevice_GetVideoDecoderConfigCount( sys->d3ddec, &decoderDesc, &cfg_count );
         if (FAILED(hr))
         {
             msg_Err( va, "Failed to get configuration for decoder %s. (hr=0x%lX)", psz_decoder_name, hr );
@@ -643,10 +616,10 @@ static int DxSetupOutput(vlc_va_t *va, const GUID *input, const video_format_t *
         }
 
         msg_Dbg(va, "Using output format %s for decoder %s", DxgiFormatToStr(processorInput[idx]), psz_decoder_name);
-        if ( sys->render == processorInput[idx] )
+        if ( sys->render == processorInput[idx] && sys->totalTextureSlices > 4)
         {
             if (CanUseVoutPool(&sys->d3d_dev, sys->totalTextureSlices))
-                dx_sys->can_extern_pool = true;
+                sys->va_pool.can_extern_pool = true;
             else
                 msg_Warn( va, "use internal pool" );
         }
@@ -684,7 +657,6 @@ static int DxCreateDecoderSurfaces(vlc_va_t *va, int codec_id,
                                    const video_format_t *fmt, unsigned surface_count)
 {
     vlc_va_sys_t *sys = va->sys;
-    directx_sys_t *dx_sys = &va->sys->dx_sys;
     HRESULT hr;
 
     ID3D10Multithread *pMultithread;
@@ -708,7 +680,7 @@ static int DxCreateDecoderSurfaces(vlc_va_t *va, int codec_id,
     {
         msg_Dbg(va, "mismatching external pool sizes use the internal one %dx%d vs %dx%d",
                 sys->textureWidth, sys->textureHeight, fmt->i_width, fmt->i_height);
-        dx_sys->can_extern_pool = false;
+        sys->va_pool.can_extern_pool = false;
         sys->textureWidth  = fmt->i_width;
         sys->textureHeight = fmt->i_height;
     }
@@ -716,7 +688,7 @@ static int DxCreateDecoderSurfaces(vlc_va_t *va, int codec_id,
     {
         msg_Warn(va, "not enough decoding slices in the texture (%d/%d)",
                  sys->totalTextureSlices, surface_count);
-        dx_sys->can_extern_pool = false;
+        sys->va_pool.can_extern_pool = false;
     }
 #if VLC_WINSTORE_APP
     /* On the Xbox 1/S, any decoding of H264 with one dimension over 2304
@@ -732,7 +704,7 @@ static int DxCreateDecoderSurfaces(vlc_va_t *va, int codec_id,
 
     D3D11_VIDEO_DECODER_OUTPUT_VIEW_DESC viewDesc;
     ZeroMemory(&viewDesc, sizeof(viewDesc));
-    viewDesc.DecodeProfile = dx_sys->input;
+    viewDesc.DecodeProfile = sys->decoder_guid;
     viewDesc.ViewDimension = D3D11_VDOV_DIMENSION_TEXTURE2D;
 
     const d3d_format_t *textureFmt = NULL;
@@ -752,64 +724,66 @@ static int DxCreateDecoderSurfaces(vlc_va_t *va, int codec_id,
         return VLC_EGENERIC;
     }
 
-    if (dx_sys->can_extern_pool)
+    if (sys->va_pool.can_extern_pool)
     {
 #if !D3D11_DIRECT_DECODE
         size_t surface_idx;
         for (surface_idx = 0; surface_idx < surface_count; surface_idx++) {
-            picture_t *pic = decoder_NewPicture( (decoder_t*) va->obj.parent );
+            picture_t *pic = decoder_NewPicture( (decoder_t*) vlc_object_parent(va) );
             sys->extern_pics[surface_idx] = pic;
-            dx_sys->hw_surface[surface_idx] = NULL;
+            sys->hw_surface[surface_idx] = NULL;
             if (pic==NULL)
             {
                 msg_Warn(va, "not enough decoder pictures %d out of %d", surface_idx, surface_count);
-                dx_sys->can_extern_pool = false;
+                sys->va_pool.can_extern_pool = false;
                 break;
             }
 
             D3D11_TEXTURE2D_DESC texDesc;
-            ID3D11Texture2D_GetDesc(pic->p_sys->texture[KNOWN_DXGI_INDEX], &texDesc);
+            picture_sys_d3d11_t * p_sys = pic->p_sys;
+            ID3D11Texture2D_GetDesc(p_sys->texture[KNOWN_DXGI_INDEX], &texDesc);
             assert(texDesc.Format == sys->render);
             assert(texDesc.BindFlags & D3D11_BIND_DECODER);
 
 #if !LIBAVCODEC_VERSION_CHECK( 57, 27, 2, 61, 102 )
-            if (pic->p_sys->slice_index != surface_idx)
+            if (p_sys->slice_index != surface_idx)
             {
                 msg_Warn(va, "d3d11va requires decoding slices to be the first in the texture (%d/%d)",
-                         pic->p_sys->slice_index, surface_idx);
-                dx_sys->can_extern_pool = false;
+                         p_sys->slice_index, surface_idx);
+                sys->va_pool.can_extern_pool = false;
                 break;
             }
 #endif
 
-            viewDesc.Texture2D.ArraySlice = pic->p_sys->slice_index;
-            hr = ID3D11VideoDevice_CreateVideoDecoderOutputView( dx_sys->d3ddec,
-                                                                 pic->p_sys->resource[KNOWN_DXGI_INDEX],
+            viewDesc.Texture2D.ArraySlice = p_sys->slice_index;
+            hr = ID3D11VideoDevice_CreateVideoDecoderOutputView( sys->d3ddec,
+                                                                 p_sys->resource[KNOWN_DXGI_INDEX],
                                                                  &viewDesc,
-                                                                 &pic->p_sys->decoder );
+                                                                 &p_sys->decoder );
             if (FAILED(hr)) {
-                msg_Warn(va, "CreateVideoDecoderOutputView %d failed. (hr=0x%0lx)", surface_idx, hr);
-                dx_sys->can_extern_pool = false;
+                msg_Warn(va, "CreateVideoDecoderOutputView %d failed. (hr=0x%lX)", surface_idx, hr);
+                sys->va_pool.can_extern_pool = false;
                 break;
             }
 
-            D3D11_AllocateShaderView(va, sys->d3d_dev.d3ddevice, textureFmt, pic->p_sys->texture, pic->p_sys->slice_index, pic->p_sys->resourceView);
+            D3D11_AllocateResourceView(va, sys->d3d_dev.d3ddevice, textureFmt, pic->p_sys->texture, pic->p_sys->slice_index, pic->p_sys->renderSrc);
 
-            dx_sys->hw_surface[surface_idx] = pic->p_sys->decoder;
+            sys->hw_surface[surface_idx] = p_sys->decoder;
         }
 
-        if (!dx_sys->can_extern_pool)
+        if (!sys->va_pool.can_extern_pool)
         {
             for (size_t i = 0; i < surface_idx; ++i)
             {
-                if (dx_sys->hw_surface[i])
+                if (sys->hw_surface[i])
                 {
-                    ID3D11VideoDecoderOutputView_Release(dx_sys->hw_surface[i]);
-                    dx_sys->hw_surface[i] = NULL;
+                    ID3D11VideoDecoderOutputView_Release(sys->hw_surface[i]);
+                    sys->hw_surface[i] = NULL;
                 }
                 if (sys->extern_pics[i])
                 {
-                    sys->extern_pics[i]->p_sys->decoder = NULL;
+                    picture_sys_d3d11_t *p_sys = sys->extern_pics[i]->p_sys;
+                    p_sys->decoder = NULL;
                     picture_Release(sys->extern_pics[i]);
                     sys->extern_pics[i] = NULL;
                 }
@@ -820,7 +794,7 @@ static int DxCreateDecoderSurfaces(vlc_va_t *va, int codec_id,
             msg_Dbg(va, "using external surface pool");
     }
 
-    if (!dx_sys->can_extern_pool)
+    if (!sys->va_pool.can_extern_pool)
     {
         D3D11_TEXTURE2D_DESC texDesc;
         ZeroMemory(&texDesc, sizeof(texDesc));
@@ -841,7 +815,7 @@ static int DxCreateDecoderSurfaces(vlc_va_t *va, int codec_id,
         ID3D11Texture2D *p_texture;
         hr = ID3D11Device_CreateTexture2D( sys->d3d_dev.d3ddevice, &texDesc, NULL, &p_texture );
         if (FAILED(hr)) {
-            msg_Err(va, "CreateTexture2D %d failed. (hr=0x%0lx)", surface_count, hr);
+            msg_Err(va, "CreateTexture2D %d failed. (hr=0x%lX)", surface_count, hr);
             return VLC_EGENERIC;
         }
 
@@ -850,12 +824,12 @@ static int DxCreateDecoderSurfaces(vlc_va_t *va, int codec_id,
             sys->extern_pics[surface_idx] = NULL;
             viewDesc.Texture2D.ArraySlice = surface_idx;
 
-            hr = ID3D11VideoDevice_CreateVideoDecoderOutputView( dx_sys->d3ddec,
+            hr = ID3D11VideoDevice_CreateVideoDecoderOutputView( sys->d3ddec,
                                                                  (ID3D11Resource*) p_texture,
                                                                  &viewDesc,
-                                                                 &dx_sys->hw_surface[surface_idx] );
+                                                                 &sys->hw_surface[surface_idx] );
             if (FAILED(hr)) {
-                msg_Err(va, "CreateVideoDecoderOutputView %d failed. (hr=0x%0lx)", surface_idx, hr);
+                msg_Err(va, "CreateVideoDecoderOutputView %d failed. (hr=0x%lX)", surface_idx, hr);
                 ID3D11Texture2D_Release(p_texture);
                 return VLC_EGENERIC;
             }
@@ -863,8 +837,8 @@ static int DxCreateDecoderSurfaces(vlc_va_t *va, int codec_id,
             if (texDesc.BindFlags & D3D11_BIND_SHADER_RESOURCE)
             {
                 ID3D11Texture2D *textures[D3D11_MAX_SHADER_VIEW] = {p_texture, p_texture, p_texture};
-                D3D11_AllocateShaderView(va, sys->d3d_dev.d3ddevice, textureFmt, textures, surface_idx,
-                                   &sys->resourceView[surface_idx * D3D11_MAX_SHADER_VIEW]);
+                D3D11_AllocateResourceView(va, sys->d3d_dev.d3ddevice, textureFmt, textures, surface_idx,
+                                   &sys->renderSrc[surface_idx * D3D11_MAX_SHADER_VIEW]);
             }
         }
     }
@@ -873,13 +847,13 @@ static int DxCreateDecoderSurfaces(vlc_va_t *va, int codec_id,
 
     D3D11_VIDEO_DECODER_DESC decoderDesc;
     ZeroMemory(&decoderDesc, sizeof(decoderDesc));
-    decoderDesc.Guid = dx_sys->input;
+    decoderDesc.Guid = sys->decoder_guid;
     decoderDesc.SampleWidth = fmt->i_width;
     decoderDesc.SampleHeight = fmt->i_height;
     decoderDesc.OutputFormat = sys->render;
 
     UINT cfg_count;
-    hr = ID3D11VideoDevice_GetVideoDecoderConfigCount( dx_sys->d3ddec, &decoderDesc, &cfg_count );
+    hr = ID3D11VideoDevice_GetVideoDecoderConfigCount( sys->d3ddec, &decoderDesc, &cfg_count );
     if (FAILED(hr)) {
         msg_Err(va, "GetVideoDecoderConfigCount failed. (hr=0x%lX)", hr);
         return VLC_EGENERIC;
@@ -888,7 +862,7 @@ static int DxCreateDecoderSurfaces(vlc_va_t *va, int codec_id,
     /* List all configurations available for the decoder */
     D3D11_VIDEO_DECODER_CONFIG cfg_list[cfg_count];
     for (unsigned i = 0; i < cfg_count; i++) {
-        hr = ID3D11VideoDevice_GetVideoDecoderConfig( dx_sys->d3ddec, &decoderDesc, i, &cfg_list[i] );
+        hr = ID3D11VideoDevice_GetVideoDecoderConfig( sys->d3ddec, &decoderDesc, i, &cfg_list[i] );
         if (FAILED(hr)) {
             msg_Err(va, "GetVideoDecoderConfig failed. (hr=0x%lX)", hr);
             return VLC_EGENERIC;
@@ -929,39 +903,35 @@ static int DxCreateDecoderSurfaces(vlc_va_t *va, int codec_id,
 
     /* Create the decoder */
     ID3D11VideoDecoder *decoder;
-    hr = ID3D11VideoDevice_CreateVideoDecoder( dx_sys->d3ddec, &decoderDesc, &sys->cfg, &decoder );
+    hr = ID3D11VideoDevice_CreateVideoDecoder( sys->d3ddec, &decoderDesc, &sys->cfg, &decoder );
     if (FAILED(hr)) {
         msg_Err(va, "ID3D11VideoDevice_CreateVideoDecoder failed. (hr=0x%lX)", hr);
-        dx_sys->decoder = NULL;
+        sys->hw.decoder = NULL;
         return VLC_EGENERIC;
     }
-    dx_sys->decoder = decoder;
+    sys->hw.decoder = decoder;
 
     msg_Dbg(va, "DxCreateDecoderSurfaces succeed");
     return VLC_SUCCESS;
 }
 
-static void DxDestroySurfaces(vlc_va_t *va)
+static void DxDestroySurfaces(vlc_va_sys_t *sys)
 {
-    directx_sys_t *dx_sys = &va->sys->dx_sys;
-    if (dx_sys->va_pool.surface_count && !dx_sys->can_extern_pool) {
+    if (sys->va_pool.surface_count && !sys->va_pool.can_extern_pool) {
         ID3D11Resource *p_texture;
-        ID3D11VideoDecoderOutputView_GetResource( dx_sys->hw_surface[0], &p_texture );
+        ID3D11VideoDecoderOutputView_GetResource( sys->hw_surface[0], &p_texture );
         ID3D11Resource_Release(p_texture);
         ID3D11Resource_Release(p_texture);
     }
-    for (unsigned i = 0; i < dx_sys->va_pool.surface_count; i++)
+    for (unsigned i = 0; i < sys->va_pool.surface_count; i++)
     {
-        ID3D11VideoDecoderOutputView_Release( dx_sys->hw_surface[i] );
+        ID3D11VideoDecoderOutputView_Release( sys->hw_surface[i] );
         for (int j = 0; j < D3D11_MAX_SHADER_VIEW; j++)
         {
-            if (va->sys->resourceView[i*D3D11_MAX_SHADER_VIEW + j])
-                ID3D11ShaderResourceView_Release(va->sys->resourceView[i*D3D11_MAX_SHADER_VIEW + j]);
+            if (sys->renderSrc[i*D3D11_MAX_SHADER_VIEW + j])
+                ID3D11ShaderResourceView_Release(sys->renderSrc[i*D3D11_MAX_SHADER_VIEW + j]);
         }
     }
-    if (dx_sys->decoder)
-    {
-        ID3D11VideoDecoder_Release(dx_sys->decoder);
-        dx_sys->decoder = NULL;
-    }
+    if (sys->hw.decoder)
+        ID3D11VideoDecoder_Release(sys->hw.decoder);
 }

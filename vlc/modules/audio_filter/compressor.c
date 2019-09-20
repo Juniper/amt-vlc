@@ -2,7 +2,6 @@
  * compressor.c: dynamic range compressor, ported from plugins from LADSPA SWH
  *****************************************************************************
  * Copyright (C) 2010 Ronald Wright
- * $Id: 1e5951047bc79dd5dcb5336b3a16ae9b973cb92b $
  *
  * Author: Ronald Wright <logiconcepts819@gmail.com>
  * Original author: Steve Harris <steve@plugin.org.uk>
@@ -205,7 +204,7 @@ vlc_module_end ()
 static int Open( vlc_object_t *p_this )
 {
     filter_t *p_filter = (filter_t*)p_this;
-    vlc_object_t *p_aout = p_filter->obj.parent;
+    vlc_object_t *p_aout = vlc_object_parent(p_filter);
     float f_sample_rate = p_filter->fmt_in.audio.i_rate;
     float f_num;
 
@@ -271,7 +270,7 @@ static int Open( vlc_object_t *p_this )
 static void Close( vlc_object_t *p_this )
 {
     filter_t *p_filter = (filter_t*)p_this;
-    vlc_object_t *p_aout = p_filter->obj.parent;
+    vlc_object_t *p_aout = vlc_object_parent(p_filter);
     filter_sys_t *p_sys = p_filter->p_sys;
 
     /* Remove our callbacks */

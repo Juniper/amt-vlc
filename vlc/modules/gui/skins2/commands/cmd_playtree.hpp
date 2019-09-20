@@ -2,7 +2,6 @@
  * cmd_playtree.hpp
  *****************************************************************************
  * Copyright (C) 2005 the VideoLAN team
- * $Id: 2f2245f0659f2b95b4f68f74e349b7ef59fa8d06 $
  *
  * Authors: Antoine Cellerier <dionoea@videolan.org>
  *          Clément Stenac <zorglub@videolan.org>
@@ -44,6 +43,9 @@ private:
     /// Tree
     VarTree &m_rTree;
 };
+
+/// Command to reset the playtree
+DEFINE_COMMAND( PlaytreeReset, "playtree reset" )
 
 /// Command to sort the playtree
 DEFINE_COMMAND( PlaytreeSort, "playtree sort" )

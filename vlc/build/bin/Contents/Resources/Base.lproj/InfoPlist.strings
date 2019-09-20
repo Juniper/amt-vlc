@@ -1,7 +1,7 @@
 /* Localized versions of Info.plist keys */
 
-CFBundleName = "VLC";
-CFBundleDisplayName = "VLC";
-CFBundleShortVersionString = "4.0.0-dev";
-CFBundleGetInfoString = "Copyright © 1996-2018 the VideoLAN team";
-NSHumanReadableCopyright = "Copyright (c) 1996-2018 VLC authors and VideoLAN";
+"NSHumanReadableCopyright" = "Copyright (c) 1996-2019 VLC authors and VideoLAN";
+
+"NSCameraUsageDescription" = "VLC uses the camera to record some video.";
+"NSMicrophoneUsageDescription" = "VLC uses the microphone to record some audio.";
+"NSAppleEventsUsageDescription" = "VLC uses apple events to control external media players.";

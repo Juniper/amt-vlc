@@ -73,8 +73,8 @@
 #include <assert.h>
 
 /* BC pts are multiple of 100ns */
-#define TO_BC_PTS( a ) ( a * 10 + 1 )
-#define FROM_BC_PTS( a ) ((a - 1) /10)
+#define TO_BC_PTS( a )   ( MSFTIME_FROM_VLC_TICK(a) + 1 )
+#define FROM_BC_PTS( a ) VLC_TICK_FROM_MSFTIME(a - 1)
 
 //#define DEBUG_CRYSTALHD 1
 
@@ -193,7 +193,7 @@ static int OpenDecoder( vlc_object_t *p_this )
 #ifdef USE_DL_OPENING
 #  define DLL_NAME "bcmDIL.dll"
 #  define PATHS_NB 3
-    static const TCHAR *psz_paths[PATHS_NB] = {
+    static const WCHAR *psz_paths[PATHS_NB] = {
         TEXT(DLL_NAME),
         TEXT("C:\\Program Files\\Broadcom\\Broadcom CrystalHD Decoder\\" DLL_NAME),
         TEXT("C:\\Program Files (x86)\\Broadcom\\Broadcom CrystalHD Decoder\\" DLL_NAME),
@@ -387,14 +387,19 @@ error:
     free( p_sys );
 }
 
+#if defined(__KERNEL__) || defined(__LINUX_USER__)
 static BC_STATUS ourCallback(void *shnd, uint32_t width, uint32_t height, uint32_t stride, void *pOut)
 {
+    BC_DTS_PROC_OUT *proc_in  = (BC_DTS_PROC_OUT*)pOut;
+#else
+static BC_STATUS ourCallback(void *shnd, uint32_t width, uint32_t height, uint32_t stride, BC_DTS_PROC_OUT *proc_in)
+{
+#endif
     VLC_UNUSED(width); VLC_UNUSED(height); VLC_UNUSED(stride);
 
     decoder_t *p_dec          = (decoder_t *)shnd;
     decoder_sys_t *p_sys      = p_dec->p_sys;
     BC_DTS_PROC_OUT *proc_out = p_sys->proc_out;
-    BC_DTS_PROC_OUT *proc_in  = (BC_DTS_PROC_OUT*)pOut;
 
     /* Direct Rendering */
     /* Do not allocate for the second-field in the pair, in interlaced */

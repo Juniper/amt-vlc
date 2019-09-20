@@ -2,7 +2,6 @@
  * darwin.c : Put text on the video, using freetype2
  *****************************************************************************
  * Copyright (C) 2015 VLC authors and VideoLAN
- * $Id: 47a011eed0d07f9e5530764b622d71406fa66539 $
  *
  * Authors: Felix Paul Kühne <fkuehne@videolan.org>
  *          Jean-Baptiste Kempf <jb@videolan.org>
@@ -33,6 +32,7 @@
 
 #include <vlc_common.h>
 #include <vlc_filter.h>                                      /* filter_sys_t */
+#include <vlc_charset.h>                                     /* FromCFString */
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreText/CoreText.h>
@@ -42,50 +42,12 @@
 char* getPathForFontDescription(CTFontDescriptorRef fontDescriptor);
 void addNewFontToFamily(filter_t *p_filter, CTFontDescriptorRef iter, char *path, vlc_family_t *family);
 
-/* Obtains a copy of the contents of a CFString in specified encoding.
- * Returns char* (must be freed by caller) or NULL on failure.
- */
-static char* CFStringCopyCString(CFStringRef cfString, CFStringEncoding cfStringEncoding)
-{
-    // Try the quick way to obtain the buffer
-    const char *tmpBuffer = CFStringGetCStringPtr(cfString, cfStringEncoding);
-
-    if (tmpBuffer != NULL) {
-       return strdup(tmpBuffer);
-    }
-
-    // The quick way did not work, try the long way
-    CFIndex length = CFStringGetLength(cfString);
-    CFIndex maxSize =
-        CFStringGetMaximumSizeForEncoding(length, cfStringEncoding);
-
-    // If result would exceed LONG_MAX, kCFNotFound is returned
-    if (unlikely(maxSize == kCFNotFound)) {
-        return NULL;
-    }
-
-    // Account for the null terminator
-    maxSize++;
-
-    char *buffer = (char *)malloc(maxSize);
-
-    if (unlikely(buffer == NULL)) {
-        return NULL;
-    }
-
-    // Copy CFString in requested encoding to buffer
-    Boolean success = CFStringGetCString(cfString, buffer, maxSize, cfStringEncoding);
-
-    if (!success)
-        FREENULL(buffer);
-    return buffer;
-}
 
 char* getPathForFontDescription(CTFontDescriptorRef fontDescriptor)
 {
     CFURLRef url = CTFontDescriptorCopyAttribute(fontDescriptor, kCTFontURLAttribute);
     CFStringRef path = CFURLCopyFileSystemPath(url, kCFURLPOSIXPathStyle);
-    char *retPath = CFStringCopyCString(path, kCFStringEncodingUTF8);
+    char *retPath = FromCFString(path, kCFStringEncodingUTF8);
     CFRelease(path);
     CFRelease(url);
     return retPath;
@@ -247,7 +209,7 @@ vlc_family_t *CoreText_GetFallbacks(filter_t *p_filter, const char *psz_family, 
     CFStringRef fallbackFontFamilyName = CTFontCopyFamilyName(fallbackFont);
 
     /* create a new family object */
-    char *psz_fallbackFamilyName = CFStringCopyCString(fallbackFontFamilyName, kCFStringEncodingUTF8);
+    char *psz_fallbackFamilyName = FromCFString(fallbackFontFamilyName, kCFStringEncodingUTF8);
     if (psz_fallbackFamilyName == NULL) {
         msg_Warn(p_filter, "Failed to convert font family name CFString to C string");
         goto done;

@@ -2,7 +2,6 @@
  * chrono.h: vout chrono
  *****************************************************************************
  * Copyright (C) 2009-2010 Laurent Aimar
- * $Id: 72480ca726f840b4a1a6a569ca60082b48cb8531 $
  *
  * Authors: Laurent Aimar <fenrir _AT_ videolan _DOT_ org>
  *

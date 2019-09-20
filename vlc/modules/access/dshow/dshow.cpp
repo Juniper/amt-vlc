@@ -2,7 +2,6 @@
  * dshow.cpp : DirectShow access and access_demux module for vlc
  *****************************************************************************
  * Copyright (C) 2002-2004, 2006, 2008, 2010 the VideoLAN team
- * $Id: 1c0702a9429e55167f592779c94d1efc233792c4 $
  *
  * Author: Gildas Bazin <gbazin@videolan.org>
  *         Damien Fouilleul <damienf@videolan.org>
@@ -71,7 +70,6 @@ static size_t EnumDeviceCaps( vlc_object_t *, IBaseFilter *,
                               AM_MEDIA_TYPE *mt, size_t, bool );
 static bool ConnectFilters( vlc_object_t *, access_sys_t *,
                             IBaseFilter *, CaptureFilter * );
-static int FindDevices( const char *, char ***, char *** );
 
 static void ShowPropertyPage( IUnknown * );
 static void ShowDeviceProperties( vlc_object_t *, ICaptureGraphBuilder2 *,
@@ -194,10 +192,8 @@ vlc_module_begin ()
     set_category( CAT_INPUT )
     set_subcategory( SUBCAT_INPUT_ACCESS )
     add_string( "dshow-vdev", NULL, VDEV_TEXT, VDEV_LONGTEXT, false)
-        change_string_cb( FindDevices )
 
     add_string( "dshow-adev", NULL, ADEV_TEXT, ADEV_LONGTEXT, false)
-        change_string_cb( FindDevices )
 
     add_string( "dshow-size", NULL, SIZE_TEXT, SIZE_LONGTEXT, false)
         change_safe()
@@ -623,6 +619,40 @@ static int CommonOpen( vlc_object_t *p_this, access_sys_t *p_sys,
     return VLC_SUCCESS;
 }
 
+static void SetRGBMasks( vlc_fourcc_t i_fourcc, es_format_t *fmt )
+{
+    switch( i_fourcc )
+    {
+        case VLC_CODEC_RGB15:
+            fmt->video.i_rmask = 0x7c00;
+            fmt->video.i_gmask = 0x03e0;
+            fmt->video.i_bmask = 0x001f;
+            break;
+        case VLC_CODEC_RGB16:
+            fmt->video.i_rmask = 0xf800;
+            fmt->video.i_gmask = 0x07e0;
+            fmt->video.i_bmask = 0x001f;
+            break;
+        case VLC_CODEC_RGB24:
+            /* This is in BGR format */
+            fmt->video.i_bmask = 0x00ff0000;
+            fmt->video.i_gmask = 0x0000ff00;
+            fmt->video.i_rmask = 0x000000ff;
+            break;
+        case VLC_CODEC_RGB32:
+        case VLC_CODEC_RGBA:
+            /* This is in BGRx format */
+            fmt->video.i_bmask = 0xff000000;
+            fmt->video.i_gmask = 0x00ff0000;
+            fmt->video.i_rmask = 0x0000ff00;
+            break;
+        default:
+            return;
+    }
+    fmt->video.i_chroma = i_fourcc;
+    video_format_FixRgb( &fmt->video );
+}
+
 /*****************************************************************************
  * DemuxOpen: open direct show device as an access_demux module
  *****************************************************************************/
@@ -701,15 +731,7 @@ static int DemuxOpen( vlc_object_t *p_this )
             }
 
             /* Setup rgb mask for RGB formats */
-            if( p_stream->i_fourcc == VLC_CODEC_RGB24 )
-            {
-                /* This is in RGB format
-            http://msdn.microsoft.com/en-us/library/dd407253%28VS.85%29.aspx?ppud=4
-                 */
-                fmt.video.i_rmask = 0x00ff0000;
-                fmt.video.i_gmask = 0x0000ff00;
-                fmt.video.i_bmask = 0x000000ff;
-            }
+            SetRGBMasks( p_stream->i_fourcc, &fmt );
 
             if( p_stream->header.video.AvgTimePerFrame )
             {
@@ -1203,7 +1225,7 @@ FindCaptureDevice( vlc_object_t *p_this, std::string *p_devicename,
                            IID_ICreateDevEnum, (void**)p_dev_enum.GetAddressOf() );
     if( FAILED(hr) )
     {
-        msg_Err( p_this, "failed to create the device enumerator (0x%lx)", hr);
+        msg_Err( p_this, "failed to create the device enumerator (0x%lX)", hr);
         return p_base_filter;
     }
 
@@ -1217,7 +1239,7 @@ FindCaptureDevice( vlc_object_t *p_this, std::string *p_devicename,
                                                 p_class_enum.GetAddressOf(), 0 );
     if( FAILED(hr) )
     {
-        msg_Err( p_this, "failed to create the class enumerator (0x%lx)", hr );
+        msg_Err( p_this, "failed to create the class enumerator (0x%lX)", hr );
         return p_base_filter;
     }
 
@@ -1281,7 +1303,7 @@ FindCaptureDevice( vlc_object_t *p_this, std::string *p_devicename,
                     if( FAILED(hr) )
                     {
                         msg_Err( p_this, "couldn't bind moniker to filter "
-                                 "object (0x%lx)", hr );
+                                 "object (0x%lX)", hr );
                         return NULL;
                     }
                     return p_base_filter;
@@ -1923,7 +1945,6 @@ static int AccessControl( stream_t *p_access, int i_query, va_list args )
 static int DemuxControl( demux_t *p_demux, int i_query, va_list args )
 {
     bool    *pb;
-    int64_t *pi64;
 
     access_sys_t *p_sys = ( access_sys_t * ) p_demux->p_sys;
 
@@ -1944,8 +1965,7 @@ static int DemuxControl( demux_t *p_demux, int i_query, va_list args )
         return VLC_SUCCESS;
 
     case DEMUX_GET_TIME:
-        pi64 = va_arg( args, int64_t * );
-        *pi64 = vlc_tick_now() - p_sys->i_start;
+        *va_arg( args, vlc_tick_t * ) = vlc_tick_now() - p_sys->i_start;
         return VLC_SUCCESS;
 
     /* TODO implement others */
@@ -2053,6 +2073,8 @@ static int FindDevices( const char *psz_name, char ***vp, char ***tp )
     *tp = texts;
     return count;
 }
+
+VLC_CONFIG_STRING_ENUM(FindDevices)
 
 /*****************************************************************************
  * Properties
@@ -2196,7 +2218,6 @@ static void ConfigTuner( vlc_object_t *p_this, ICaptureGraphBuilder2 *p_graph,
 {
     int i_channel, i_country, i_input, i_amtuner_mode;
     long l_modes = 0;
-    unsigned i_frequency;
     ComPtr<IAMTVTuner> p_TV;
     HRESULT hr;
 

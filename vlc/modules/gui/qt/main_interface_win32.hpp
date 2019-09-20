@@ -2,7 +2,6 @@
  * main_interface_win32.cpp : Main interface
  ****************************************************************************
  * Copyright (C) 2006-2010 VideoLAN and AUTHORS
- * $Id: 1e456c4c35128319f119e366c34692f0fba7a4af $
  *
  * Authors: Jean-Baptiste Kempf <jb@videolan.org>
  *          Hugo Beauzée-Luyssen <hugo@beauzee.fr>
@@ -53,9 +52,8 @@ private:
     UINT taskbar_wmsg;
 
 private slots:
-    void changeThumbbarButtons( int );
-    void playlistItemAppended( int itemId, int parentId );
-    void playlistItemRemoved( int itemId );
+    void changeThumbbarButtons(PlayerController::PlayingState );
+    void playlistItemCountChanged( size_t itemId );
     virtual void reloadPrefs() Q_DECL_OVERRIDE;
     virtual void setVideoFullScreen( bool fs ) Q_DECL_OVERRIDE;
 };

@@ -41,6 +41,8 @@
 # define SOUT_CFG_PREFIX "sout-aom-"
 #endif
 
+#include "../packetizer/iso_color_tables.h"
+
 /****************************************************************************
  * Local prototypes
  ****************************************************************************/
@@ -78,6 +80,13 @@ vlc_module_begin ()
             change_integer_range( 0, 3 )
         add_integer( SOUT_CFG_PREFIX "bitdepth", 8, "Bit Depth", NULL, true )
             change_integer_list( pi_enc_bitdepth_values_list, ppsz_enc_bitdepth_text )
+        add_integer( SOUT_CFG_PREFIX "tile-rows", 0, "Tile Rows (in log2 units)", NULL, true )
+            change_integer_range( 0, 6 ) /* 1 << 6 == MAX_TILE_ROWS */
+        add_integer( SOUT_CFG_PREFIX "tile-columns", 0, "Tile Columns (in log2 units)", NULL, true )
+            change_integer_range( 0, 6 ) /* 1 << 6 == MAX_TILE_COLS */
+#ifdef AOM_CTRL_AV1E_SET_ROW_MT
+        add_bool( SOUT_CFG_PREFIX "row-mt", false, "Row Multithreading", NULL, true )
+#endif
 #endif
 vlc_module_end ()
 
@@ -155,17 +164,10 @@ static vlc_fourcc_t FindVlcChroma( struct aom_image *img )
 static void CopyPicture(const struct aom_image *img, picture_t *pic)
 {
     for (int plane = 0; plane < pic->i_planes; plane++ ) {
-        uint8_t *src = img->planes[plane];
-        uint8_t *dst = pic->p[plane].p_pixels;
-        int src_stride = img->stride[plane];
-        int dst_stride = pic->p[plane].i_pitch;
-
-        int size = __MIN( src_stride, dst_stride );
-        for( int line = 0; line < pic->p[plane].i_visible_lines; line++ ) {
-            memcpy( dst, src, size );
-            src += src_stride;
-            dst += dst_stride;
-        }
+        plane_t src_plane = pic->p[plane];
+        src_plane.p_pixels = img->planes[plane];
+        src_plane.i_pitch = img->stride[plane];
+        plane_CopyPixels(&pic->p[plane], &src_plane);
     }
 }
 
@@ -177,13 +179,13 @@ static int PushFrame(decoder_t *dec, block_t *block)
     size_t i_buffer;
 
     /* Associate packet PTS with decoded frame */
-    struct frame_priv_s *priv = &p_sys->frame_priv[p_sys->i_next_frame_priv++ % AOM_MAX_FRAMES_DEPTH];
+    uintptr_t priv_index = p_sys->i_next_frame_priv++ % AOM_MAX_FRAMES_DEPTH;
 
     if(likely(block))
     {
         p_buffer = block->p_buffer;
         i_buffer = block->i_buffer;
-        priv->pts = (block->i_pts != VLC_TICK_INVALID) ? block->i_pts : block->i_dts;
+        p_sys->frame_priv[priv_index].pts = (block->i_pts != VLC_TICK_INVALID) ? block->i_pts : block->i_dts;
     }
     else
     {
@@ -192,7 +194,7 @@ static int PushFrame(decoder_t *dec, block_t *block)
     }
 
     aom_codec_err_t err;
-    err = aom_codec_decode(ctx, p_buffer, i_buffer, priv);
+    err = aom_codec_decode(ctx, p_buffer, i_buffer, (void*)priv_index);
 
     if(block)
         block_Release(block);
@@ -221,41 +223,30 @@ static void OutputFrame(decoder_t *dec, const struct aom_image *img)
         dec->fmt_out.video.i_sar_den = 1;
     }
 
-    v->b_color_range_full = img->range == AOM_CR_FULL_RANGE;
-
-    switch( img->mc )
+    if(dec->fmt_in.video.primaries == COLOR_PRIMARIES_UNDEF)
     {
-        case AOM_CICP_MC_BT_709:
-            v->space = COLOR_SPACE_BT709;
-            break;
-        case AOM_CICP_MC_BT_601:
-        case AOM_CICP_MC_SMPTE_240:
-            v->space = COLOR_SPACE_BT601;
-            break;
-        case AOM_CICP_MC_BT_2020_CL:
-        case AOM_CICP_MC_BT_2020_NCL:
-            v->space = COLOR_SPACE_BT2020;
-            break;
-        default:
-            break;
+        v->primaries = iso_23001_8_cp_to_vlc_primaries(img->cp);
+        v->transfer = iso_23001_8_tc_to_vlc_xfer(img->tc);
+        v->space = iso_23001_8_mc_to_vlc_coeffs(img->mc);
+        v->color_range = img->range == AOM_CR_FULL_RANGE ? COLOR_RANGE_FULL : COLOR_RANGE_LIMITED;
     }
 
     dec->fmt_out.video.projection_mode = dec->fmt_in.video.projection_mode;
     dec->fmt_out.video.multiview_mode = dec->fmt_in.video.multiview_mode;
     dec->fmt_out.video.pose = dec->fmt_in.video.pose;
 
-    if (decoder_UpdateVideoFormat(dec) == VLC_SUCCESS)
+    if (decoder_UpdateVideoFormat(dec) == 0)
     {
         picture_t *pic = decoder_NewPicture(dec);
         if (pic)
         {
+            decoder_sys_t *p_sys = dec->p_sys;
             CopyPicture(img, pic);
 
             /* fetches back the PTS */
-            vlc_tick_t pts = ((struct frame_priv_s *) img->user_priv)->pts;
 
             pic->b_progressive = true; /* codec does not support interlacing */
-            pic->date = pts;
+            pic->date = p_sys->frame_priv[(uintptr_t)img->user_priv].pts;
 
             decoder_QueueVideo(dec, pic);
         }
@@ -372,8 +363,18 @@ static int OpenDecoder(vlc_object_t *p_this)
         dec->fmt_out.video.i_sar_num = dec->fmt_in.video.i_sar_num;
         dec->fmt_out.video.i_sar_den = dec->fmt_in.video.i_sar_den;
     }
+    dec->fmt_out.video.primaries   = dec->fmt_in.video.primaries;
+    dec->fmt_out.video.transfer    = dec->fmt_in.video.transfer;
+    dec->fmt_out.video.space       = dec->fmt_in.video.space;
+    dec->fmt_out.video.color_range = dec->fmt_in.video.color_range;
 
     return VLC_SUCCESS;
+}
+
+static void destroy_context(vlc_object_t *p_this, aom_codec_ctx_t *context)
+{
+    if (aom_codec_destroy(context))
+        AOM_ERR(p_this, context, "Failed to destroy codec context");
 }
 
 /*****************************************************************************
@@ -387,7 +388,7 @@ static void CloseDecoder(vlc_object_t *p_this)
     /* Flush decoder */
     FlushDecoder(dec);
 
-    aom_codec_destroy(&sys->ctx);
+    destroy_context(p_this, &sys->ctx);
 
     free(sys);
 }
@@ -424,13 +425,21 @@ static int OpenEncoder(vlc_object_t *p_this)
 
     struct aom_codec_enc_cfg enccfg = {};
     aom_codec_enc_config_default(iface, &enccfg, 0);
+    enccfg.g_timebase.num = p_enc->fmt_in.video.i_frame_rate_base;
+    enccfg.g_timebase.den = p_enc->fmt_in.video.i_frame_rate;
     enccfg.g_threads = __MIN(vlc_GetCPUCount(), 4);
     enccfg.g_w = p_enc->fmt_in.video.i_visible_width;
     enccfg.g_h = p_enc->fmt_in.video.i_visible_height;
+    enccfg.g_lag_in_frames = 16; /* we have no pcr on sout */
 
     int enc_flags;
     int i_profile = var_InheritInteger( p_enc, SOUT_CFG_PREFIX "profile" );
     int i_bit_depth = var_InheritInteger( p_enc, SOUT_CFG_PREFIX "bitdepth" );
+    int i_tile_rows = var_InheritInteger( p_enc, SOUT_CFG_PREFIX "tile-rows" );
+    int i_tile_columns = var_InheritInteger( p_enc, SOUT_CFG_PREFIX "tile-columns" );
+#ifdef AOM_CTRL_AV1E_SET_ROW_MT
+    bool b_row_mt = var_GetBool( p_enc, SOUT_CFG_PREFIX "row-mt" );
+#endif
 
     /* TODO: implement higher profiles, bit depths and other pixformats. */
     switch( i_profile )
@@ -479,6 +488,35 @@ static int OpenEncoder(vlc_object_t *p_this)
         return VLC_EGENERIC;
     }
 
+    if (i_tile_rows >= 0 &&
+        aom_codec_control(ctx, AV1E_SET_TILE_ROWS, i_tile_rows))
+    {
+        AOM_ERR(p_this, ctx, "Failed to set tile rows");
+        destroy_context(p_this, ctx);
+        free(p_sys);
+        return VLC_EGENERIC;
+    }
+
+    if (i_tile_columns >= 0 &&
+        aom_codec_control(ctx, AV1E_SET_TILE_COLUMNS, i_tile_columns))
+    {
+        AOM_ERR(p_this, ctx, "Failed to set tile columns");
+        destroy_context(p_this, ctx);
+        free(p_sys);
+        return VLC_EGENERIC;
+    }
+
+#ifdef AOM_CTRL_AV1E_SET_ROW_MT
+    if (b_row_mt &&
+        aom_codec_control(ctx, AV1E_SET_ROW_MT, b_row_mt))
+    {
+        AOM_ERR(p_this, ctx, "Failed to set row-multithreading");
+        destroy_context(p_this, ctx);
+        free(p_sys);
+        return VLC_EGENERIC;
+    }
+#endif
+
     p_enc->pf_encode_video = Encode;
 
     return VLC_SUCCESS;
@@ -513,7 +551,7 @@ static block_t *Encode(encoder_t *p_enc, picture_t *p_pict)
         img.stride[plane] = p_pict->p[plane].i_pitch;
     }
 
-    aom_codec_err_t res = aom_codec_encode(ctx, &img, p_pict->date, 1, 0);
+    aom_codec_err_t res = aom_codec_encode(ctx, &img, US_FROM_VLC_TICK(p_pict->date), 1, 0);
     if (res != AOM_CODEC_OK) {
         AOM_ERR(p_enc, ctx, "Failed to encode frame");
         aom_img_free(&img);
@@ -537,7 +575,7 @@ static block_t *Encode(encoder_t *p_enc, picture_t *p_pict)
 
             /* FIXME: do this in-place */
             memcpy(p_block->p_buffer, pkt->data.frame.buf, pkt->data.frame.sz);
-            p_block->i_dts = p_block->i_pts = pkt->data.frame.pts;
+            p_block->i_dts = p_block->i_pts = VLC_TICK_FROM_US(pkt->data.frame.pts);
             if (keyframe)
                 p_block->i_flags |= BLOCK_FLAG_TYPE_I;
             block_ChainAppend(&p_out, p_block);
@@ -554,8 +592,7 @@ static void CloseEncoder(vlc_object_t *p_this)
 {
     encoder_t *p_enc = (encoder_t *)p_this;
     encoder_sys_t *p_sys = p_enc->p_sys;
-    if (aom_codec_destroy(&p_sys->ctx))
-        AOM_ERR(p_this, &p_sys->ctx, "Failed to destroy codec");
+    destroy_context(p_this, &p_sys->ctx);
     free(p_sys);
 }
 

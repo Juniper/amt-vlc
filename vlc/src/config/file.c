@@ -2,7 +2,6 @@
  * file.c: configuration file handling
  *****************************************************************************
  * Copyright (C) 2001-2007 VLC authors and VideoLAN
- * $Id: 87c189f9f735a56751e7d2d6263a750442f6cbc5 $
  *
  * Authors: Gildas Bazin <gbazin@videolan.org>
  *

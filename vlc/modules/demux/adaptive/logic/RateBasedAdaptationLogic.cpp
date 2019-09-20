@@ -36,14 +36,13 @@
 using namespace adaptive::logic;
 using namespace adaptive;
 
-RateBasedAdaptationLogic::RateBasedAdaptationLogic  (vlc_object_t *p_obj_) :
-                          AbstractAdaptationLogic   (),
+RateBasedAdaptationLogic::RateBasedAdaptationLogic  (vlc_object_t *obj) :
+                          AbstractAdaptationLogic   (obj),
                           bpsAvg(0),
                           currentBps(0)
 {
     usedBps = 0;
     dllength = 0;
-    p_obj = p_obj_;
     dlsize = 0;
     vlc_mutex_init(&lock);
 }
@@ -58,9 +57,9 @@ BaseRepresentation *RateBasedAdaptationLogic::getNextRepresentation(BaseAdaptati
     if(adaptSet == NULL)
         return NULL;
 
-    vlc_mutex_lock(const_cast<vlc_mutex_t *>(&lock));
+    vlc_mutex_lock(&lock);
     size_t availBps = currentBps + ((currep) ? currep->getBandwidth() : 0);
-    vlc_mutex_unlock(const_cast<vlc_mutex_t *>(&lock));
+    vlc_mutex_unlock(&lock);
     if(availBps > usedBps)
         availBps -= usedBps;
     else
@@ -123,8 +122,8 @@ void RateBasedAdaptationLogic::trackerEvent(const SegmentTrackerEvent &event)
     }
 }
 
-FixedRateAdaptationLogic::FixedRateAdaptationLogic(size_t bps) :
-    AbstractAdaptationLogic()
+FixedRateAdaptationLogic::FixedRateAdaptationLogic(vlc_object_t *obj, size_t bps) :
+    AbstractAdaptationLogic(obj)
 {
     currentBps = bps;
 }

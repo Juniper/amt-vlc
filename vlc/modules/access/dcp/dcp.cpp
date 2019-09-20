@@ -703,8 +703,8 @@ static int Demux( demux_t *p_demux )
             goto error;
     }
 
-    p_video_frame->i_length = CLOCK_FREQ * p_sys->frame_rate_denom / p_sys->frame_rate_num;
-    p_video_frame->i_pts = CLOCK_FREQ * p_sys->frame_no * p_sys->frame_rate_denom / p_sys->frame_rate_num;
+    p_video_frame->i_length = vlc_tick_from_samples(p_sys->frame_rate_denom, p_sys->frame_rate_num);
+    p_video_frame->i_pts = vlc_tick_from_samples(p_sys->frame_no * p_sys->frame_rate_denom, p_sys->frame_rate_num);
 
     if( !p_sys->p_dcp->audio_reels.empty() )
     {
@@ -741,8 +741,8 @@ static int Demux( demux_t *p_demux )
                     p_sys->pi_chan_table, VLC_CODEC_S24L );
 
         p_audio_frame->i_buffer = AudioFrameBuff.Size();
-        p_audio_frame->i_length = CLOCK_FREQ * p_sys->frame_rate_denom / p_sys->frame_rate_num;
-        p_audio_frame->i_pts = CLOCK_FREQ * p_sys->frame_no * p_sys->frame_rate_denom / p_sys->frame_rate_num;
+        p_audio_frame->i_length = vlc_tick_from_samples(p_sys->frame_rate_denom, p_sys->frame_rate_num);
+        p_audio_frame->i_pts = vlc_tick_from_samples(p_sys->frame_no * p_sys->frame_rate_denom, p_sys->frame_rate_num);
         /* Video is the main pts */
         if ( p_audio_frame->i_pts != p_video_frame->i_pts ) {
             msg_Err( p_demux, "Audio and video frame pts are not in sync" );
@@ -777,7 +777,6 @@ static int Control( demux_t *p_demux, int query, va_list args )
 {
     double f,*pf;
     bool *pb;
-    int64_t *pi64, i64;
     demux_sys_t *p_sys = (demux_sys_t *)p_demux->p_sys;
 
     switch ( query )
@@ -815,22 +814,20 @@ static int Control( demux_t *p_demux, int query, va_list args )
             break;
 
         case DEMUX_GET_LENGTH:
-            pi64 = va_arg ( args, int64_t * );
-            *pi64 =  ( p_sys->frames_total * p_sys->frame_rate_denom / p_sys->frame_rate_num ) * CLOCK_FREQ;
+            *va_arg ( args, vlc_tick_t * ) =
+                vlc_tick_from_sec( p_sys->frames_total * p_sys->frame_rate_denom / p_sys->frame_rate_num );
             break;
 
         case DEMUX_GET_TIME:
-            pi64 = va_arg( args, int64_t * );
-            *pi64 = p_sys->i_pts >= 0 ? p_sys->i_pts : 0;
+            *va_arg( args, vlc_tick_t * ) = __MAX(p_sys->i_pts, 0);
             break;
 
         case DEMUX_SET_TIME:
-            i64 = va_arg( args, int64_t );
+            p_sys->i_pts = va_arg( args, vlc_tick_t );
             msg_Warn( p_demux, "DEMUX_SET_TIME"  );
-            p_sys->frame_no = i64 * p_sys->frame_rate_num / ( CLOCK_FREQ * p_sys->frame_rate_denom );
-            p_sys->i_pts= i64;
+            p_sys->frame_no = p_sys->i_pts * p_sys->frame_rate_num / ( CLOCK_FREQ * p_sys->frame_rate_denom );
             es_out_SetPCR(p_demux->out, p_sys->i_pts);
-            es_out_Control( p_demux->out, ES_OUT_SET_NEXT_DISPLAY_TIME, ( vlc_tick_t ) i64 );
+            es_out_Control( p_demux->out, ES_OUT_SET_NEXT_DISPLAY_TIME, p_sys->i_pts );
             break;
         case DEMUX_GET_PTS_DELAY:
             *va_arg( args, vlc_tick_t * ) =

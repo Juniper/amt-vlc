@@ -26,7 +26,7 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-%pure-parser
+%define api.pure
 
 %parse-param { yyscan_t scanner }
 %parse-param { vlc_css_parser_t *css_parser }
@@ -64,7 +64,8 @@ typedef void* yyscan_t;
 
 %{
 /* See bison pure calling */
-int yylex(union YYSTYPE *, yyscan_t, vlc_css_parser_t *);
+#define YY_DECL int yylex(union YYSTYPE *, yyscan_t, vlc_css_parser_t *)
+YY_DECL;
 
 static int yyerror(yyscan_t scanner, vlc_css_parser_t *p, const char *msg)
 {

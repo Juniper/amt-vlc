@@ -2,7 +2,6 @@
  * gettext.c
  *****************************************************************************
  * Copyright (C) 2009 the VideoLAN team
- * $Id: 2781d35fb25090035d3e5258007d951723419a0e $
  *
  * Authors: Antoine Cellerier <dionoea at videolan tod org>
  *

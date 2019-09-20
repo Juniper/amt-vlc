@@ -2,7 +2,6 @@
  * vobsub.c: Demux vobsub files.
  *****************************************************************************
  * Copyright (C) 1999-2004 VLC authors and VideoLAN
- * $Id: 7cf12c15b8345e2e79dd523d2bebb0b06837c938 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Derk-Jan Hartman <hartman at videolan dot org>
@@ -84,7 +83,7 @@ typedef struct
     int         i_subtitles;
     subtitle_t  *p_subtitles;
 
-    int64_t     i_delay;
+    vlc_tick_t  i_delay;
 } vobsub_track_t;
 
 typedef struct
@@ -146,7 +145,6 @@ static int Open ( vlc_object_t *p_this )
     if( unlikely( !p_sys ) )
         return VLC_ENOMEM;
 
-    p_sys->i_length = 0;
     p_sys->p_vobsub_stream = NULL;
     p_sys->i_tracks = 0;
     p_sys->track = malloc( sizeof( vobsub_track_t ) );
@@ -167,6 +165,7 @@ static int Open ( vlc_object_t *p_this )
     TextUnload( &p_sys->txt );
 
     /* Find the total length of the vobsubs */
+    p_sys->i_length = 0;
     if( p_sys->i_tracks > 0 )
     {
         for( int i = 0; i < p_sys->i_tracks; i++ )
@@ -174,10 +173,12 @@ static int Open ( vlc_object_t *p_this )
             if( p_sys->track[i].i_subtitles > 1 )
             {
                 if( p_sys->track[i].p_subtitles[p_sys->track[i].i_subtitles-1].i_start > p_sys->i_length )
-                    p_sys->i_length = (int64_t) p_sys->track[i].p_subtitles[p_sys->track[i].i_subtitles-1].i_start + ( 1 *1000 *1000 );
+                    p_sys->i_length = p_sys->track[i].p_subtitles[p_sys->track[i].i_subtitles-1].i_start;
             }
         }
     }
+    if ( p_sys->i_length != 0)
+        p_sys->i_length += VLC_TICK_FROM_SEC( 1 );
 
     psz_vobname = strdup( p_demux->psz_url );
     if( psz_vobname == NULL )
@@ -236,7 +237,7 @@ static void Close( vlc_object_t *p_this )
 static int Control( demux_t *p_demux, int i_query, va_list args )
 {
     demux_sys_t *p_sys = p_demux->p_sys;
-    int64_t *pi64, i64;
+    vlc_tick_t i64;
     int i;
     double *pf, f;
 
@@ -247,12 +248,10 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
             return VLC_SUCCESS;
 
         case DEMUX_GET_LENGTH:
-            pi64 = va_arg( args, int64_t * );
-            *pi64 = (int64_t) p_sys->i_length;
+            *va_arg( args, vlc_tick_t * ) = p_sys->i_length;
             return VLC_SUCCESS;
 
         case DEMUX_GET_TIME:
-            pi64 = va_arg( args, int64_t * );
             for( i = 0; i < p_sys->i_tracks; i++ )
             {
                 bool b_selected;
@@ -263,13 +262,13 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
             }
             if( i < p_sys->i_tracks && p_sys->track[i].i_current_subtitle < p_sys->track[i].i_subtitles )
             {
-                *pi64 = p_sys->track[i].p_subtitles[p_sys->track[i].i_current_subtitle].i_start;
+                *va_arg( args, vlc_tick_t * ) = p_sys->track[i].p_subtitles[p_sys->track[i].i_current_subtitle].i_start;
                 return VLC_SUCCESS;
             }
             return VLC_EGENERIC;
 
         case DEMUX_SET_TIME:
-            i64 = va_arg( args, int64_t );
+            i64 = va_arg( args, vlc_tick_t );
             for( i = 0; i < p_sys->i_tracks; i++ )
             {
                 p_sys->track[i].i_current_subtitle = 0;
@@ -311,20 +310,8 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
 
         case DEMUX_SET_POSITION:
             f = va_arg( args, double );
-            i64 = (int64_t) f * p_sys->i_length;
-
-            for( i = 0; i < p_sys->i_tracks; i++ )
-            {
-                p_sys->track[i].i_current_subtitle = 0;
-                while( p_sys->track[i].i_current_subtitle < p_sys->track[i].i_subtitles &&
-                       p_sys->track[i].p_subtitles[p_sys->track[i].i_current_subtitle].i_start < i64 )
-                {
-                    p_sys->track[i].i_current_subtitle++;
-                }
-                if( p_sys->track[i].i_current_subtitle >= p_sys->track[i].i_subtitles )
-                    return VLC_EGENERIC;
-            }
-            return VLC_SUCCESS;
+            i64 = (vlc_tick_t) f * p_sys->i_length;
+            return demux_Control(p_demux, DEMUX_SET_TIME, i64, false);
 
         case DEMUX_SET_NEXT_DEMUX_TIME:
             p_sys->i_next_demux_date = va_arg( args, vlc_tick_t );
@@ -555,7 +542,7 @@ static int ParseVobSubIDX( demux_t *p_demux )
             current_tk->i_subtitles = 0;
             current_tk->p_subtitles = xmalloc( sizeof( subtitle_t ) );
             current_tk->i_track_id = i_track_id;
-            current_tk->i_delay = (int64_t)0;
+            current_tk->i_delay = (vlc_tick_t)0;
 
             es_format_Init( &fmt, SPU_ES, VLC_CODEC_SPU );
             fmt.subs.spu.i_original_frame_width = p_sys->i_original_frame_width;
@@ -578,7 +565,8 @@ static int ParseVobSubIDX( demux_t *p_demux )
              */
             int h, m, s, ms, count, loc = 0;
             int i_sign = 1;
-            int64_t i_start, i_location = 0;
+            vlc_tick_t i_start;
+            int64_t i_location = 0;
 
             if( p_sys->i_tracks > 0 &&
                 sscanf( line, "timestamp: %d%n:%d:%d:%d, filepos: %x",
@@ -592,10 +580,7 @@ static int ParseVobSubIDX( demux_t *p_demux )
                     i_sign = -1;
                     h = -h;
                 }
-                i_start = (int64_t) ( h * 3600*1000 +
-                            m * 60*1000 +
-                            s * 1000 +
-                            ms ) * 1000;
+                i_start = vlc_tick_from_sec( h * 3600 + m * 60 + s ) + VLC_TICK_FROM_MS( ms );
                 i_location = loc;
 
                 current_tk->i_subtitles++;
@@ -620,7 +605,7 @@ static int ParseVobSubIDX( demux_t *p_demux )
              */
             int h, m, s, ms, count = 0;
             int i_sign = 1;
-            int64_t i_gap = 0;
+            vlc_tick_t i_gap = 0;
 
             if( p_sys->i_tracks > 0 &&
                 sscanf( line, "%*celay: %d%n:%d:%d:%d",
@@ -632,12 +617,9 @@ static int ParseVobSubIDX( demux_t *p_demux )
                     i_sign = -1;
                     h = -h;
                 }
-                i_gap = (int64_t) ( h * 3600*1000 +
-                            m * 60*1000 +
-                            s * 1000 +
-                            ms ) * 1000;
+                i_gap = vlc_tick_from_sec( h * 3600 + m * 60 + s ) + VLC_TICK_FROM_MS( ms );
 
-                current_tk->i_delay = current_tk->i_delay + (i_gap * i_sign);
+                current_tk->i_delay += i_gap * i_sign;
                 msg_Dbg( p_demux, "sign: %+d gap: %+"PRId64" global delay: %+"PRId64"",
                          i_sign, i_gap, current_tk->i_delay );
             }
@@ -693,7 +675,7 @@ static int DemuxVobSub( demux_t *p_demux, block_t *p_bk )
         memcpy( p_pkt->p_buffer, p, i_size);
         p += i_size;
 
-        i_id = ps_pkt_id( p_pkt );
+        i_id = ps_pkt_id( p_pkt->p_buffer, p_pkt->i_buffer );
         if( (i_id&0xffe0) != 0xbd20 ||
             ps_pkt_parse_pes( VLC_OBJECT(p_demux), p_pkt, 1 ) )
         {

@@ -2,7 +2,6 @@
  * extended_panels.hpp : Exentended Panels
  ****************************************************************************
  * Copyright (C) 2006 the VideoLAN team
- * $Id: 6c7567966934720307afb0d0f18419495e70d38e $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *          Antoine Cellerier <dionoea at videolan dot org>
@@ -32,8 +31,9 @@
 #include <vlc_common.h>
 
 #include "qt.hpp"
-#include "ui/equalizer.h"
-#include "ui/video_effects.h"
+#include "ui_equalizer.h"
+#include "ui_video_effects.h"
+#include "adapters/variables.hpp"
 
 #include <QTabWidget>
 
@@ -165,7 +165,7 @@ protected:
     float initialValue() Q_DECL_OVERRIDE;
     int index;
     QStringList getBandsFromAout() const;
-    void writeToConfig();
+    void writeToConfig() override;
 
 public slots:
     void onValueChanged( int i ) Q_DECL_OVERRIDE;
@@ -248,8 +248,10 @@ private:
     intf_thread_t *p_intf;
     SyncWidget *AVSpin;
     SyncWidget *subsSpin;
+    SyncWidget *secondarySubsSpin;
     QDoubleSpinBox *subSpeedSpin;
     QDoubleSpinBox *subDurationSpin;
+    QVLCFloat m_SubsDelayCfgFactor;
 
     bool b_userAction;
 
@@ -264,6 +266,7 @@ public slots:
 private slots:
     void advanceAudio( double );
     void advanceSubs( double );
+    void advanceSecondarySubs( double );
     void adjustSubsSpeed( double );
     void adjustSubsDuration( double );
 };

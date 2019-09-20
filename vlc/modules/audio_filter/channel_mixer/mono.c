@@ -2,7 +2,6 @@
  * mono.c : stereo2mono downmixsimple channel mixer plug-in
  *****************************************************************************
  * Copyright (C) 2006 M2X
- * $Id: e112b50a76bead36e1489038c63a8740ba47b155 $
  *
  * Authors: Jean-Paul Saman <jpsaman at m2x dot nl>
  *

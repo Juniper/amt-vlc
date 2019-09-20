@@ -1,5 +1,5 @@
 # SMB2
-SMB2_VERSION := 2.0.0
+SMB2_VERSION := 3.0.0
 SMB2_URL := https://github.com/sahlberg/libsmb2/archive/v$(SMB2_VERSION).tar.gz
 
 ifdef BUILD_NETWORK
@@ -18,6 +18,10 @@ $(TARBALLS)/libsmb2-$(SMB2_VERSION).tar.gz:
 
 smb2: libsmb2-$(SMB2_VERSION).tar.gz .sum-smb2
 	$(UNPACK)
+	$(APPLY) $(SRC)/smb2/0001-ntlmssp-add-support-for-Anonymous-logins.patch
+	$(APPLY) $(SRC)/smb2/0002-Fix-indent-and-white-spaces.patch
+	$(APPLY) $(SRC)/smb2/0003-Fix-getlogin-usage.patch
+	$(APPLY) $(SRC)/smb2/0004-smb2_destroy_context-fix-possible-null-deref.patch
 	$(MOVE)
 
 .smb2: smb2

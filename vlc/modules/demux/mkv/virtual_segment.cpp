@@ -2,7 +2,6 @@
  * virtual_segment.cpp : virtual segment implementation in the MKV demuxer
  *****************************************************************************
  * Copyright © 2003-2011 VideoLAN and VLC authors
- * $Id: dc888ea2e0c3ca091b480f922c91066c5535179f $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Steve Lhomme <steve.lhomme@free.fr>
@@ -44,13 +43,13 @@ matroska_segment_c * getSegmentbyUID( KaxSegmentUID * p_uid, std::vector<matrosk
 virtual_chapter_c * virtual_chapter_c::CreateVirtualChapter( chapter_item_c * p_chap,
                                                              matroska_segment_c & main_segment,
                                                              std::vector<matroska_segment_c*> & segments,
-                                                             int64_t & usertime_offset, bool b_ordered)
+                                                             vlc_tick_t & usertime_offset, bool b_ordered)
 {
     std::vector<virtual_chapter_c *> sub_chapters;
     if( !p_chap )
     {
         /* Dummy chapter use the whole segment */
-        return new (std::nothrow) virtual_chapter_c( main_segment, NULL, 0, main_segment.i_duration * 1000, sub_chapters );
+        return new (std::nothrow) virtual_chapter_c( main_segment, NULL, 0, main_segment.i_duration, sub_chapters );
     }
 
     matroska_segment_c * p_segment = &main_segment;
@@ -65,8 +64,8 @@ virtual_chapter_c * virtual_chapter_c::CreateVirtualChapter( chapter_item_c * p_
 
     p_segment->Preload();
 
-    int64_t start = ( b_ordered )? usertime_offset : p_chap->i_start_time;
-    int64_t tmp = usertime_offset;
+    vlc_tick_t start = ( b_ordered )? usertime_offset : p_chap->i_start_time;
+    vlc_tick_t tmp = usertime_offset;
 
     for( size_t i = 0; i < p_chap->sub_chapters.size(); i++ )
     {
@@ -75,7 +74,7 @@ virtual_chapter_c * virtual_chapter_c::CreateVirtualChapter( chapter_item_c * p_
         if( p_vsubchap )
             sub_chapters.push_back( p_vsubchap );
     }
-    int64_t stop = ( b_ordered )?
+    vlc_tick_t stop = ( b_ordered )?
             (((p_chap->i_end_time == -1 ||
                (p_chap->i_end_time - p_chap->i_start_time) < (tmp - usertime_offset) )) ? tmp :
              p_chap->i_end_time - p_chap->i_start_time + usertime_offset )
@@ -114,7 +113,7 @@ virtual_edition_c::virtual_edition_c( chapter_edition_c * p_edit, matroska_segme
     p_edition = p_edit;
     b_ordered = false;
 
-    int64_t usertime_offset = 0; // microseconds
+    vlc_tick_t usertime_offset = 0; // microseconds
 
     /* ordered chapters */
     if( p_edition && p_edition->b_ordered )
@@ -137,7 +136,7 @@ virtual_edition_c::virtual_edition_c( chapter_edition_c * p_edit, matroska_segme
     {
         matroska_segment_c * p_cur = &main_segment;
         virtual_chapter_c * p_vchap = NULL;
-        int64_t tmp = 0;
+        vlc_tick_t tmp = 0;
 
         /* check for prev linked segments */
         /* FIXME to avoid infinite recursion we limit to 10 prev should be better as parameter */
@@ -252,7 +251,7 @@ void virtual_edition_c::retimeChapters()
         virtual_chapter_c * p_vchap = vchapters[i];
 
         p_vchap->i_mk_virtual_start_time = i_duration;
-        i_duration += p_vchap->segment.i_duration * 1000;
+        i_duration += p_vchap->segment.i_duration;
         p_vchap->i_mk_virtual_stop_time = i_duration;
 
         retimeSubChapters( p_vchap );
@@ -379,13 +378,13 @@ virtual_chapter_c * virtual_chapter_c::BrowseCodecPrivate( unsigned int codec_id
     return NULL;
 }
 
-bool virtual_chapter_c::ContainsTimestamp( int64_t time )
+bool virtual_chapter_c::ContainsTimestamp( vlc_tick_t time )
 {
     /*with the current implementation only the last chapter can have a negative virtual_stop_time*/
     return ( time >= i_mk_virtual_start_time && time < i_mk_virtual_stop_time );
 }
 
-virtual_chapter_c* virtual_chapter_c::getSubChapterbyTimecode( int64_t time )
+virtual_chapter_c* virtual_chapter_c::getSubChapterbyTimecode( vlc_tick_t time )
 {
     for( size_t i = 0; i < sub_vchapters.size(); i++ )
     {
@@ -396,7 +395,7 @@ virtual_chapter_c* virtual_chapter_c::getSubChapterbyTimecode( int64_t time )
     return this;
 }
 
-virtual_chapter_c* virtual_edition_c::getChapterbyTimecode( int64_t time )
+virtual_chapter_c* virtual_edition_c::getChapterbyTimecode( vlc_tick_t time )
 {
     for( size_t i = 0; i < vchapters.size(); i++ )
     {

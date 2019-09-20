@@ -3,7 +3,6 @@
  * EbmlParser for the matroska demuxer
  *****************************************************************************
  * Copyright (C) 2003-2004 VLC authors and VideoLAN
- * $Id: 1776494fb4b6ff075a91c3494870c7f4987189b5 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Steve Lhomme <steve.lhomme@free.fr>
@@ -165,7 +164,7 @@ next:
         if (i_max_read == 0)
         {
             /* check if the parent still has data to read */
-            if ( mi_level > 1 &&
+            if ( mi_level > 1 && m_el[mi_level-2]->IsFiniteSize() &&
                  m_el[mi_level-1]->GetEndPosition() < m_el[mi_level-2]->GetEndPosition() )
             {
                 uint64 top = m_el[mi_level-2]->GetEndPosition();
@@ -301,6 +300,7 @@ next:
                      m_el[mi_level]->GetElementPosition() );
 
             if( mi_level >= 1 &&
+                m_el[mi_level]->IsFiniteSize() && m_el[mi_level-1]->IsFiniteSize() &&
                 m_el[mi_level]->GetElementPosition() >= m_el[mi_level-1]->GetEndPosition() )
             {
                 msg_Err(p_demux, "This element is outside its known parent... upping level");

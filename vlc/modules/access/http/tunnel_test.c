@@ -38,7 +38,11 @@
 # define SOCK_CLOEXEC 0
 # define accept4(a,b,c,d) accept(a,b,c)
 #endif
-#include <netinet/in.h>
+#ifdef _WIN32
+# include <winsock2.h>
+#else
+# include <netinet/in.h>
+#endif
 #ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
 #endif
@@ -46,6 +50,8 @@
 #include <vlc_common.h>
 #include <vlc_tls.h>
 #include "transport.h"
+
+const char vlc_module_name[] = "test_http_tunnel";
 
 static void proxy_client_process(int fd)
 {
@@ -92,11 +98,11 @@ static unsigned connection_count = 0;
 
 static void *proxy_thread(void *data)
 {
-    int lfd = (intptr_t)data;
+    int *lfd = data;
 
     for (;;)
     {
-        int cfd = accept4(lfd, NULL, NULL, SOCK_CLOEXEC);
+        int cfd = accept4(*lfd, NULL, NULL, SOCK_CLOEXEC);
         if (cfd == -1)
             continue;
 
@@ -147,8 +153,10 @@ int main(void)
     vlc_https_connect_proxy(NULL, NULL, "www.example.com", 0, &two,
                             "ftp://proxy.example.com/");
 
-    int lfd = server_socket(&port);
-    if (lfd == -1)
+    int *lfd = malloc(sizeof (int));
+    assert(lfd != NULL);
+    *lfd = server_socket(&port);
+    if (*lfd == -1)
         return 77;
 
     if (asprintf(&url, "http://Aladdin:open%%20sesame@[::1]:%u", port) < 0)
@@ -159,15 +167,14 @@ int main(void)
     /* Test connection failure */
     vlc_https_connect_proxy(NULL, NULL, "www.example.com", 0, &two, url);
 
-    if (listen(lfd, 255))
+    if (listen(*lfd, 255))
     {
-        vlc_close(lfd);
+        vlc_close(*lfd);
         return 77;
     }
 
     vlc_thread_t th;
-    if (vlc_clone(&th, proxy_thread, (void*)(intptr_t)lfd,
-                  VLC_THREAD_PRIORITY_LOW))
+    if (vlc_clone(&th, proxy_thread, lfd, VLC_THREAD_PRIORITY_LOW))
         assert(!"Thread error");
 
     /* Test proxy error */
@@ -177,5 +184,7 @@ int main(void)
     vlc_join(th, NULL);
     assert(connection_count > 0);
     free(url);
-    vlc_close(lfd);
+    vlc_close(*lfd);
+    free(lfd);
+    return 0;
 }

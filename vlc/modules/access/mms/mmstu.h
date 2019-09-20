@@ -2,7 +2,6 @@
  * mmstu.h: MMS access plug-in
  *****************************************************************************
  * Copyright (C) 2001, 2002 VLC authors and VideoLAN
- * $Id: 9c72d1f5fc6f28fcc2be05805f88325b1980c99e $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *
@@ -58,7 +57,7 @@ typedef struct
     size_t      i_buffer_udp;
 
     /* data necessary to send data to server */
-    guid_t      guid;
+    vlc_guid_t  guid;
     int         i_command_level;
     int         i_seq_num;
     uint32_t    i_header_packet_id_type;
@@ -78,12 +77,6 @@ typedef struct
 
     /* extracted information */
     int         i_command;
-
-    /* from 0x01 answer (not yet set) */
-    char        *psz_server_version;
-    char        *psz_tool_version;
-    char        *psz_update_player_url;
-    char        *psz_encryption_type;
 
     /* from 0x06 answer */
     uint32_t    i_flags_broadcast;

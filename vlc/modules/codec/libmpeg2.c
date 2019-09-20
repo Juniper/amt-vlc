@@ -2,7 +2,6 @@
  * libmpeg2.c: mpeg2 video decoder module making use of libmpeg2.
  *****************************************************************************
  * Copyright (C) 1999-2001 VLC authors and VideoLAN
- * $Id: 2dcf094c73cfd2c997d129b901668dbc54e62278 $
  *
  * Authors: Gildas Bazin <gbazin@videolan.org>
  *          Christophe Massiot <massiot@via.ecp.fr>
@@ -333,7 +332,7 @@ static picture_t *DecodeBlock( decoder_t *p_dec, block_t **pp_block )
                 /* Intra-slice refresh. Simulate a blank I picture. */
                 msg_Dbg( p_dec, "intra-slice refresh stream" );
                 decoder_SynchroNewPicture( p_sys->p_synchro,
-                                           I_CODING_TYPE, 2, 0, 0,
+                                           I_CODING_TYPE, 2, VLC_TICK_INVALID, VLC_TICK_INVALID,
                                            p_info->sequence->flags & SEQ_FLAG_LOW_DELAY );
                 decoder_SynchroDecode( p_sys->p_synchro );
                 decoder_SynchroEnd( p_sys->p_synchro, I_CODING_TYPE, 0 );
@@ -483,7 +482,7 @@ static picture_t *DecodeBlock( decoder_t *p_dec, block_t **pp_block )
                 if( p_sys->b_slice_i )
                 {
                     decoder_SynchroNewPicture( p_sys->p_synchro,
-                                               I_CODING_TYPE, 2, 0, 0,
+                                               I_CODING_TYPE, 2, VLC_TICK_INVALID, VLC_TICK_INVALID,
                                                p_sys->p_info->sequence->flags &
                                                             SEQ_FLAG_LOW_DELAY );
                     decoder_SynchroDecode( p_sys->p_synchro );
@@ -558,8 +557,10 @@ static picture_t *DecodeBlock( decoder_t *p_dec, block_t **pp_block )
                 {
                     p_pic->date = decoder_SynchroDate( p_sys->p_synchro );
                     if( p_sys->b_garbage_pic )
-                        p_pic->date = 0; /* ??? */
-                    p_sys->b_garbage_pic = false;
+                    {
+                        p_pic->date = VLC_TICK_INVALID; /* ??? */
+                        p_sys->b_garbage_pic = false;
+                    }
                 }
             }
 
@@ -859,7 +860,7 @@ static picture_t *DpbNewPicture( decoder_t *p_dec )
         p->b_linked = true;
         p->b_displayed = false;
 
-        p->p_picture->date = 0;
+        p->p_picture->date = VLC_TICK_INVALID;
     }
     return p->p_picture;
 }

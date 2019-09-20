@@ -34,13 +34,14 @@
 
 #if TARGET_OS_IPHONE
   #import <Foundation/Foundation.h>
-  #define OSX_MAVERICKS 1
 #else
   #import <Cocoa/Cocoa.h>
-  #define OSX_MAVERICKS (NSAppKitVersionNumber >= 1265)
 #endif
 
 #import <Security/Security.h>
+
+// Marker to recognize changed format in vlc 4: secret does not have \0 cut off anymore.
+int kVlc4Creator = 'vlc4';
 
 static int Open(vlc_object_t *);
 
@@ -71,48 +72,6 @@ static const char *const accessibility_list_text[] = {
 #define ACCESS_GROUP_TEXT N_("Keychain access group")
 #define ACCESS_GROUP_LONGTEXT N_("Keychain access group as defined by the app entitlements.")
 
-/* VLC can be compiled against older SDKs (like before OS X 10.10)
- * but newer features should still be available.
- * Hence, re-define things as needed */
-#ifndef kSecAttrSynchronizable
-#define kSecAttrSynchronizable CFSTR("sync")
-#endif
-
-#ifndef kSecAttrSynchronizableAny
-#define kSecAttrSynchronizableAny CFSTR("syna")
-#endif
-
-#ifndef kSecAttrAccessGroup
-#define kSecAttrAccessGroup CFSTR("agrp")
-#endif
-
-#ifndef kSecAttrAccessibleAfterFirstUnlock
-#define kSecAttrAccessibleAfterFirstUnlock CFSTR("ck")
-#endif
-
-#ifndef kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-#define kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly CFSTR("cku")
-#endif
-
-#ifndef kSecAttrAccessibleAlways
-#define kSecAttrAccessibleAlways CFSTR("dk")
-#endif
-
-#ifndef kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly
-#define kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly CFSTR("akpu")
-#endif
-
-#ifndef kSecAttrAccessibleAlwaysThisDeviceOnly
-#define kSecAttrAccessibleAlwaysThisDeviceOnly CFSTR("dku")
-#endif
-
-#ifndef kSecAttrAccessibleWhenUnlocked
-#define kSecAttrAccessibleWhenUnlocked CFSTR("ak")
-#endif
-
-#ifndef kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-#define kSecAttrAccessibleWhenUnlockedThisDeviceOnly CFSTR("aku")
-#endif
 
 vlc_module_begin()
     set_shortname(N_("Keychain keystore"))
@@ -125,7 +84,7 @@ vlc_module_begin()
     change_integer_list(accessibility_list, accessibility_list_text)
     add_string("keychain-access-group", NULL, ACCESS_GROUP_TEXT, ACCESS_GROUP_LONGTEXT, true)
     set_capability("keystore", 100)
-    set_callbacks(Open, NULL)
+    set_callback(Open)
 vlc_module_end ()
 
 static NSMutableDictionary * CreateQuery(vlc_keystore *p_keystore)
@@ -214,16 +173,10 @@ static NSString * ErrorForStatus(OSStatus status)
     return message;
 }
 
-extern const CFStringRef kSecAttrAccessible;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wpartial-availability"
 static void SetAccessibilityForQuery(vlc_keystore *p_keystore,
                                      NSMutableDictionary *query)
 {
-    if (!OSX_MAVERICKS)
-	return;
-
     int accessibilityType = var_InheritInteger(p_keystore, "keychain-accessibility-type");
     switch (accessibilityType) {
         case 1:
@@ -251,7 +204,6 @@ static void SetAccessibilityForQuery(vlc_keystore *p_keystore,
             break;
     }
 }
-#pragma clang diagnostic pop
 
 static void SetAttributesForQuery(const char *const ppsz_values[KEY_MAX], NSMutableDictionary *query, const char *psz_label)
 {
@@ -293,6 +245,8 @@ static int Store(vlc_keystore *p_keystore,
         return VLC_EGENERIC;
     }
 
+    msg_Dbg(p_keystore, "Store keychain entry for server %s", ppsz_values[KEY_SERVER]);
+
     NSMutableDictionary *query = nil;
     NSMutableDictionary *searchQuery = CreateQuery(p_keystore);
 
@@ -307,7 +261,7 @@ static int Store(vlc_keystore *p_keystore,
     /* search */
     status = SecItemCopyMatching((__bridge CFDictionaryRef)searchQuery, &result);
     /* create storage unit */
-    NSData *secretData = [[NSString stringWithFormat:@"%s", p_secret] dataUsingEncoding:NSUTF8StringEncoding];
+    NSData *secretData = [NSData dataWithBytes:p_secret length:i_secret_len];
 
     if (status == errSecSuccess) {
         msg_Dbg(p_keystore, "the item was already known to keychain, so it will be updated");
@@ -316,6 +270,7 @@ static int Store(vlc_keystore *p_keystore,
 
         /* just set the secret data */
         [query setObject:secretData forKey:(__bridge id)kSecValueData];
+        [query setObject:@(kVlc4Creator) forKey:(__bridge id)kSecAttrCreator];
 
         status = SecItemUpdate((__bridge CFDictionaryRef)(searchQuery), (__bridge CFDictionaryRef)(query));
     } else if (status == errSecItemNotFound) {
@@ -331,6 +286,7 @@ static int Store(vlc_keystore *p_keystore,
 
         /* set secret data */
         [query setObject:secretData forKey:(__bridge id)kSecValueData];
+        [query setObject:@(kVlc4Creator) forKey:(__bridge id)kSecAttrCreator];
 
         status = SecItemAdd((__bridge CFDictionaryRef)query, NULL);
     }
@@ -349,6 +305,8 @@ static unsigned int Find(vlc_keystore *p_keystore,
     CFTypeRef result = NULL;
     NSMutableDictionary *baseLookupQuery = CreateQuery(p_keystore);
     OSStatus status;
+
+    msg_Dbg(p_keystore, "Lookup keychain entry for server %s", ppsz_values[KEY_SERVER]);
 
     /* set attributes */
     SetAttributesForQuery(ppsz_values, baseLookupQuery, NULL);
@@ -381,6 +339,7 @@ static unsigned int Find(vlc_keystore *p_keystore,
         }
 
         NSDictionary *keychainItem = [listOfResults objectAtIndex:i];
+
         NSString *accountName = [keychainItem objectForKey:(__bridge id)kSecAttrAccount];
         NSMutableDictionary *passwordFetchQuery = [baseLookupQuery mutableCopy];
         [passwordFetchQuery setObject:(__bridge id)kCFBooleanTrue forKey:(__bridge id)kSecReturnData];
@@ -401,13 +360,23 @@ static unsigned int Find(vlc_keystore *p_keystore,
         }
 
         NSData *secretData = (__bridge_transfer NSData *)secretResult;
-        NSUInteger secretDataLength = secretData.length;
+        NSNumber *creator = [keychainItem objectForKey:(__bridge id)kSecAttrCreator];
+        if (creator && [creator isEqual:@(kVlc4Creator)]) {
+            msg_Dbg(p_keystore, "Found keychain entry in vlc4 format");
+            vlc_keystore_entry_set_secret(p_entry, secretData.bytes, secretData.length);
 
-        /* we need to do some padding here, as string is expected to be 0 terminated */
-        uint8_t *paddedSecretData = calloc(1, secretDataLength + 1);
-        memcpy(paddedSecretData, secretData.bytes, secretDataLength);
-        vlc_keystore_entry_set_secret(p_entry, paddedSecretData, secretDataLength + 1);
-        free(paddedSecretData);
+        } else {
+            msg_Dbg(p_keystore, "Found keychain entry in vlc3 format");
+
+            /* we need to do some padding here, as string is expected to be 0 terminated */
+            NSUInteger secretDataLength = secretData.length;
+            uint8_t *paddedSecretData = calloc(1, secretDataLength + 1);
+            memcpy(paddedSecretData, secretData.bytes, secretDataLength);
+            vlc_keystore_entry_set_secret(p_entry, paddedSecretData, secretDataLength + 1);
+            free(paddedSecretData);
+        }
+
+        vlc_keystore_entry_set_secret(p_entry, secretData.bytes, secretData.length);
     }
 
     *pp_entries = p_entries;

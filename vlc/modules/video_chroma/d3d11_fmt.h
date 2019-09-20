@@ -28,9 +28,14 @@
 
 #include "dxgi_fmt.h"
 
+#include <vlc_picture.h>
+
 DEFINE_GUID(GUID_CONTEXT_MUTEX, 0x472e8835, 0x3f8e, 0x4f93, 0xa0, 0xcb, 0x25, 0x79, 0x77, 0x6c, 0xed, 0x86);
 
-/* see https://msdn.microsoft.com/windows/hardware/commercialize/design/compatibility/device-graphics */
+/* see https://msdn.microsoft.com/windows/hardware/commercialize/design/compatibility/device-graphics
+ *     https://docs.microsoft.com/en-us/windows-hardware/drivers/display/wddm-2-1-features#driver-versioning
+ *     https://www.intel.com/content/www/us/en/support/articles/000005654/graphics-drivers.html
+ */
 struct wddm_version
 {
     int wddm, d3d_features, revision, build;
@@ -70,17 +75,9 @@ typedef struct
     unsigned                      slice_index;
     ID3D11VideoProcessorInputView  *processorInput;  /* when used as processor input */
     ID3D11VideoProcessorOutputView *processorOutput; /* when used as processor output */
-    ID3D11ShaderResourceView      *resourceView[D3D11_MAX_SHADER_VIEW];
+    ID3D11ShaderResourceView      *renderSrc[D3D11_MAX_SHADER_VIEW];
     DXGI_FORMAT                   formatTexture;
-} picture_sys_t;
-
-#include "../codec/avcodec/va_surface.h"
-
-static inline picture_sys_t *ActivePictureSys(picture_t *p_pic)
-{
-    struct va_pic_context *pic_ctx = (struct va_pic_context*)p_pic->context;
-    return pic_ctx ? &pic_ctx->picsys : p_pic->p_sys;
-}
+} picture_sys_d3d11_t;
 
 /* index to use for texture/resource that use a known DXGI format
  * (ie not DXGI_FORMAT_UNKNWON) */
@@ -94,20 +91,24 @@ static inline bool is_d3d11_opaque(vlc_fourcc_t chroma)
            chroma == VLC_CODEC_D3D11_OPAQUE_BGRA;
 }
 
-void AcquirePictureSys(picture_sys_t *p_sys);
+void AcquireD3D11PictureSys(picture_sys_d3d11_t *p_sys);
 
-void ReleasePictureSys(picture_sys_t *p_sys);
+void ReleaseD3D11PictureSys(picture_sys_d3d11_t *p_sys);
 
 /* map texture planes to resource views */
-int D3D11_AllocateShaderView(vlc_object_t *obj, ID3D11Device *d3ddevice,
+int D3D11_AllocateResourceView(vlc_object_t *obj, ID3D11Device *d3ddevice,
                              const d3d_format_t *format,
                              ID3D11Texture2D *p_texture[D3D11_MAX_SHADER_VIEW], UINT slice_index,
-                             ID3D11ShaderResourceView *resourceView[D3D11_MAX_SHADER_VIEW]);
-#define D3D11_AllocateShaderView(a,b,c,d,e,f)  D3D11_AllocateShaderView(VLC_OBJECT(a),b,c,d,e,f)
+                             ID3D11ShaderResourceView *output[D3D11_MAX_SHADER_VIEW]);
+#define D3D11_AllocateResourceView(a,b,c,d,e,f)  D3D11_AllocateResourceView(VLC_OBJECT(a),b,c,d,e,f)
 
-HRESULT D3D11_CreateDevice(vlc_object_t *obj, d3d11_handle_t *,
+HRESULT D3D11_CreateDevice(vlc_object_t *obj, d3d11_handle_t *, IDXGIAdapter *,
                            bool hw_decoding, d3d11_device_t *out);
-#define D3D11_CreateDevice(a,b,c,d)  D3D11_CreateDevice( VLC_OBJECT(a), b, c, d )
+#define D3D11_CreateDevice(a,b,c,d,e)  D3D11_CreateDevice( VLC_OBJECT(a), b, c, d, e )
+HRESULT D3D11_CreateDeviceExternal(vlc_object_t *obj, ID3D11DeviceContext *,
+                                   bool hw_decoding, d3d11_device_t *out);
+#define D3D11_CreateDeviceExternal(a,b,c,d) \
+    D3D11_CreateDeviceExternal( VLC_OBJECT(a), b, c, d )
 
 void D3D11_ReleaseDevice(d3d11_device_t *);
 
@@ -133,16 +134,22 @@ static inline bool DeviceSupportsFormat(ID3D11Device *d3ddevice,
             && ( i_formatSupport & supportFlags ) == supportFlags;
 }
 
-const d3d_format_t *FindD3D11Format(ID3D11Device *d3ddevice,
+const d3d_format_t *FindD3D11Format(vlc_object_t *,
+                                    d3d11_device_t*,
                                     vlc_fourcc_t i_src_chroma,
                                     bool rgb_only,
                                     uint8_t bits_per_channel,
+                                    uint8_t widthDenominator,
+                                    uint8_t heightDenominator,
                                     bool allow_opaque,
                                     UINT supportFlags);
+#define FindD3D11Format(a,b,c,d,e,f,g,h,i)  \
+    FindD3D11Format(VLC_OBJECT(a),b,c,d,e,f,g,h,i)
 
 int AllocateTextures(vlc_object_t *, d3d11_device_t *, const d3d_format_t *,
-                     const video_format_t *, unsigned pool_size, ID3D11Texture2D *textures[]);
-#define AllocateTextures(a,b,c,d,e,f)  AllocateTextures(VLC_OBJECT(a),b,c,d,e,f)
+                     const video_format_t *, unsigned pool_size, ID3D11Texture2D *textures[],
+                     plane_t planes[]);
+#define AllocateTextures(a,b,c,d,e,f,g)  AllocateTextures(VLC_OBJECT(a),b,c,d,e,f,g)
 
 static inline void d3d11_device_lock(d3d11_device_t *d3d_dev)
 {

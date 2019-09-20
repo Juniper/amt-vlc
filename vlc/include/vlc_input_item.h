@@ -171,7 +171,7 @@ enum slave_priority
     "psb", "rt", "sami", "sbv", \
     "scc", "smi", "srt", \
     "ssa",  "stl", "sub", \
-    "ttml", "tt", "usf", \
+    "tt", "ttml", "usf", \
     "vtt", "webvtt"
 
 #define SLAVE_AUDIO_EXTENSIONS \
@@ -421,7 +421,7 @@ typedef struct input_item_parser_cbs_t
  * Parse an item asynchronously
  *
  * @note The parsing is done asynchronously. The user can call
- * input_item_parser_id_Release() before receiving the on_ended() event in
+ * input_item_parser_id_Interrupt() before receiving the on_ended() event in
  * order to interrupt it.
  *
  * @param item the item to parse
@@ -437,6 +437,18 @@ input_item_Parse(input_item_t *item, vlc_object_t *parent,
                  const input_item_parser_cbs_t *cbs, void *userdata) VLC_USED;
 
 /**
+ * Interrupts & cancels the parsing
+ *
+ * @note The parser still needs to be released with input_item_parser_id_Release
+ * afterward.
+ * @note Calling this function will cause the on_ended callback to be invoked.
+ *
+ * @param the parser to interrupt
+ */
+VLC_API void
+input_item_parser_id_Interrupt(input_item_parser_id_t *parser);
+
+/**
  * Release (and interrupt if needed) a parser
  *
  * @param parser the parser returned by input_item_Parse
@@ -450,7 +462,10 @@ typedef enum input_item_meta_request_option_t
     META_REQUEST_OPTION_SCOPE_LOCAL   = 0x01,
     META_REQUEST_OPTION_SCOPE_NETWORK = 0x02,
     META_REQUEST_OPTION_SCOPE_ANY     = 0x03,
-    META_REQUEST_OPTION_DO_INTERACT   = 0x04
+    META_REQUEST_OPTION_FETCH_LOCAL   = 0x04,
+    META_REQUEST_OPTION_FETCH_NETWORK = 0x08,
+    META_REQUEST_OPTION_FETCH_ANY     = 0x0C,
+    META_REQUEST_OPTION_DO_INTERACT   = 0x10,
 } input_item_meta_request_option_t;
 
 /* status of the on_preparse_ended() callback */

@@ -2,7 +2,6 @@
  * vlm_event.c: Events
  *****************************************************************************
  * Copyright (C) 2009 Laurent Aimar
- * $Id: 1c0cd0b84b139ce4f18549939b2d74f3b66f605b $
  *
  * Authors: Laurent Aimar < fenrir _AT_ videolan _DOT_ org>
  *
@@ -36,7 +35,7 @@
 
 /* */
 static void Trigger( vlm_t *, int i_type, int64_t id, const char *psz_name );
-static void TriggerInstanceState( vlm_t *, int i_type, int64_t id, const char *psz_name, const char *psz_instance_name, input_state_e input_state );
+static void TriggerInstanceState( vlm_t *, int i_type, int64_t id, const char *psz_name, const char *psz_instance_name, vlm_state_e input_state );
 
 /*****************************************************************************
  *
@@ -63,7 +62,7 @@ void vlm_SendEventMediaInstanceStopped( vlm_t *p_vlm, int64_t id, const char *ps
     Trigger( p_vlm, VLM_EVENT_MEDIA_INSTANCE_STOPPED, id, psz_name );
 }
 
-void vlm_SendEventMediaInstanceState( vlm_t *p_vlm, int64_t id, const char *psz_name, const char *psz_instance_name, input_state_e state )
+void vlm_SendEventMediaInstanceState( vlm_t *p_vlm, int64_t id, const char *psz_name, const char *psz_instance_name, vlm_state_e state )
 {
     TriggerInstanceState( p_vlm, VLM_EVENT_MEDIA_INSTANCE_STATE, id, psz_name, psz_instance_name, state );
 }
@@ -83,7 +82,7 @@ static void Trigger( vlm_t *p_vlm, int i_type, int64_t id, const char *psz_name 
     var_SetAddress( p_vlm, "intf-event", &event );
 }
 
-static void TriggerInstanceState( vlm_t *p_vlm, int i_type, int64_t id, const char *psz_name, const char *psz_instance_name, input_state_e input_state )
+static void TriggerInstanceState( vlm_t *p_vlm, int i_type, int64_t id, const char *psz_name, const char *psz_instance_name, vlm_state_e input_state )
 {
     vlm_event_t event;
 

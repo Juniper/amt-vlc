@@ -59,7 +59,7 @@ struct ts_pmt_t
     struct
     {
         stime_t i_current;
-        stime_t i_first; // seen <> != -1
+        stime_t i_first; // seen <> != TS_TICK_UNKNOWN
         /* broken PCR handling */
         stime_t i_first_dts;
         stime_t i_pcroffset;
@@ -138,6 +138,8 @@ struct ts_stream_t
         block_t *p_head;
         block_t **pp_last;
     } prepcr;
+
+    stime_t i_last_dts;
 };
 
 typedef struct ts_si_context_t ts_si_context_t;

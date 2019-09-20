@@ -1,46 +1,31 @@
-From 9fbc596ca8715d1761da0f2d5f991dc258f10297 Mon Sep 17 00:00:00 2001
+From 6f326f7250981eb9d524995091e2c459f00bb518 Mon Sep 17 00:00:00 2001
 From: Natalie Landsberg <natalie.landsberg97@gmail.com>
-Date: Fri, 14 Jun 2019 11:21:19 -0400
+Date: Tue, 17 Sep 2019 15:23:50 -0400
 Subject: [PATCH] Add support for AMT multicast tunneling over non-multicast
- enabled networks
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-
-Updated submission based on feedback for Wayne's submission.
+ enabled network
 
 Changes:
-1. Removed any <http link > added by email client
-2. Decided to keep header file separate. Other plugins use header files, why can't this one?
-3. Changed all functions to be static.
-4. Removed all instances of (void *) cast in memcpy calls
-5. Changed instances where memset( &...) to remove '&'
-6. Changed 'int shift...' to 'size_t shift...'
-7. Added asserts each time shift is incremented around line 1100
-8. Removed cast to int, and changed comparison to be simpler around line 1112
-9. Regarding data race, changed to infinite loop and disregarded threadReady.
+   1. Fixed TRUE back to true. Dunno why my compiler doesn't catch this...
+   2. Fixed parantheses for if(unlikely(inet_ntop() ) == NULL) to if(unlikely(inet_ntop() == NULL) )
+      - "== NULL" is inside unlikely call correctly
+   3. removed GetDWBE where not used on buffer
 
-Regarding: 'warning: ‘__builtin_memcpy’ forming offset [49, 52] is out of the bounds [0, 48] of object ‘pkt’ with type ‘char[48]’ [-Warray-bounds]'
-I am not getting this specific warning on MacOS, is this perhaps a Linux issue or am I missing it? I am not sure how to fix this right now but will look into it.
-
-Comments and feedback appreciated. Glad to be back contributing!
+Compiler is finally working again and I pulled latest VLC from git. Hopefully it lines up with master now.
 ---
  modules/access/Makefile.am |    4 +
- modules/access/amt.c       | 1221 ++++++++++++++++++++++++++++++++++++
- modules/access/amt.h       |  220 +++++++
- 3 files changed, 1445 insertions(+)
+ modules/access/amt.c       | 1434 ++++++++++++++++++++++++++++++++++++
+ 2 files changed, 1438 insertions(+)
  create mode 100644 modules/access/amt.c
- create mode 100644 modules/access/amt.h
 
 diff --git a/modules/access/Makefile.am b/modules/access/Makefile.am
-index 919ac4b408..9b5202b5b6 100644
+index 1b85e8dd18..756ca5cf59 100644
 --- a/modules/access/Makefile.am
 +++ b/modules/access/Makefile.am
 @@ -379,6 +379,10 @@ libudp_plugin_la_SOURCES = access/udp.c
  libudp_plugin_la_LIBADD = $(SOCKET_LIBS)
  access_LTLIBRARIES += libudp_plugin.la
  
-+libamt_plugin_la_SOURCES = access/amt.c access/amt.h
++libamt_plugin_la_SOURCES = access/amt.c
 +libamt_plugin_la_LIBADD = $(SOCKET_LIBS)
 +access_LTLIBRARIES += libamt_plugin.la
 +
@@ -49,10 +34,10 @@ index 919ac4b408..9b5202b5b6 100644
  if HAVE_WIN32
 diff --git a/modules/access/amt.c b/modules/access/amt.c
 new file mode 100644
-index 0000000000..30cb207424
+index 0000000000..66f15449e9
 --- /dev/null
 +++ b/modules/access/amt.c
-@@ -0,0 +1,1221 @@
+@@ -0,0 +1,1434 @@
 +/**
 + * @file amt.c
 + * @brief Automatic Multicast Tunneling Protocol (AMT) file for VLC media player
@@ -62,13 +47,13 @@ index 0000000000..30cb207424
 + * Copyright (C) 2018 VLC authors and VideoLAN
 + * Copyright (c) Juniper Networks, Inc., 2018. All rights reserved.
 + *
-+ * Authors: Christophe Massiot <massiot@via.ecp.fr <mailto:massiot@via.ecp.fr>>           - original UDP code
-+ *          Tristan Leteurtre <tooney@via.ecp.fr <mailto:tooney@via.ecp.fr>>             - original UDP code
-+ *          Laurent Aimar <fenrir@via.ecp.fr <mailto:fenrir@via.ecp.fr>>                 - original UDP code
++ * Authors: Christophe Massiot <massiot@via.ecp.fr>           - original UDP code
++ *          Tristan Leteurtre <tooney@via.ecp.fr>             - original UDP code
++ *          Laurent Aimar <fenrir@via.ecp.fr>                 - original UDP code
 + *          Jean-Paul Saman <jpsaman #_at_# m2x dot nl>       - original UDP code
 + *          Remi Denis-Courmont                               - original UDP code
-+ *          Natalie Landsberg <natalie.landsberg97@gmail.com <mailto:natalie.landsberg97@gmail.com>> - AMT support
-+ *          Wayne Brassem <wbrassem@rogers.com <mailto:wbrassem@rogers.com>>               - Added FQDN support
++ *          Natalie Landsberg <natalie.landsberg97@gmail.com> - AMT support
++ *          Wayne Brassem <wbrassem@rogers.com>               - Added FQDN support
 + *
 + * This code is licensed to you under the GNU Lesser General Public License
 + * version 2.1 or later. You may not use this code except in compliance with
@@ -117,8 +102,6 @@ index 0000000000..30cb207424
 +#include <vlc_interrupt.h>
 +#include <vlc_url.h>
 +
-+#include "amt.h"
-+
 +#ifdef HAVE_POLL
 + #include <poll.h>
 +#endif
@@ -134,6 +117,195 @@ index 0000000000..30cb207424
 +#define AMT_RELAY_ADDR_LONG N_("AMT relay anycast address, or specify the relay you want by address or fully qualified domain name")
 +#define AMT_DEFAULT_RELAY N_("amt-relay.m2icast.net")
 +
++/*****************************************************************************
++ * Various Lengths of Msgs or Hdrs
++ *****************************************************************************/
++#define MAC_LEN 6                /* length of generated MAC in bytes */
++#define NONCE_LEN 4              /* length of nonce in bytes */
++
++#define MSG_TYPE_LEN 1           /* length of msg type */
++#define RELAY_QUERY_MSG_LEN 48   /* total length of relay query */
++#define RELAY_ADV_MSG_LEN 12     /* length of relay advertisement message */
++#define IGMP_QUERY_LEN 24        /* length of encapsulated IGMP query message */
++#define IGMP_REPORT_LEN 20
++#define AMT_HDR_LEN 2            /* length of AMT header on a packet */
++#define IP_HDR_LEN 20            /* length of standard IP header */
++#define IP_HDR_IGMP_LEN 24       /* length of IP header with an IGMP report */
++#define UDP_HDR_LEN 8            /* length of standard UDP header */
++#define AMT_REQUEST_MSG_LEN 9
++#define AMT_DISCO_MSG_LEN 8
++
++/*****************************************************************************
++ * Different AMT Message Types
++ *****************************************************************************/
++#define AMT_RELAY_DISCO 1       /* relay discovery */
++#define AMT_RELAY_ADV 2         /* relay advertisement */
++#define AMT_REQUEST 3           /* request */
++#define AMT_MEM_QUERY 4         /* membership query */
++#define AMT_MEM_UPD 5           /* membership update */
++#define AMT_MULT_DATA 6         /* multicast data */
++#define AMT_TEARDOWN 7          /* teardown (not currently supported) */
++
++/*****************************************************************************
++ * Different IGMP Message Types
++ *****************************************************************************/
++#define AMT_IGMPV3_MEMBERSHIP_QUERY_TYPEID 0x11
++#define AMT_IGMPV3_MEMBERSHIP_REPORT_TYPEID 0x22
++/* IGMPv2, interoperability  */
++#define AMT_IGMPV1_MEMBERSHIP_REPORT_TYPEID 0x12
++#define AMT_IGMPV2_MEMBERSHIP_REPORT_TYPEID 0x16
++#define AMT_IGMPV2_MEMBERSHIP_LEAVE_TYPEID 0x17
++
++#define AMT_IGMP_INCLUDE 0x01
++#define AMT_IGMP_EXCLUDE 0x02
++#define AMT_IGMP_INCLUDE_CHANGE 0x03
++#define AMT_IGMP_EXCLUDE_CHANGE 0x04
++#define AMT_IGMP_ALLOW 0x05
++#define AMT_IGMP_BLOCK 0x06
++
++#define MCAST_ANYCAST  "0.0.0.0"
++#define MCAST_ALLHOSTS "224.0.0.22"
++#define LOCAL_LOOPBACK "127.0.0.1"
++#define AMT_PORT 2268
++
++#define DEFAULT_MTU (1500u - (20 + 8))
++#define MAX_IPV4_UDP (65535u - (20 + 8))
++
++/* IPv4 Header Format */
++typedef struct _amt_ip {
++    uint8_t  ver_ihl;
++    uint8_t  tos;
++    uint16_t tot_len;
++    uint16_t id;
++    uint16_t frag_off;
++    uint8_t  ttl;
++    uint8_t  protocol;
++    uint16_t check;
++    uint32_t srcAddr;
++    uint32_t destAddr;
++} amt_ip_t;
++
++/* IPv4 Header Format with options field */
++typedef struct _amt_ip_alert {
++    uint8_t  ver_ihl;
++    uint8_t  tos;
++    uint16_t tot_len;
++    uint16_t id;
++    uint16_t frag_off;
++    uint8_t  ttl;
++    uint8_t  protocol;
++    uint16_t check;
++    uint32_t srcAddr;
++    uint32_t destAddr;
++    uint32_t options;
++} amt_ip_alert_t;
++
++/* IGMPv3 Group Record Format (RFC3376) */
++typedef struct _amt_igmpv3_groupRecord {
++    uint8_t  type;
++    uint8_t  auxDatalen;
++    uint16_t nSrc;
++    uint32_t ssm;
++    uint32_t srcIP[1];
++} amt_igmpv3_groupRecord_t;
++
++/* IGMPv3 Membership Report Format (RFC3376) */
++typedef struct _amt_igmpv3_membership_report {
++    uint8_t  type;
++    uint8_t  resv;
++    uint16_t checksum;
++    uint16_t resv2;
++    uint16_t nGroupRecord;
++    amt_igmpv3_groupRecord_t grp[1];
++} amt_igmpv3_membership_report_t;
++
++/* IGMPv3 Membership Query Format (RFC3376) */
++typedef struct _amt_igmpv3_membership_query {
++    uint8_t  type;
++    uint8_t  max_resp_code;  /* in 100ms, Max Resp Time = (mant | 0x10) << (exp + 3) */
++    uint32_t checksum;
++    uint32_t ssmIP;
++    uint8_t  s_qrv;
++    uint8_t  qqic;           /* in second, query Time = (mant | 0x10) << (exp + 3) */
++    uint16_t nSrc;
++    uint32_t srcIP[1];
++} amt_igmpv3_membership_query_t;
++
++/* ATM Membership Update Format (RFC7450) */
++typedef struct _amt_membership_update_msg {
++    amt_ip_alert_t ipHead;
++    amt_igmpv3_membership_report_t memReport;
++} amt_membership_update_msg_t;
++
++/* AMT Functions */
++static int amt_sockets_init( stream_t *p_access );
++static void amt_send_relay_discovery_msg( stream_t *p_access, char *relay_ip );
++static void amt_send_relay_request( stream_t *p_access, char *relay_ip );
++static int amt_joinSSM_group( stream_t *p_access );
++static int amt_joinASM_group( stream_t *p_access );
++static int amt_leaveASM_group( stream_t *p_access );
++static int amt_leaveSSM_group( stream_t *p_access );
++static bool amt_rcv_relay_adv( stream_t *p_access );
++static bool amt_rcv_relay_mem_query( stream_t *p_access );
++static void amt_send_mem_update( stream_t *p_access, char *relay_ip, bool leave );
++static bool open_amt_tunnel( stream_t *p_access );
++static void *amt_mem_upd( void *data );
++
++/* Struct to hold AMT state */
++typedef struct _access_sys_t
++{
++    char *mcastGroup;
++    char *mcastSrc;
++    char *relay;
++    char relayDisco[INET_ADDRSTRLEN];
++    block_t *overflow_block;
++
++    vlc_thread_t updateThread;
++    vlc_tick_t queryTime;
++
++    /* Mulicast group and source */
++    struct sockaddr_in mcastGroupAddr;
++    struct sockaddr_in mcastSrcAddr;
++
++    /* AMT relay imformation */
++    struct sockaddr_in relayDiscoAddr;
++    struct sockaddr_in relayAddr;
++    struct sockaddr_in stLocalAddr;
++    struct sockaddr_in stSvrAddr;
++
++    /* AMT Relay Membership Query data (RFC7450) */
++    struct relay_mem_query_msg_t {
++        uint32_t ulRcvedNonce;
++        uint8_t  type;
++        uint8_t  uchaMAC[MAC_LEN];
++        uint8_t  uchaIGMP[IGMP_QUERY_LEN];
++    } relay_mem_query_msg;
++
++    /* AMT Relay Advertisement data (RFC7450) */
++    struct relay_adv_msg_t {
++        uint32_t ulRcvNonce;
++        uint32_t ipAddr;
++        uint8_t  type;
++    } relay_adv_msg;
++
++    amt_ip_t relay_ip_hdr;
++    amt_igmpv3_membership_query_t relay_igmp_query;
++    ssize_t mtu;
++
++    uint32_t glob_ulNonce;
++    uint32_t ulRelayNonce;
++
++    int fd;
++    int sAMT;
++    int sQuery;
++    int timeout;
++    int amtTimeout;
++
++    bool tryAMT;
++    bool threadReady;
++} access_sys_t;
++
++/* Standard open/close functions */
 +static int  Open (vlc_object_t *);
 +static void Close (vlc_object_t *);
 +
@@ -149,7 +321,7 @@ index 0000000000..30cb207424
 +    set_subcategory( SUBCAT_INPUT_ACCESS )
 +
 +    add_integer( "amt-timeout", 5, AMT_TIMEOUT_TEXT, NULL, true )
-+    add_integer( "amt-native-timeout", 3, TIMEOUT_TEXT, NULL, true )
++    add_integer( "amt-native-timeout", 5, TIMEOUT_TEXT, NULL, true )
 +    add_string( "amt-relay", AMT_DEFAULT_RELAY, AMT_RELAY_ADDRESS, AMT_RELAY_ADDR_LONG, true )
 +
 +    set_capability( "access", 0 )
@@ -174,7 +346,7 @@ index 0000000000..30cb207424
 +    struct addrinfo      hints, *serverinfo = NULL;
 +    struct sockaddr_in  *server_addr;
 +    char                *psz_name = NULL, *saveptr, *psz_strtok_r, ip_buffer[INET_ADDRSTRLEN];
-+    int                  i_bind_port = 1234, i_server_port = 0, VLC_ret = VLC_SUCCESS, res;
++    int                  i_bind_port = 1234, i_server_port = 0, VLC_ret = VLC_SUCCESS, response;
 +    vlc_url_t            url;
 +
 +    if( p_access->b_preparsing )
@@ -248,19 +420,24 @@ index 0000000000..30cb207424
 +    hints.ai_socktype = SOCK_DGRAM;
 +
 +    /* Retrieve list of multicast addresses matching the multicast group identifier */
-+    res = vlc_getaddrinfo( url.psz_host, AMT_PORT, &hints, &serverinfo );
++    response = vlc_getaddrinfo( url.psz_host, AMT_PORT, &hints, &serverinfo );
 +
 +    /* If an error returned print reason and exit */
-+    if( res )
++    if( response != 0 )
 +    {
-+        msg_Err( p_access, "Could not find multicast group %s, reason: %s", url.psz_host, gai_strerror(res) );
++        msg_Err( p_access, "Could not find multicast group %s, reason: %s", url.psz_host, gai_strerror(response) );
 +        VLC_ret = VLC_EGENERIC;
 +        goto cleanup;
 +    }
 +
 +    /* Convert binary socket address to string */
 +    server_addr = (struct sockaddr_in *) serverinfo->ai_addr;
-+    inet_ntop(AF_INET, &(server_addr->sin_addr), ip_buffer, INET_ADDRSTRLEN);
++    if( unlikely( inet_ntop(AF_INET, &(server_addr->sin_addr), ip_buffer, INET_ADDRSTRLEN) == NULL ) )
++    {
++        int errConv = errno;
++        msg_Err(p_access, "Could not convert binary socket address to string: %s", gai_strerror(errConv));
++        goto cleanup;
++    }
 +
 +    /* Store the binary socket representation of multicast group address */
 +    sys->mcastGroupAddr = *server_addr;
@@ -305,19 +482,24 @@ index 0000000000..30cb207424
 +    }
 +
 +    /* retrieve list of source addresses matching the multicast source identifier */
-+    res = vlc_getaddrinfo( sys->mcastSrc, AMT_PORT, &hints, &serverinfo );
++    response = vlc_getaddrinfo( sys->mcastSrc, AMT_PORT, &hints, &serverinfo );
 +
 +    /* If an error returned print reason and exit */
-+    if( res )
++    if( response != 0 )
 +    {
-+        msg_Err( p_access, "Could not find multicast source %s, reason: %s", sys->mcastSrc, gai_strerror(res) );
++        msg_Err( p_access, "Could not find multicast source %s, reason: %s", sys->mcastSrc, gai_strerror(response) );
 +        VLC_ret = VLC_EGENERIC;
 +        goto cleanup;
 +    }
 +
 +    /* Convert binary socket address to string */
 +    server_addr = (struct sockaddr_in *) serverinfo->ai_addr;
-+    inet_ntop(AF_INET, &(server_addr->sin_addr), ip_buffer, INET_ADDRSTRLEN);
++    if( unlikely( inet_ntop(AF_INET, &(server_addr->sin_addr), ip_buffer, INET_ADDRSTRLEN) == NULL ) )
++    {
++        int errConv = errno;
++        msg_Err(p_access, "Could not binary socket address to string: %s", gai_strerror(errConv));
++        goto cleanup;
++    }
 +
 +    /* Store the binary socket representation of multicast source address */
 +    sys->mcastSrcAddr = *server_addr;
@@ -353,6 +535,8 @@ index 0000000000..30cb207424
 +    if( sys->fd == -1 )
 +    {
 +        msg_Err( p_access, "cannot open socket" );
++        sys->sAMT = -1;
++        sys->sQuery = -1;
 +        VLC_ret = VLC_EGENERIC;
 +        goto cleanup;
 +    }
@@ -373,7 +557,8 @@ index 0000000000..30cb207424
 +    /* release the allocated memory */
 +    free( psz_name );
 +    vlc_UrlClean( &url );
-+    freeaddrinfo( serverinfo );
++    if( serverinfo )
++        freeaddrinfo( serverinfo );
 +
 +    /* if an error occurred free the memory */
 +    if ( VLC_ret != VLC_SUCCESS )
@@ -409,7 +594,6 @@ index 0000000000..30cb207424
 +        amt_send_mem_update( p_access, sys->relayDisco, true );
 +
 +        free( sys->relay );
-+        free( sys->relayDisco );
 +    }
 +
 +    /* If overflow block allocated then free the memory */
@@ -425,12 +609,16 @@ index 0000000000..30cb207424
 +        vlc_join( sys->updateThread, NULL );
 +    }
 +
-+    free( sys->mcastGroup );
-+    free( sys->mcastSrc );
++    if( sys->mcastGroup )
++        free( sys->mcastGroup );
++    if( sys->mcastSrc )
++        free( sys->mcastSrc );
 +
 +    net_Close( sys->fd );
-+    net_Close( sys->sAMT );
-+    net_Close( sys->sQuery );
++    if( sys->sAMT != -1 )
++        net_Close( sys->sAMT );
++    if( sys->sQuery != -1 )
++        net_Close( sys->sQuery );
 +
 +    msg_Dbg( p_access, "Exiting AMT plugin" );
 +}
@@ -545,7 +733,6 @@ index 0000000000..30cb207424
 +            len -= tunnel;
 +        }
 +    }
-+
 +    /* Otherwise pull native multicast */
 +    else
 +    {
@@ -600,12 +787,12 @@ index 0000000000..30cb207424
 +    sys->tryAMT = true;
 +
 +    /* Retrieve list of addresses matching the AMT relay */
-+    int res = vlc_getaddrinfo( sys->relay, AMT_PORT, &hints, &serverinfo );
++    int response = vlc_getaddrinfo( sys->relay, AMT_PORT, &hints, &serverinfo );
 +
 +    /* If an error returned print reason and exit */
-+    if( res )
++    if( response != 0 )
 +    {
-+        msg_Err( p_access, "Could not find relay %s, reason: %s", sys->relay, gai_strerror(res) );
++        msg_Err( p_access, "Could not find relay %s, reason: %s", sys->relay, gai_strerror(response) );
 +        goto error;
 +    }
 +
@@ -616,10 +803,15 @@ index 0000000000..30cb207424
 +        char relay_ip[INET_ADDRSTRLEN];
 +
 +        /* Convert to binary representation */
-+        inet_ntop(AF_INET, &(server_addr->sin_addr), relay_ip, INET_ADDRSTRLEN);
++        if( unlikely( inet_ntop(AF_INET, &(server_addr->sin_addr), relay_ip, INET_ADDRSTRLEN) == NULL ) )
++        {
++            int errConv = errno;
++            msg_Err(p_access, "Could not convert relay ip to binary representation: %s", gai_strerror(errConv));
++            goto error;
++        }
 +
 +        /* Store string representation */
-+        sys->relayDisco = strdup( relay_ip );
++        memcpy(sys->relayDisco, relay_ip, INET_ADDRSTRLEN);
 +        if( unlikely( sys->relayDisco == NULL ) )
 +        {
 +            goto error;
@@ -707,9 +899,9 @@ index 0000000000..30cb207424
 +    return true;
 +
 +error:
-+    /* release the allocated memory */
-+    freeaddrinfo( serverinfo );
 +    sys->threadReady = false;
++    if( serverinfo )
++        freeaddrinfo( serverinfo );
 +    return false;
 +}
 +
@@ -835,7 +1027,7 @@ index 0000000000..30cb207424
 +    sys->stSvrAddr.sin_family        = AF_INET;
 +    sys->stSvrAddr.sin_port          = htons( 9124 );
 +    res = inet_pton( AF_INET, LOCAL_LOOPBACK, &sys->stSvrAddr.sin_addr );
-+    if( res == 0 )
++    if( res != 1 )
 +    {
 +        msg_Err( p_access, "Could not convert loopback address" );
 +        goto error;
@@ -844,8 +1036,17 @@ index 0000000000..30cb207424
 +    return 0;
 +
 +error:
-+    net_Close( sys->sAMT );
-+    net_Close( sys->sQuery );
++    if( sys->sAMT != -1 )
++    {
++        net_Close( sys->sAMT );
++        sys->sAMT = -1;
++    }
++
++    if( sys->sQuery != -1 )
++    {
++        net_Close( sys->sQuery );
++        sys->sQuery = -1;
++    }
 +    return -1;
 +}
 +
@@ -971,7 +1172,12 @@ index 0000000000..30cb207424
 +    make_ip_header( &p_ipHead );
 +
 +    struct sockaddr_in temp;
-+    inet_pton( AF_INET, MCAST_ALLHOSTS, &(temp.sin_addr) );
++    int res = inet_pton( AF_INET, MCAST_ALLHOSTS, &(temp.sin_addr) );
++    if( res != 1 )
++    {
++        msg_Err(p_access, "Could not convert all hosts multicast address: %s", gai_strerror(errno) );
++        return;
++    }
 +    p_ipHead.destAddr = temp.sin_addr.s_addr;
 +    p_ipHead.check = get_checksum( (unsigned short*)&p_ipHead, IP_HDR_IGMP_LEN );
 +
@@ -1148,34 +1354,27 @@ index 0000000000..30cb207424
 +        return false;
 +    }
 +
-+    sys->glob_ulNonce = ntohl(sys->relay_mem_query_msg.ulRcvedNonce);
-+
 +    size_t shift = AMT_HDR_LEN + MAC_LEN + NONCE_LEN;
 +    memcpy( &sys->relay_ip_hdr, &pkt[shift], IP_HDR_IGMP_LEN );
 +
 +    shift += IP_HDR_IGMP_LEN;
 +    sys->relay_igmp_query.type = pkt[shift];
-+    shift++; assert( shift < RELAY_ADV_MSG_LEN);
++    shift++; assert( shift < RELAY_QUERY_MSG_LEN);
 +    sys->relay_igmp_query.max_resp_code = pkt[shift];
-+    shift++; assert( shift < RELAY_ADV_MSG_LEN);
++    shift++; assert( shift < RELAY_QUERY_MSG_LEN);
 +    memcpy( &sys->relay_igmp_query.checksum, &pkt[shift], 2 );
-+    shift += 2; assert( shift < RELAY_ADV_MSG_LEN);
++    shift += 2; assert( shift < RELAY_QUERY_MSG_LEN);
 +    memcpy( &sys->relay_igmp_query.ssmIP, &pkt[shift], 4 );
-+    shift += 4; assert( shift < RELAY_ADV_MSG_LEN);
++    shift += 4; assert( shift < RELAY_QUERY_MSG_LEN);
 +    sys->relay_igmp_query.s_qrv = pkt[shift];
-+    shift++; assert( shift < RELAY_ADV_MSG_LEN);
++    shift++; assert( shift < RELAY_QUERY_MSG_LEN);
 +    if( pkt[shift] == 0 )
 +        sys->relay_igmp_query.qqic = 125;
 +    else
 +        sys->relay_igmp_query.qqic = pkt[shift];
 +
-+    shift++; assert( shift < RELAY_ADV_MSG_LEN);
++    shift++; assert( shift < RELAY_QUERY_MSG_LEN);
 +    memcpy( &sys->relay_igmp_query.nSrc, &pkt[shift], 2 );
-+    if( sys->relay_igmp_query.nSrc != 0 )
-+    {
-+        shift += 2;
-+        memcpy( &sys->relay_igmp_query.srcIP, &pkt[shift], 4 );
-+    }
 +
 +    /* if a membership thread exists cancel it */
 +    if( sys->threadReady )
@@ -1265,7 +1464,7 @@ index 0000000000..30cb207424
 +    msg_Dbg( p_access, "AMT relay membership update thread started" );
 + 
 +    /* thread sends periodic AMT membership updates until Close() which terminates thread */
-+    while ( TRUE  )
++    while ( true  )
 +    {
 +        amt_send_mem_update( p_access, sys->relayDisco, false );
 +        vlc_tick_sleep( (vlc_tick_t)sys->relay_igmp_query.qqic * CLOCK_FREQ );
@@ -1273,233 +1472,6 @@ index 0000000000..30cb207424
 + 
 +    return NULL;
 +}
-+
-diff --git a/modules/access/amt.h b/modules/access/amt.h
-new file mode 100644
-index 0000000000..e6ae085fc5
---- /dev/null
-+++ b/modules/access/amt.h
-@@ -0,0 +1,220 @@
-+/*****************************************************************************
-+ * @file amt.h
-+ * @brief AMT access module structs
-+ *
-+ * Some of this code was pulled from or based off Cisco's open-source
-+ * SSMAMTtools repo.
-+ * Copyright (c) Juniper Networks, Inc., 2018 - 2018. All rights reserved.
-+ *
-+ * This code is licensed to you under the GNU Lesser General Public License
-+ * version 2.1 or later. You may not use this code except in compliance with
-+ * the GNU Lesser General Public License.
-+ * This code is not an official Juniper product.
-+ *
-+ * Authors: Natalie Landsberg <nlandsberg@juniper.net <mailto:nlandsberg@juniper.net>>
-+ *          Wayne Brassem <wbrassem@rogers.com <mailto:wbrassem@rogers.com>>
-+ *
-+ * This library is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU Lesser General Public License
-+ * as published by the Free Software Foundation; either version 2.1
-+ * of the License, or (at your option) any later version.
-+ *
-+ * This library is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU Lesser General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU Lesser General Public
-+ * License along with this library; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-+ ****************************************************************************/
-+
-+/*****************************************************************************
-+ * Various Lengths of Msgs or Hdrs
-+ *****************************************************************************/
-+#define MAC_LEN 6                /* length of generated MAC in bytes */
-+#define NONCE_LEN 4              /* length of nonce in bytes */
-+
-+#define MSG_TYPE_LEN 1           /* length of msg type */
-+#define RELAY_QUERY_MSG_LEN 48   /* total length of relay query */
-+#define RELAY_ADV_MSG_LEN 12     /* length of relay advertisement message */
-+#define IGMP_QUERY_LEN 24        /* length of encapsulated IGMP query message */
-+#define IGMP_REPORT_LEN 20
-+#define AMT_HDR_LEN 2            /* length of AMT header on a packet */
-+#define IP_HDR_LEN 20            /* length of standard IP header */
-+#define IP_HDR_IGMP_LEN 24       /* length of IP header with an IGMP report */
-+#define UDP_HDR_LEN 8            /* length of standard UDP header */
-+#define AMT_REQUEST_MSG_LEN 9
-+#define AMT_DISCO_MSG_LEN 8
-+
-+/*****************************************************************************
-+ * Different AMT Message Types
-+ *****************************************************************************/
-+#define AMT_RELAY_DISCO 1       /* relay discovery */
-+#define AMT_RELAY_ADV 2         /* relay advertisement */
-+#define AMT_REQUEST 3           /* request */
-+#define AMT_MEM_QUERY 4         /* membership query */
-+#define AMT_MEM_UPD 5           /* membership update */
-+#define AMT_MULT_DATA 6         /* multicast data */
-+#define AMT_TEARDOWN 7          /* teardown (not currently supported) */
-+
-+/*****************************************************************************
-+ * Different IGMP Message Types
-+ *****************************************************************************/
-+#define AMT_IGMPV3_MEMBERSHIP_QUERY_TYPEID 0x11
-+#define AMT_IGMPV3_MEMBERSHIP_REPORT_TYPEID 0x22
-+/* IGMPv2, interoperability  */
-+#define AMT_IGMPV1_MEMBERSHIP_REPORT_TYPEID 0x12
-+#define AMT_IGMPV2_MEMBERSHIP_REPORT_TYPEID 0x16
-+#define AMT_IGMPV2_MEMBERSHIP_LEAVE_TYPEID 0x17
-+
-+#define AMT_IGMP_INCLUDE 0x01
-+#define AMT_IGMP_EXCLUDE 0x02
-+#define AMT_IGMP_INCLUDE_CHANGE 0x03
-+#define AMT_IGMP_EXCLUDE_CHANGE 0x04
-+#define AMT_IGMP_ALLOW 0x05
-+#define AMT_IGMP_BLOCK 0x06
-+
-+#define MCAST_ANYCAST  "0.0.0.0"
-+#define MCAST_ALLHOSTS "224.0.0.22"
-+#define LOCAL_LOOPBACK "127.0.0.1"
-+#define AMT_PORT 2268
-+
-+#define DEFAULT_MTU (1500u - (20 + 8))
-+#define MAX_IPV4_UDP (65535u - (20 + 8))
-+
-+typedef struct access_sys_t access_sys_t;
-+
-+/* IPv4 Header Format */
-+typedef struct _amt_ip {
-+    uint8_t  ver_ihl;
-+    uint8_t  tos;
-+    uint16_t tot_len;
-+    uint16_t id;
-+    uint16_t frag_off;
-+    uint8_t  ttl;
-+    uint8_t  protocol;
-+    uint16_t check;
-+    uint32_t srcAddr;
-+    uint32_t destAddr;
-+} amt_ip_t;
-+
-+/* IPv4 Header Format with options field */
-+typedef struct _amt_ip_alert {
-+    uint8_t  ver_ihl;
-+    uint8_t  tos;
-+    uint16_t tot_len;
-+    uint16_t id;
-+    uint16_t frag_off;
-+    uint8_t  ttl;
-+    uint8_t  protocol;
-+    uint16_t check;
-+    uint32_t srcAddr;
-+    uint32_t destAddr;
-+    uint32_t options;
-+} amt_ip_alert_t;
-+
-+/* IGMPv3 Group Record Format (RFC3376) */
-+typedef struct _amt_igmpv3_groupRecord {
-+    uint8_t  type;
-+    uint8_t  auxDatalen;
-+    uint16_t nSrc;
-+    uint32_t ssm;
-+    uint32_t srcIP[1];
-+} amt_igmpv3_groupRecord_t;
-+
-+/* IGMPv3 Membership Report Format (RFC3376) */
-+typedef struct _amt_igmpv3_membership_report {
-+    uint8_t  type;
-+    uint8_t  resv;
-+    uint16_t checksum;
-+    uint16_t resv2;
-+    uint16_t nGroupRecord;
-+    amt_igmpv3_groupRecord_t grp[1];
-+} amt_igmpv3_membership_report_t;
-+
-+/* IGMPv3 Membership Query Format (RFC3376) */
-+typedef struct _amt_igmpv3_membership_query {
-+    uint8_t  type;
-+    uint8_t  max_resp_code;  /* in 100ms, Max Resp Time = (mant | 0x10) << (exp + 3) */
-+    uint32_t checksum;
-+    uint32_t ssmIP;
-+    uint8_t  s_qrv;
-+    uint8_t  qqic;           /* in second, query Time = (mant | 0x10) << (exp + 3) */
-+    uint16_t nSrc;
-+    uint32_t srcIP[1];
-+} amt_igmpv3_membership_query_t;
-+
-+/* ATM Membership Update Format (RFC7450) */
-+typedef struct _amt_membership_update_msg {
-+    amt_ip_alert_t ipHead;
-+    amt_igmpv3_membership_report_t memReport;
-+} amt_membership_update_msg_t;
-+
-+/* AMT Functions */
-+static int amt_sockets_init( stream_t *p_access );
-+static void amt_send_relay_discovery_msg( stream_t *p_access, char *relay_ip );
-+static void amt_send_relay_request( stream_t *p_access, char *relay_ip );
-+static int amt_joinSSM_group( stream_t *p_access );
-+static int amt_joinASM_group( stream_t *p_access );
-+static int amt_leaveASM_group( stream_t *p_access );
-+static int amt_leaveSSM_group( stream_t *p_access );
-+static bool amt_rcv_relay_adv( stream_t *p_access );
-+static bool amt_rcv_relay_mem_query( stream_t *p_access );
-+static void amt_send_mem_update( stream_t *p_access, char *relay_ip, bool leave );
-+static bool open_amt_tunnel( stream_t *p_access );
-+static void *amt_mem_upd( void *data );
-+
-+/* Struct to hold AMT state */
-+struct access_sys_t
-+{
-+    char *mcastGroup;
-+    char *mcastSrc;
-+    char *relay;
-+    char *relayDisco;
-+    block_t *overflow_block;
-+
-+    vlc_thread_t updateThread;
-+    vlc_tick_t queryTime;
-+
-+    /* Mulicast group and source */
-+    struct sockaddr_in mcastGroupAddr;
-+    struct sockaddr_in mcastSrcAddr;
-+
-+    /* AMT relay imformation */
-+    struct sockaddr_in relayDiscoAddr;
-+    struct sockaddr_in relayAddr;
-+    struct sockaddr_in stLocalAddr;
-+    struct sockaddr_in stSvrAddr;
-+
-+    /* AMT Relay Membership Query data (RFC7450) */
-+    struct relay_mem_query_msg_t {
-+        uint32_t ulRcvedNonce;
-+        uint8_t  type;
-+        uint8_t  uchaMAC[MAC_LEN];
-+        uint8_t  uchaIGMP[IGMP_QUERY_LEN];
-+    } relay_mem_query_msg;
-+
-+    /* AMT Relay Advertisement data (RFC7450) */
-+    struct relay_adv_msg_t {
-+        uint32_t ulRcvNonce;
-+        uint32_t ipAddr;
-+        uint8_t  type;
-+    } relay_adv_msg;
-+
-+    amt_ip_t relay_ip_hdr;
-+    amt_igmpv3_membership_query_t relay_igmp_query;
-+    ssize_t mtu;
-+
-+    uint32_t glob_ulNonce;
-+    uint32_t ulRelayNonce;
-+
-+    int fd;
-+    int sAMT;
-+    int sQuery;
-+    int timeout;
-+    int amtTimeout;
-+
-+    bool tryAMT;
-+    bool threadReady;
-+};
 -- 
 2.20.1 (Apple Git-117)
 

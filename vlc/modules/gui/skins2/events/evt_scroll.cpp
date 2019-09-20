@@ -2,7 +2,6 @@
  * evt_scroll.cpp
  *****************************************************************************
  * Copyright (C) 2003 the VideoLAN team
- * $Id: 21bf8b403ba052da7ebb702cc5eecf03341e4df6 $
  *
  * Authors: Cyril Deguet     <asmax@via.ecp.fr>
  *          Olivier Teulière <ipkiss@via.ecp.fr>

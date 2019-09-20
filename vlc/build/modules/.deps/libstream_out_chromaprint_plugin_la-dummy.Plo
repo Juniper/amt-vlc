@@ -1,1 +1,1 @@
-# dummy
+libstream_out_chromaprint_plugin_la-dummy.lo: dummy.cpp

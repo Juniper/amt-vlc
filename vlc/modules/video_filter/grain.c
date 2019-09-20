@@ -2,7 +2,6 @@
  * grain.c: add film grain
  *****************************************************************************
  * Copyright (C) 2010 Laurent Aimar
- * $Id: 49e8024ebcf626815cd543d89d9044674611bdff $
  *
  * Authors: Laurent Aimar <fenrir _AT_ videolan _DOT_ org>
  *

@@ -1,4 +1,4 @@
-prefix=/Users/nlandsberg/Desktop/development/vlc/build/vlc_install_dir
+prefix=/Users/nlandsberg/vlc/build/vlc_install_dir
 exec_prefix=${prefix}
 libdir=${exec_prefix}/lib
 includedir=${prefix}/include

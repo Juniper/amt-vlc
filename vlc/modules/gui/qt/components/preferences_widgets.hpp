@@ -2,7 +2,6 @@
  * preferences_widgets.hpp : Widgets for preferences panels
  ****************************************************************************
  * Copyright (C) 2006-2011 the VideoLAN team
- * $Id: 41b0470f88e8ea922aa54e1c05e9c3537632a411 $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *          Antoine Cellerier <dionoea@videolan.org>
@@ -457,8 +456,7 @@ private slots:
     void comboIndexChanged( int );
 };
 
-void setfillVLCConfigCombo(const char *configname, intf_thread_t *p_intf,
-                        QComboBox *combo );
+void setfillVLCConfigCombo(const char *configname, QComboBox *combo );
 
 #if 0
 struct ModuleCheckBox {

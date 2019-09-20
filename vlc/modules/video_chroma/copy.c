@@ -2,7 +2,6 @@
  * copy.c: Fast YV12/NV12 copy
  *****************************************************************************
  * Copyright (C) 2010 Laurent Aimar
- * $Id: 1ccf12fe15fd5a73f3e4827eba2bdd685de7d896 $
  *
  * Authors: Laurent Aimar <fenrir _AT_ videolan _DOT_ org>
  *          Victorien Le Couviour--Tuffet <victorien.lecouviour.tuffet@gmail.com>
@@ -469,7 +468,7 @@ static void SSE_CopyPlane(uint8_t *dst, size_t dst_pitch,
     const size_t copy_pitch = __MIN(src_pitch, dst_pitch);
     const unsigned w16 = (copy_pitch+15) & ~15;
     const unsigned hstep = cache_size / w16;
-    const unsigned cache_width = __MIN(src_pitch, hstep);
+    const unsigned cache_width = __MIN(src_pitch, cache_size);
     assert(hstep > 0);
 
     /* If SSE4.1: CopyFromUswc is faster than memcpy */
@@ -502,8 +501,8 @@ SSE_InterleavePlanes(uint8_t *dst, size_t dst_pitch,
     size_t copy_pitch = __MIN(dst_pitch / 2, srcu_pitch);
     unsigned int const  w16 = (srcu_pitch+15) & ~15;
     unsigned int const  hstep = (cache_size) / (2*w16);
-    const unsigned cacheu_width = __MIN(srcu_pitch, hstep);
-    const unsigned cachev_width = __MIN(srcv_pitch, hstep);
+    const unsigned cacheu_width = __MIN(srcu_pitch, cache_size);
+    const unsigned cachev_width = __MIN(srcv_pitch, cache_size);
     assert(hstep > 0);
 
     for (unsigned int y = 0; y < height; y += hstep)
@@ -536,7 +535,7 @@ static void SSE_SplitPlanes(uint8_t *dstu, size_t dstu_pitch,
     size_t copy_pitch = __MIN(__MIN(src_pitch / 2, dstu_pitch), dstv_pitch);
     const unsigned w16 = (src_pitch+15) & ~15;
     const unsigned hstep = cache_size / w16;
-    const unsigned cache_width = __MIN(src_pitch, hstep);
+    const unsigned cache_width = __MIN(src_pitch, cache_size);
     assert(hstep > 0);
 
     for (unsigned y = 0; y < height; y += hstep) {
@@ -832,7 +831,9 @@ void Copy420_P_to_SP(picture_t *dst, const uint8_t *src[static 3],
               src[0], src_pitch[0], height, 0);
 
     const unsigned copy_lines = (height+1) / 2;
-    const unsigned copy_pitch = __MIN(src_pitch[1], dst->p[1].i_pitch / 2);
+    unsigned copy_pitch = src_pitch[1];
+    if (copy_pitch > (size_t)dst->p[1].i_pitch / 2)
+        copy_pitch = dst->p[1].i_pitch / 2;
 
     const int i_extra_pitch_uv = dst->p[1].i_pitch - 2 * copy_pitch;
     const int i_extra_pitch_u  = src_pitch[U_PLANE] - copy_pitch;
@@ -919,7 +920,7 @@ int picture_UpdatePlanes(picture_t *picture, uint8_t *data, unsigned pitch)
 
             p->p_pixels = o->p_pixels + o->i_lines * o->i_pitch;
             p->i_pitch  = pitch;
-            p->i_lines  = picture->format.i_height;
+            p->i_lines  = picture->format.i_height / 2;
             assert(p->i_visible_pitch <= p->i_pitch);
             assert(p->i_visible_lines <= p->i_lines);
         }
@@ -1075,7 +1076,7 @@ static void piccheck(picture_t *pic, const vlc_chroma_description_t *dsc,
                 vlc_assert_unreachable();
         }
 
-        uint32_t color_16_UV = (colors_16_P[2] << 16) | colors_16_P[1];
+        uint32_t color_16_UV = GetDWLE( &colors_16_P[1] );
 
         PICCHECK(uint16_t, uint32_t, colors_16_P, color_16_UV, 2);
     }
@@ -1085,7 +1086,6 @@ static void pic_rsc_destroy(picture_t *pic)
 {
     for (unsigned i = 0; i < 3; i++)
         free(pic->p[i].p_pixels);
-    free(pic);
 }
 
 static picture_t *pic_new_unaligned(const video_format_t *fmt)

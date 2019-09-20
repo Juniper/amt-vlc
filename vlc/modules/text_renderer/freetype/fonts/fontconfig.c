@@ -2,7 +2,6 @@
  * freetype.c : Put text on the video, using freetype2
  *****************************************************************************
  * Copyright (C) 2002 - 2015 VLC authors and VideoLAN
- * $Id: 0485bc210fab44a383ff046f7b59cefa2c85e935 $
  *
  * Authors: Sigmund Augdal Helberg <dnumgis@videolan.org>
  *          Gildas Bazin <gbazin@videolan.org>
@@ -90,8 +89,7 @@ int FontConfig_Prepare( filter_t *p_filter )
 #endif
 
     vlc_mutex_unlock( &lock );
-    ts -= vlc_tick_now();
-    msg_Dbg( p_filter, "Took %ld microseconds", (long)ts );
+    msg_Dbg( p_filter, "Took %" PRId64 " microseconds", vlc_tick_now() - ts );
 
     return (config != NULL) ? VLC_SUCCESS : VLC_EGENERIC;
 }

@@ -3,10 +3,9 @@
  *****************************************************************************
  * Copyright (C) 2004-2006 VLC authors and VideoLAN
  * Copyright © 2004-2007 Rémi Denis-Courmont
- * $Id: d3cd9324add946cc5a321c4494541e191871f8b3 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
- *          Rémi Denis-Courmont <rem # videolan.org>
+ *          Rémi Denis-Courmont
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published by
@@ -75,7 +74,7 @@ static void httpd_AppendData(httpd_stream_t *stream, uint8_t *p_data, int i_data
 /* each host run in his own thread */
 struct httpd_host_t
 {
-    struct vlc_common_members obj;
+    struct vlc_object_t obj;
     struct vlc_list node;
 
     /* ref count */
@@ -100,7 +99,7 @@ struct httpd_host_t
     struct vlc_list clients;
 
     /* TLS data */
-    vlc_tls_creds_t *p_tls;
+    vlc_tls_server_t *p_tls;
 };
 
 
@@ -861,7 +860,7 @@ void httpd_StreamDelete(httpd_stream_t *stream)
  *****************************************************************************/
 static void* httpd_HostThread(void *);
 static httpd_host_t *httpd_HostCreate(vlc_object_t *, const char *,
-                                       const char *, vlc_tls_creds_t *);
+                                       const char *, vlc_tls_server_t *);
 
 /* create a new host */
 httpd_host_t *vlc_http_HostNew(vlc_object_t *p_this)
@@ -878,7 +877,7 @@ httpd_host_t *vlc_https_HostNew(vlc_object_t *obj)
     }
 
     char *key = var_InheritString(obj, "http-key");
-    vlc_tls_creds_t *tls = vlc_tls_ServerCreate(obj, cert, key);
+    vlc_tls_server_t *tls = vlc_tls_ServerCreate(obj, cert, key);
 
     if (!tls) {
         msg_Err(obj, "HTTP/TLS certificate error (%s and %s)",
@@ -907,7 +906,7 @@ static struct httpd
 static httpd_host_t *httpd_HostCreate(vlc_object_t *p_this,
                                        const char *hostvar,
                                        const char *portvar,
-                                       vlc_tls_creds_t *p_tls)
+                                       vlc_tls_server_t *p_tls)
 {
     httpd_host_t *host;
     unsigned port = var_InheritInteger(p_this, portvar);
@@ -926,7 +925,7 @@ static httpd_host_t *httpd_HostCreate(vlc_object_t *p_this,
         atomic_fetch_add_explicit(&host->ref, 1, memory_order_relaxed);
 
         vlc_mutex_unlock(&httpd.mutex);
-        vlc_tls_Delete(p_tls);
+        vlc_tls_ServerDelete(p_tls);
         return host;
     }
 
@@ -977,10 +976,10 @@ error:
         net_ListenClose(host->fds);
         vlc_cond_destroy(&host->wait);
         vlc_mutex_destroy(&host->lock);
-        vlc_object_release(host);
+        vlc_object_delete(host);
     }
 
-    vlc_tls_Delete(p_tls);
+    vlc_tls_ServerDelete(p_tls);
     return NULL;
 }
 
@@ -1010,11 +1009,11 @@ void httpd_HostDelete(httpd_host_t *host)
     }
 
     assert(vlc_list_is_empty(&host->urls));
-    vlc_tls_Delete(host->p_tls);
+    vlc_tls_ServerDelete(host->p_tls);
     net_ListenClose(host->fds);
     vlc_cond_destroy(&host->wait);
     vlc_mutex_destroy(&host->lock);
-    vlc_object_release(host);
+    vlc_object_delete(host);
     vlc_mutex_unlock(&httpd.mutex);
 }
 
@@ -1220,7 +1219,7 @@ ssize_t httpd_NetRecv (httpd_client_t *cl, uint8_t *p, size_t i_len)
 {
     vlc_tls_t *sock = cl->sock;
     struct iovec iov = { .iov_base = p, .iov_len = i_len };
-    return sock->readv(sock, &iov, 1);
+    return sock->ops->readv(sock, &iov, 1);
 }
 
 static
@@ -1228,7 +1227,7 @@ ssize_t httpd_NetSend (httpd_client_t *cl, const uint8_t *p, size_t i_len)
 {
     vlc_tls_t *sock = cl->sock;
     const struct iovec iov = { .iov_base = (void *)p, .iov_len = i_len };
-    return sock->writev(sock, &iov, 1);
+    return sock->ops->writev(sock, &iov, 1);
 }
 
 
@@ -1704,7 +1703,6 @@ static void httpdLoop(httpd_host_t *host)
         struct pollfd *pufd = ufd + nfd;
         assert (pufd < ufd + (sizeof (ufd) / sizeof (ufd[0])));
 
-        pufd->fd = vlc_tls_GetFD(cl->sock);
         pufd->events = pufd->revents = 0;
 
         switch (cl->i_state) {
@@ -1925,6 +1923,8 @@ static void httpdLoop(httpd_host_t *host)
                     cl->i_state = HTTPD_CLIENT_SENDING;
                 }
         }
+
+        pufd->fd = vlc_tls_GetPollFD(cl->sock, &pufd->events);
 
         if (pufd->events != 0)
             nfd++;

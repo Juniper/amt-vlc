@@ -139,8 +139,8 @@ static void *Thread( void *p_data )
     /* Window which receives Hotkeys */
     vlc_mutex_lock( &p_sys->lock );
     p_sys->hotkeyWindow =
-        (void*)CreateWindow( _T("STATIC"),           /* name of window class */
-                _T("VLC ghk ") _T(VERSION),         /* window title bar text */
+        (void*)CreateWindow( TEXT("STATIC"),         /* name of window class */
+                TEXT("VLC ghk ") TEXT(VERSION),     /* window title bar text */
                 0,                                           /* window style */
                 0,                                   /* default X coordinate */
                 0,                                   /* default Y coordinate */
@@ -305,7 +305,7 @@ LRESULT CALLBACK WMHOTKEYPROC( HWND hwnd, UINT uMsg, WPARAM wParam,
                 vlc_action_id_t action = vlc_actions_get_id( psz_atomName );
                 if( action != ACTIONID_NONE )
                 {
-                    var_SetInteger( p_intf->obj.libvlc,
+                    var_SetInteger( vlc_object_instance(p_intf),
                             "key-action", action );
                     return 1;
                 }

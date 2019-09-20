@@ -128,9 +128,6 @@
 /* Define to 1 if you have the <AudioToolbox/AudioToolbox.h> header file. */
 #undef HAVE_AUDIOTOOLBOX_AUDIOTOOLBOX_H
 
-/* Define to 1 if you have the <audio_io.h> header file. */
-#undef HAVE_AUDIO_IO_H
-
 /* Define if the d3d11va module is built */
 #undef HAVE_AVCODEC_D3D11VA
 
@@ -652,9 +649,6 @@
 
 /* Define to 1 if you have the `timespec_get' function. */
 #undef HAVE_TIMESPEC_GET
-
-/* Define to 1 if vlc is built against Tizen SDK */
-#undef HAVE_TIZEN_SDK
 
 /* Define to 1 if you have the <tremor/ivorbiscodec.h> header file. */
 #undef HAVE_TREMOR_IVORBISCODEC_H

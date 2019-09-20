@@ -2,7 +2,6 @@
  * sd.c: Services discovery related functions
  *****************************************************************************
  * Copyright (C) 2007-2008 the VideoLAN team
- * $Id: 2c971768d1e13faa9a47e96a53044865c758bb54 $
  *
  * Authors: Antoine Cellerier <dionoea at videolan tod org>
  *          Fabio Ritrovato <sephiroth87 at videolan dot org>
@@ -37,7 +36,6 @@
 #include <math.h>
 #include <vlc_common.h>
 #include <vlc_services_discovery.h>
-#include <vlc_playlist.h>
 #include <vlc_charset.h>
 #include <vlc_md5.h>
 
@@ -295,7 +293,8 @@ static input_item_t *vlclua_sd_create_node( services_discovery_t *p_sd,
     }
 
     const char *psz_name = lua_tostring( L, -1 );
-    input_item_t *p_input = input_item_NewExt( INPUT_ITEM_URI_NOP, psz_name, INPUT_DURATION_UNKNOWN,
+    input_item_t *p_input = input_item_NewExt( INPUT_ITEM_URI_NOP, psz_name,
+                                               INPUT_DURATION_INDEFINITE,
                                                ITEM_TYPE_NODE,
                                                ITEM_NET_UNKNOWN );
     lua_pop( L, 1 );
@@ -396,71 +395,5 @@ void luaopen_sd_sd( lua_State *L )
 {
     lua_newtable( L );
     luaL_register( L, NULL, vlclua_sd_sd_reg );
-    lua_setfield( L, -2, "sd" );
-}
-
-
-/*** SD management (for user interfaces) ***/
-
-static int vlclua_sd_get_services_names( lua_State *L )
-{
-    playlist_t *p_playlist = vlclua_get_playlist_internal( L );
-    char **ppsz_longnames;
-    char **ppsz_names = vlc_sd_GetNames( p_playlist, &ppsz_longnames, NULL );
-    if( !ppsz_names )
-        return 0;
-
-    char **ppsz_longname = ppsz_longnames;
-    char **ppsz_name = ppsz_names;
-    lua_settop( L, 0 );
-    lua_newtable( L );
-    for( ; *ppsz_name; ppsz_name++,ppsz_longname++ )
-    {
-        lua_pushstring( L, *ppsz_longname );
-        lua_setfield( L, -2, *ppsz_name );
-        free( *ppsz_name );
-        free( *ppsz_longname );
-    }
-    free( ppsz_names );
-    free( ppsz_longnames );
-    return 1;
-}
-
-static int vlclua_sd_add( lua_State *L )
-{
-    const char *psz_sd = luaL_checkstring( L, 1 );
-    playlist_t *p_playlist = vlclua_get_playlist_internal( L );
-    int i_ret = playlist_ServicesDiscoveryAdd( p_playlist, psz_sd );
-    return vlclua_push_ret( L, i_ret );
-}
-
-static int vlclua_sd_remove( lua_State *L )
-{
-    const char *psz_sd = luaL_checkstring( L, 1 );
-    playlist_t *p_playlist = vlclua_get_playlist_internal( L );
-    int i_ret = playlist_ServicesDiscoveryRemove( p_playlist, psz_sd );
-    return vlclua_push_ret( L, i_ret );
-}
-
-static int vlclua_sd_is_loaded( lua_State *L )
-{
-    const char *psz_sd = luaL_checkstring( L, 1 );
-    playlist_t *p_playlist = vlclua_get_playlist_internal( L );
-    lua_pushboolean( L, playlist_IsServicesDiscoveryLoaded( p_playlist, psz_sd ));
-    return 1;
-}
-
-static const luaL_Reg vlclua_sd_intf_reg[] = {
-    { "get_services_names", vlclua_sd_get_services_names },
-    { "add", vlclua_sd_add },
-    { "remove", vlclua_sd_remove },
-    { "is_loaded", vlclua_sd_is_loaded },
-    { NULL, NULL }
-};
-
-void luaopen_sd_intf( lua_State *L )
-{
-    lua_newtable( L );
-    luaL_register( L, NULL, vlclua_sd_intf_reg );
     lua_setfield( L, -2, "sd" );
 }

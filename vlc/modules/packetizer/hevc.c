@@ -2,7 +2,6 @@
  * hevc.c: h.265/hevc video packetizer
  *****************************************************************************
  * Copyright (C) 2014 VLC authors and VideoLAN
- * $Id: 320c57df8e8c71c6f37be3eae16c097e2b8eda95 $
  *
  * Authors: Denis Charmet <typx@videolan.org>
  *
@@ -63,15 +62,11 @@ vlc_module_end ()
 /****************************************************************************
  * Local prototypes
  ****************************************************************************/
-static block_t *PacketizeAnnexB(decoder_t *, block_t **);
-static block_t *PacketizeHVC1(decoder_t *, block_t **);
-static void PacketizeFlush( decoder_t * );
-static void PacketizeReset(void *p_private, bool b_broken);
-static block_t *PacketizeParse(void *p_private, bool *pb_ts_used, block_t *);
-static block_t *ParseNALBlock(decoder_t *, bool *pb_ts_used, block_t *);
-static int PacketizeValidate(void *p_private, block_t *);
-static bool ParseSEICallback( const hxxx_sei_data_t *, void * );
-static block_t *GetCc( decoder_t *, decoder_cc_desc_t * );
+struct hevc_tuple_s
+{
+    block_t *p_nal;
+    void *p_decoded;
+};
 
 typedef struct
 {
@@ -86,19 +81,23 @@ typedef struct
 
     uint8_t  i_nal_length_size;
 
-    struct
-    {
-        block_t *p_nal;
-        void *p_decoded;
-    } rg_vps[HEVC_VPS_ID_MAX + 1],
-      rg_sps[HEVC_SPS_ID_MAX + 1],
-      rg_pps[HEVC_PPS_ID_MAX + 1];
+    struct hevc_tuple_s rg_vps[HEVC_VPS_ID_MAX + 1],
+                        rg_sps[HEVC_SPS_ID_MAX + 1],
+                        rg_pps[HEVC_PPS_ID_MAX + 1];
 
     const hevc_video_parameter_set_t    *p_active_vps;
     const hevc_sequence_parameter_set_t *p_active_sps;
     const hevc_picture_parameter_set_t  *p_active_pps;
+    enum
+    {
+        MISSING = 0,
+        COMPLETE,
+        SENT,
+    } sets;
+    /* Recovery starts from IFRAME or SEI recovery point */
+    bool b_recovery_point;
+
     hevc_sei_pic_timing_t *p_timing;
-    bool b_init_sequence_complete;
 
     date_t dts;
     vlc_tick_t pts;
@@ -107,6 +106,17 @@ typedef struct
     /* */
     cc_storage_t *p_ccs;
 } decoder_sys_t;
+
+static block_t *PacketizeAnnexB(decoder_t *, block_t **);
+static block_t *PacketizeHVC1(decoder_t *, block_t **);
+static void PacketizeFlush( decoder_t * );
+static void PacketizeReset(void *p_private, bool b_broken);
+static block_t *PacketizeParse(void *p_private, bool *pb_ts_used, block_t *);
+static block_t *ParseNALBlock(decoder_t *, bool *pb_ts_used, block_t *);
+static int PacketizeValidate(void *p_private, block_t *);
+static bool ParseSEICallback( const hxxx_sei_data_t *, void * );
+static block_t *GetCc( decoder_t *, decoder_cc_desc_t * );
+static block_t *GetXPSCopy(decoder_sys_t *);
 
 #define BLOCK_FLAG_DROP (1 << BLOCK_FLAG_PRIVATE_SHIFT)
 
@@ -130,7 +140,20 @@ static block_t * OutputQueues(decoder_sys_t *p_sys, bool b_valid)
     if(p_sys->pre.p_chain)
     {
         i_flags |= p_sys->pre.p_chain->i_flags;
-        block_ChainLastAppend(&pp_output_last, p_sys->pre.p_chain);
+        if(p_sys->b_recovery_point && p_sys->sets != SENT)
+        {
+            if(p_sys->pre.p_chain->i_buffer >= 5 &&
+               hevc_getNALType(&p_sys->pre.p_chain->p_buffer[4]) == HEVC_NAL_AUD)
+            {
+                block_t *p_au = p_sys->pre.p_chain;
+                p_sys->pre.p_chain = p_sys->pre.p_chain->p_next;
+                p_au->p_next = NULL;
+                block_ChainLastAppend(&pp_output_last, p_au);
+            }
+            block_ChainLastAppend(&pp_output_last, GetXPSCopy(p_sys));
+        }
+        if(p_sys->pre.p_chain)
+            block_ChainLastAppend(&pp_output_last, p_sys->pre.p_chain);
         INITQ(pre);
     }
 
@@ -206,6 +229,7 @@ static int Open(vlc_object_t *p_this)
         date_Init( &p_sys->dts, 2 * 30000, 1001 );
     p_sys->pts = VLC_TICK_INVALID;
     p_sys->b_need_ts = true;
+    p_sys->sets = MISSING;
 
     /* Set callbacks */
     const uint8_t *p_extra = p_dec->fmt_in.p_extra;
@@ -324,10 +348,8 @@ static block_t *GetCc( decoder_t *p_dec, decoder_cc_desc_t *p_desc )
 /****************************************************************************
  * Packetizer Helpers
  ****************************************************************************/
-static void PacketizeReset(void *p_private, bool b_broken)
+static void PacketizeReset(void *p_private, bool b_flush)
 {
-    VLC_UNUSED(b_broken);
-
     decoder_t *p_dec = p_private;
     decoder_sys_t *p_sys = p_dec->p_sys;
 
@@ -335,7 +357,11 @@ static void PacketizeReset(void *p_private, bool b_broken)
     if(p_out)
         block_ChainRelease(p_out);
 
-    p_sys->b_init_sequence_complete = false;
+    if(b_flush)
+    {
+        p_sys->sets = MISSING;
+        p_sys->b_recovery_point = false;
+    }
     p_sys->b_need_ts = true;
     date_Set(&p_sys->dts, VLC_TICK_INVALID);
 }
@@ -344,31 +370,27 @@ static bool InsertXPS(decoder_t *p_dec, uint8_t i_nal_type, uint8_t i_id,
                       const block_t *p_nalb)
 {
     decoder_sys_t *p_sys = p_dec->p_sys;
-    void **pp_decoded;
+    struct hevc_tuple_s *p_tuple;
     void **pp_active;
-    block_t **pp_nal;
 
     switch(i_nal_type)
     {
         case HEVC_NAL_VPS:
             if(i_id > HEVC_VPS_ID_MAX)
                 return false;
-            pp_decoded = &p_sys->rg_vps[i_id].p_decoded;
-            pp_nal = &p_sys->rg_vps[i_id].p_nal;
+            p_tuple = &p_sys->rg_vps[i_id];
             pp_active = (void**)&p_sys->p_active_vps;
             break;
         case HEVC_NAL_SPS:
             if(i_id > HEVC_SPS_ID_MAX)
                 return false;
-            pp_decoded = &p_sys->rg_sps[i_id].p_decoded;
-            pp_nal = &p_sys->rg_sps[i_id].p_nal;
+            p_tuple = &p_sys->rg_sps[i_id];
             pp_active = (void**)&p_sys->p_active_sps;
             break;
         case HEVC_NAL_PPS:
             if(i_id > HEVC_PPS_ID_MAX)
                 return false;
-            pp_decoded = &p_sys->rg_pps[i_id].p_decoded;
-            pp_nal = &p_sys->rg_pps[i_id].p_nal;
+            p_tuple = &p_sys->rg_pps[i_id];
             pp_active = (void**)&p_sys->p_active_pps;
             break;
         default:
@@ -376,10 +398,10 @@ static bool InsertXPS(decoder_t *p_dec, uint8_t i_nal_type, uint8_t i_id,
     }
 
     /* Check if we really need to re-decode/replace */
-    if(*pp_nal)
+    if(p_tuple->p_nal)
     {
-        const uint8_t *p_stored = (*pp_nal)->p_buffer;
-        size_t i_stored = (*pp_nal)->i_buffer;
+        const uint8_t *p_stored = p_tuple->p_nal->p_buffer;
+        size_t i_stored = p_tuple->p_nal->i_buffer;
         hxxx_strip_AnnexB_startcode(&p_stored, &i_stored);
         const uint8_t *p_new = p_nalb->p_buffer;
         size_t i_new = p_nalb->i_buffer;
@@ -389,33 +411,33 @@ static bool InsertXPS(decoder_t *p_dec, uint8_t i_nal_type, uint8_t i_id,
     }
 
     /* Free associated decoded version */
-    if(*pp_decoded)
+    if(p_tuple->p_decoded)
     {
         switch(i_nal_type)
         {
             case HEVC_NAL_VPS:
-                hevc_rbsp_release_vps(*pp_decoded);
+                hevc_rbsp_release_vps(p_tuple->p_decoded);
                 break;
             case HEVC_NAL_SPS:
-                hevc_rbsp_release_sps(*pp_decoded);
+                hevc_rbsp_release_sps(p_tuple->p_decoded);
                 break;
             case HEVC_NAL_PPS:
-                hevc_rbsp_release_pps(*pp_decoded);
+                hevc_rbsp_release_pps(p_tuple->p_decoded);
                 break;
         }
-        if(*pp_active == *pp_decoded)
+        if(*pp_active == p_tuple->p_decoded)
             *pp_active = NULL;
         else
             pp_active = NULL; /* don't change pointer */
-        *pp_decoded = NULL;
+        p_tuple->p_decoded = NULL;
     }
     else pp_active = NULL;
 
     /* Free raw stored version */
-    if(*pp_nal)
+    if(p_tuple->p_nal)
     {
-        block_Release(*pp_nal);
-        *pp_nal = NULL;
+        block_Release(p_tuple->p_nal);
+        p_tuple->p_nal = NULL;
     }
 
     const uint8_t *p_buffer = p_nalb->p_buffer;
@@ -426,24 +448,24 @@ static bool InsertXPS(decoder_t *p_dec, uint8_t i_nal_type, uint8_t i_id,
         switch(i_nal_type)
         {
             case HEVC_NAL_SPS:
-                *pp_decoded = hevc_decode_sps(p_buffer, i_buffer, true);
-                if(!*pp_decoded)
+                p_tuple->p_decoded = hevc_decode_sps(p_buffer, i_buffer, true);
+                if(!p_tuple->p_decoded)
                 {
                     msg_Err(p_dec, "Failed decoding SPS id %d", i_id);
                     return false;
                 }
                 break;
             case HEVC_NAL_PPS:
-                *pp_decoded = hevc_decode_pps(p_buffer, i_buffer, true);
-                if(!*pp_decoded)
+                p_tuple->p_decoded = hevc_decode_pps(p_buffer, i_buffer, true);
+                if(!p_tuple->p_decoded)
                 {
                     msg_Err(p_dec, "Failed decoding PPS id %d", i_id);
                     return false;
                 }
                 break;
             case HEVC_NAL_VPS:
-                *pp_decoded = hevc_decode_vps(p_buffer, i_buffer, true);
-                if(!*pp_decoded)
+                p_tuple->p_decoded = hevc_decode_vps(p_buffer, i_buffer, true);
+                if(!p_tuple->p_decoded)
                 {
                     msg_Err(p_dec, "Failed decoding VPS id %d", i_id);
                     return false;
@@ -451,15 +473,32 @@ static bool InsertXPS(decoder_t *p_dec, uint8_t i_nal_type, uint8_t i_id,
                 break;
         }
 
-        if(*pp_decoded && pp_active) /* restore active by id */
-            *pp_active = *pp_decoded;
+        if(p_tuple->p_decoded && pp_active) /* restore active by id */
+            *pp_active = p_tuple->p_decoded;
 
-        *pp_nal = block_Duplicate((block_t *)p_nalb);
+        p_tuple->p_nal = block_Duplicate((block_t *)p_nalb);
 
         return true;
     }
 
     return false;
+}
+
+static block_t *GetXPSCopy(decoder_sys_t *p_sys)
+{
+    block_t *p_chain = NULL;
+    block_t **pp_append = &p_chain;
+    struct hevc_tuple_s *xpstype[3] = {p_sys->rg_vps, p_sys->rg_sps, p_sys->rg_pps};
+    size_t xpsmax[3] = {HEVC_VPS_ID_MAX, HEVC_SPS_ID_MAX, HEVC_PPS_ID_MAX};
+    for(size_t i=0; i<3; i++)
+        for(size_t j=0; j<xpsmax[i]; j++)
+        {
+            block_t *p_dup;
+            if(xpstype[i]->p_nal &&
+               (p_dup = block_Duplicate(xpstype[i]->p_nal)))
+                block_ChainLastAppend(&pp_append, p_dup);
+        };
+    return p_chain;
 }
 
 static bool XPSReady(decoder_sys_t *p_sys)
@@ -564,7 +603,7 @@ static void ActivateSets(decoder_t *p_dec,
                                          &p_dec->fmt_out.video.primaries,
                                          &p_dec->fmt_out.video.transfer,
                                          &p_dec->fmt_out.video.space,
-                                         &p_dec->fmt_out.video.b_color_range_full);
+                                         &p_dec->fmt_out.video.color_range);
         }
 
         unsigned sizes[4];
@@ -648,7 +687,8 @@ static block_t *ParseVCL(decoder_t *p_dec, uint8_t i_nal_type, block_t *p_frag)
         if(p_sys->frame.p_chain)
         {
             /* Starting new frame: return previous frame data for output */
-            p_outputchain = OutputQueues(p_sys, p_sys->b_init_sequence_complete);
+            p_outputchain = OutputQueues(p_sys, p_sys->sets != MISSING &&
+                                                p_sys->b_recovery_point);
         }
 
         hevc_slice_segment_header_t *p_sli = hevc_decode_slice_header(p_buffer, i_buffer, true,
@@ -682,10 +722,18 @@ static block_t *ParseVCL(decoder_t *p_dec, uint8_t i_nal_type, block_t *p_frag)
                     enum hevc_slice_type_e type;
                     if(hevc_get_slice_type( p_sli, &type ))
                     {
-                        if( type == HEVC_SLICE_TYPE_P )
-                            p_frag->i_flags |= BLOCK_FLAG_TYPE_P;
-                        else
-                            p_frag->i_flags |= BLOCK_FLAG_TYPE_B;
+                        switch(type)
+                        {
+                            case HEVC_SLICE_TYPE_B:
+                                p_frag->i_flags |= BLOCK_FLAG_TYPE_B;
+                                break;
+                            case HEVC_SLICE_TYPE_P:
+                                p_frag->i_flags |= BLOCK_FLAG_TYPE_P;
+                                break;
+                            case HEVC_SLICE_TYPE_I:
+                                p_frag->i_flags |= BLOCK_FLAG_TYPE_I;
+                                break;
+                        }
                     }
                 }
                 else p_frag->i_flags |= BLOCK_FLAG_TYPE_B;
@@ -697,14 +745,16 @@ static block_t *ParseVCL(decoder_t *p_dec, uint8_t i_nal_type, block_t *p_frag)
             hevc_rbsp_release_slice_header(p_sli);
     }
 
-    if(!p_sys->b_init_sequence_complete && i_layer == 0 &&
-       (p_frag->i_flags & BLOCK_FLAG_TYPE_I) && XPSReady(p_sys))
+    if(p_sys->sets == MISSING && i_layer == 0 && XPSReady(p_sys))
+        p_sys->sets = COMPLETE;
+
+    if(p_sys->sets != MISSING && (p_frag->i_flags & BLOCK_FLAG_TYPE_I))
     {
-        p_sys->b_init_sequence_complete = true;
+        p_sys->b_recovery_point = true; /* won't care about SEI recovery */
     }
 
-    if( !p_sys->b_init_sequence_complete )
-        cc_storage_reset( p_sys->p_ccs );
+    if(!p_sys->b_recovery_point) /* content will be dropped */
+        cc_storage_reset(p_sys->p_ccs);
 
     block_ChainLastAppend(&p_sys->frame.pp_chain_last, p_frag);
 
@@ -717,13 +767,15 @@ static block_t * ParseAUHead(decoder_t *p_dec, uint8_t i_nal_type, block_t *p_na
     block_t *p_ret = NULL;
 
     if(p_sys->post.p_chain || p_sys->frame.p_chain)
-        p_ret = OutputQueues(p_sys, p_sys->b_init_sequence_complete);
+        p_ret = OutputQueues(p_sys, p_sys->sets != MISSING &&
+                                    p_sys->b_recovery_point);
 
     switch(i_nal_type)
     {
         case HEVC_NAL_AUD:
             if(!p_ret && p_sys->pre.p_chain)
-                p_ret = OutputQueues(p_sys, p_sys->b_init_sequence_complete);
+                p_ret = OutputQueues(p_sys, p_sys->sets != MISSING &&
+                                            p_sys->b_recovery_point);
             break;
 
         case HEVC_NAL_VPS:
@@ -736,6 +788,11 @@ static block_t * ParseAUHead(decoder_t *p_dec, uint8_t i_nal_type, block_t *p_na
             if(hxxx_strip_AnnexB_startcode(&p_xps, &i_xps) &&
                hevc_get_xps_id(p_nalb->p_buffer, p_nalb->i_buffer, &i_id))
                 InsertXPS(p_dec, i_nal_type, i_id, p_nalb);
+            if(p_sys->sets != SENT) /* will store/inject on first recovery point */
+            {
+                block_Release(p_nalb);
+                return p_ret;
+            }
             break;
         }
 
@@ -761,7 +818,8 @@ static block_t * ParseAUTail(decoder_t *p_dec, uint8_t i_nal_type, block_t *p_na
     {
         case HEVC_NAL_EOS:
         case HEVC_NAL_EOB:
-            p_ret = OutputQueues(p_sys, p_sys->b_init_sequence_complete);
+            p_ret = OutputQueues(p_sys, p_sys->sets != MISSING &&
+                                        p_sys->b_recovery_point);
             if( p_ret )
                 p_ret->i_flags |= BLOCK_FLAG_END_OF_SEQUENCE;
             break;
@@ -834,6 +892,7 @@ static void SetOutputBlockProperties(decoder_t *p_dec, block_t *p_output)
         }
         p_sys->pts = VLC_TICK_INVALID;
     }
+    p_output->i_flags &= ~BLOCK_FLAG_AU_END;
     hevc_release_sei_pic_timing(p_sys->p_timing);
     p_sys->p_timing = NULL;
 }
@@ -846,6 +905,7 @@ static block_t *ParseNALBlock(decoder_t *p_dec, bool *pb_ts_used, block_t *p_fra
 {
     decoder_sys_t *p_sys = p_dec->p_sys;
     *pb_ts_used = false;
+    bool b_au_end = p_frag->i_flags & BLOCK_FLAG_AU_END;
 
     if(p_sys->b_need_ts)
     {
@@ -888,9 +948,19 @@ static block_t *ParseNALBlock(decoder_t *p_dec, bool *pb_ts_used, block_t *p_fra
         p_output = ParseNonVCL(p_dec, i_nal_type, p_frag);
     }
 
+    if( !p_output && b_au_end )
+        p_output = OutputQueues(p_sys, p_sys->sets != MISSING &&
+                                       p_sys->b_recovery_point);
+
     p_output = GatherAndValidateChain(p_output);
     if(p_output)
     {
+        if(p_sys->sets != SENT)
+        {
+            assert(p_sys->sets == COMPLETE);
+            p_sys->sets = SENT;
+        }
+
         SetOutputBlockProperties( p_dec, p_output );
         if (dts != VLC_TICK_INVALID)
             date_Set(&p_sys->dts, dts);
@@ -946,6 +1016,14 @@ static bool ParseSEICallback( const hxxx_sei_data_t *p_sei_data, void *cbdata )
             {
                 cc_storage_append( p_sys->p_ccs, true, p_sei_data->itu_t35.u.cc.p_data,
                                                        p_sei_data->itu_t35.u.cc.i_data );
+            }
+        } break;
+        case HXXX_SEI_RECOVERY_POINT:
+        {
+            if( !p_sys->b_recovery_point )
+            {
+                msg_Dbg( p_dec, "Seen SEI recovery point, %d recovery frames", p_sei_data->recovery.i_frames );
+                p_sys->b_recovery_point = true;
             }
         } break;
         case HXXX_SEI_FRAME_PACKING_ARRANGEMENT:

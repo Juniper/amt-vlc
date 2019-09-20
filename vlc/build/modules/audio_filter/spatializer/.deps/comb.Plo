@@ -1,23 +1,26 @@
 audio_filter/spatializer/comb.lo: \
-  /Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/audio_filter/spatializer/comb.cpp \
-  /Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/audio_filter/spatializer/comb.hpp \
-  /Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/audio_filter/spatializer/denormals.h \
+  ../../extras/package/macosx/../../../modules/audio_filter/spatializer/comb.cpp \
+  ../../extras/package/macosx/../../../modules/audio_filter/spatializer/comb.hpp \
+  ../../extras/package/macosx/../../../modules/audio_filter/spatializer/denormals.h \
   /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1/stddef.h \
   /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1/__config \
-  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/9.0.0/include/stddef.h \
-  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/9.0.0/include/__stddef_max_align_t.h \
+  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/pthread.h \
+  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stddef.h \
+  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/__stddef_max_align_t.h \
   /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1/__nullptr
 
-/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/audio_filter/spatializer/comb.hpp:
+../../extras/package/macosx/../../../modules/audio_filter/spatializer/comb.hpp:
 
-/Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../modules/audio_filter/spatializer/denormals.h:
+../../extras/package/macosx/../../../modules/audio_filter/spatializer/denormals.h:
 
 /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1/stddef.h:
 
 /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1/__config:
 
-/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/9.0.0/include/stddef.h:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/pthread.h:
 
-/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/9.0.0/include/__stddef_max_align_t.h:
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stddef.h:
+
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/__stddef_max_align_t.h:
 
 /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1/__nullptr:

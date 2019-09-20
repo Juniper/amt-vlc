@@ -22,6 +22,7 @@
 
 #include "ICanonicalUrl.hpp"
 #include "../tools/Properties.hpp"
+#include "../encryption/CommonEncryption.hpp"
 #include "SegmentInfoCommon.h"
 #include <vlc_common.h>
 #include <vector>
@@ -34,8 +35,16 @@ namespace adaptive
         class SegmentList;
         class SegmentTimeline;
         class SegmentTemplate;
+        class MediaSegmentTemplate;
         class AbstractPlaylist;
         class ISegment;
+
+        enum Tribool
+        {
+            TRIBOOL_UNKNOWN,
+            TRIBOOL_FALSE,
+            TRIBOOL_TRUE,
+        };
 
         /* common segment elements for period/adaptset/rep 5.3.9.1,
          * with properties inheritance */
@@ -43,18 +52,12 @@ namespace adaptive
                                    public TimescaleAble,
                                    public Unique
         {
+            friend class MediaSegmentTemplate;
             public:
                 SegmentInformation( SegmentInformation * = 0 );
                 explicit SegmentInformation( AbstractPlaylist * );
                 virtual ~SegmentInformation();
-                typedef enum SwitchPolicy
-                {
-                    SWITCH_UNKNOWN,
-                    SWITCH_UNAVAILABLE,
-                    SWITCH_SEGMENT_ALIGNED,
-                    SWITCH_BITSWITCHEABLE
-                } SwitchPolicy;
-                SwitchPolicy getSwitchPolicy() const;
+
                 virtual vlc_tick_t getPeriodStart() const;
                 virtual AbstractPlaylist *getPlaylist() const;
 
@@ -79,26 +82,28 @@ namespace adaptive
                 ISegment * getNextSegment(SegmentInfoType, uint64_t, uint64_t *, bool *) const;
                 bool getSegmentNumberByTime(vlc_tick_t, uint64_t *) const;
                 bool getPlaybackTimeDurationBySegmentNumber(uint64_t, vlc_tick_t *, vlc_tick_t *) const;
+                uint64_t getLiveSegmentNumberByTime(uint64_t, vlc_tick_t) const;
                 uint64_t getLiveStartSegmentNumber(uint64_t) const;
-                virtual void mergeWith(SegmentInformation *, vlc_tick_t);
+                bool     getMediaPlaybackRange(vlc_tick_t *, vlc_tick_t *, vlc_tick_t *) const;
+                virtual void updateWith(SegmentInformation *);
                 virtual void mergeWithTimeline(SegmentTimeline *); /* ! don't use with global merge */
                 virtual void pruneBySegmentNumber(uint64_t);
                 virtual void pruneByPlaybackTime(vlc_tick_t);
                 virtual uint64_t translateSegmentNumber(uint64_t, const SegmentInformation *) const;
+                void setEncryption(const CommonEncryption &);
+                const CommonEncryption & intheritEncryption() const;
 
             protected:
                 std::size_t getAllSegments(std::vector<ISegment *> &) const;
-                std::size_t getSegments(SegmentInfoType, std::vector<ISegment *>&) const;
+                virtual std::size_t getSegments(SegmentInfoType, std::vector<ISegment *>&) const;
                 std::vector<SegmentInformation *> childs;
                 SegmentInformation * getChildByID( const ID & );
                 SegmentInformation *parent;
-                SwitchPolicy switchpolicy;
 
             public:
-                void appendSegmentList(SegmentList *, bool = false);
+                void updateSegmentList(SegmentList *, bool = false);
                 void setSegmentBase(SegmentBase *);
                 void setSegmentTemplate(MediaSegmentTemplate *);
-                void setSwitchPolicy(SwitchPolicy);
                 virtual Url getUrlSegment() const; /* impl */
                 Property<Url *> baseUrl;
 
@@ -111,6 +116,7 @@ namespace adaptive
                 SegmentBase     *segmentBase;
                 SegmentList     *segmentList;
                 MediaSegmentTemplate *mediaSegmentTemplate;
+                CommonEncryption commonEncryption;
         };
     }
 }

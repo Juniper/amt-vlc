@@ -35,7 +35,6 @@
 #include <vlc_common.h>
 #include <vlc_plugin.h>
 #include <vlc_access.h>
-#include <vlc_input.h>
 #include <vlc_interrupt.h>
 #include <vlc_dialog.h>
 
@@ -152,7 +151,10 @@ static int Open( vlc_object_t *p_this )
         p_access->pf_block = BlockScan;
     }
     else
+    {
+        free( p_sys );
         return VLC_EGENERIC; /* let the DTV plugin do the work */
+    }
 
     /* Getting frontend info */
     if( FrontendOpen( p_this, &p_sys->dvb, p_access->psz_name ) )
@@ -385,7 +387,6 @@ static int Control( stream_t *p_access, int i_query, va_list args )
 {
     access_sys_t *sys = p_access->p_sys;
     bool         *pb_bool;
-    int64_t      *pi_64;
     double       *pf1, *pf2;
     frontend_statistic_t stat;
 

@@ -611,19 +611,12 @@ typedef enum libvlc_video_direct3d_engine_t {
 typedef struct
 {
     bool hardware_decoding; /** set if D3D11_CREATE_DEVICE_VIDEO_SUPPORT is needed for D3D11 */
-
-    /** Callback to call when the size of the host changes
-     *
-     * \note This may be called from any thread as long as it's not after
-     *    \ref libvlc_video_direct3d_device_cleanup_cb has been called.
-     */
-    void (*report_size_change)(void *report_opaque, unsigned width, unsigned height);
-    void *report_opaque;
 } libvlc_video_direct3d_device_cfg_t;
 
 typedef struct
 {
-    void *device_context; /** ID3D11DeviceContext* for D3D11, IDirect3DDevice9 * for D3D9 */
+    void *device_context; /** ID3D11DeviceContext* for D3D11, IDirect3D9 * for D3D9 */
+    int  adapter;         /** Adapter to use with the IDirect3D9 for D3D9 */
 } libvlc_video_direct3d_device_setup_t;
 
 /** Setup the rendering environment.
@@ -636,7 +629,7 @@ typedef struct
  * \return true on success
  * \version LibVLC 4.0.0 or later
  *
- * For \ref libvlc_video_direct3d_engine_d3d9 the output must be a IDirect3DDevice9*.
+ * For \ref libvlc_video_direct3d_engine_d3d9 the output must be a IDirect3D9*.
  * A reference to this object is held until the \ref LIBVLC_VIDEO_DEVICE_CLEANUP is called.
  * the device must be created with D3DPRESENT_PARAMETERS.hDeviceWindow set to 0.
  *
@@ -655,6 +648,23 @@ typedef bool( *libvlc_video_direct3d_device_setup_cb )( void **opaque,
  */
 typedef void( *libvlc_video_direct3d_device_cleanup_cb )( void *opaque );
 
+/** Set the callback to call when the host app resizes the rendering area.
+ *
+ * This allows text rendering and aspect ratio to be handled properly when the host
+ * rendering size changes.
+ *
+ * It may be called before the \ref libvlc_video_direct3d_device_setup_cb callback.
+ *
+ * \param opaque private pointer set on the opaque parameter of @a libvlc_video_direct3d_device_setup_cb() [IN]
+ * \param report_size_change callback which must be called when the host size changes. [IN]
+ *        The callback is valid until another call to \ref libvlc_video_direct3d_set_resize_cb
+ *        is done. This may be called from any thread.
+ * \param report_opaque private pointer to pass to the \ref report_size_change callback. [IN]
+ */
+typedef void( *libvlc_video_direct3d_set_resize_cb )( void *opaque,
+                                                      void (*report_size_change)(void *report_opaque, unsigned width, unsigned height),
+                                                      void *report_opaque );
+
 typedef struct
 {
     unsigned width;                        /** rendering video width in pixel */
@@ -664,6 +674,7 @@ typedef struct
     libvlc_video_color_space_t colorspace;              /** video color space */
     libvlc_video_color_primaries_t primaries;       /** video color primaries */
     libvlc_video_transfer_func_t transfer;        /** video transfer function */
+    void *device;   /** device used for rendering, IDirect3DDevice9* for D3D9 */
 } libvlc_video_direct3d_cfg_t;
 
 typedef struct
@@ -682,6 +693,11 @@ typedef struct
  * \param cfg configuration of the video that will be rendered [IN]
  * \param output configuration describing with how the rendering is setup [OUT]
  * \version LibVLC 4.0.0 or later
+ *
+ * \note the configuration device for Direct3D9 is the IDirect3DDevice9 that VLC
+ *       uses to render. The host must set a Render target and call Present()
+ *       when it needs the drawing from VLC to be done. This object is not valid
+ *       anymore after Cleanup is called.
  *
  * Tone mapping, range and color conversion will be done depending on the values
  * set in the output structure.
@@ -710,31 +726,6 @@ typedef struct
  * \param hdr10 libvlc_video_direct3d_hdr10_metadata_t* or NULL [IN]
  * \return true on success
  * \version LibVLC 4.0.0 or later
- *
- * On Direct3D9 the following may change on the provided IDirect3DDevice9*
- * between \ref enter being true and \ref enter being false:
- * - D3DSAMP_ADDRESSU
- * - D3DSAMP_ADDRESSV
- * - D3DSAMP_MINFILTER
- * - D3DSAMP_MAGFILTER
- * - D3DRS_AMBIENT
- * - D3DRS_CULLMODE
- * - D3DRS_ZENABLE
- * - D3DRS_LIGHTING
- * - D3DRS_DITHERENABLE
- * - D3DRS_STENCILENABLE
- * - D3DRS_ALPHABLENDENABLE
- * - D3DRS_SRCBLEND,D3DBLEND_SRCALPHA
- * - D3DRS_DESTBLEND,D3DBLEND_INVSRCALPHA
- * - D3DPCMPCAPS_GREATER
- * - D3DRS_ALPHATESTENABLE
- * - D3DRS_ALPHAREF
- * - D3DRS_ALPHAFUNC
- * - D3DTSS_COLOROP
- * - D3DTSS_COLORARG1
- * - D3DTSS_ALPHAOP
- * - D3DTSS_ALPHAARG1
- * - D3DTSS_ALPHAARG2
  *
  * On Direct3D11 the following may change on the provided ID3D11DeviceContext*
  * between \ref enter being true and \ref enter being false:
@@ -783,6 +774,7 @@ typedef bool( *libvlc_video_direct3d_select_plane_cb )( void *opaque, size_t pla
  * \param engine the GPU engine to use
  * \param setup_cb callback to setup and return the device to use (cannot be NULL)
  * \param cleanup_cb callback to cleanup the device given by the \ref setup_cb callback
+ * \param resize_cb callback to set the resize callback
  * \param update_output_cb callback to notify of the source format and get the
  *                         rendering format used by the host (cannot be NULL)
  * \param swap_cb callback to tell the host it should display the rendered picture (cannot be NULL)
@@ -799,6 +791,7 @@ bool libvlc_video_direct3d_set_callbacks( libvlc_media_player_t *mp,
                                          libvlc_video_direct3d_engine_t engine,
                                          libvlc_video_direct3d_device_setup_cb setup_cb,
                                          libvlc_video_direct3d_device_cleanup_cb cleanup_cb,
+                                         libvlc_video_direct3d_set_resize_cb resize_cb,
                                          libvlc_video_direct3d_update_output_cb update_output_cb,
                                          libvlc_video_swap_cb swap_cb,
                                          libvlc_video_direct3d_start_end_rendering_cb makeCurrent_cb,

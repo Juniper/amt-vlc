@@ -14,6 +14,7 @@ $(TARBALLS)/goom-$(GOOM_VERSION)-src.tar.gz:
 .sum-goom: goom-$(GOOM_VERSION)-src.tar.gz
 
 goom: goom-$(GOOM_VERSION)-src.tar.gz .sum-goom
+	-$(RM) -rf goom-2k4-0-src
 	$(UNPACK)
 	mv goom2k4-0 goom-2k4-0-src
 	$(APPLY) $(SRC)/goom/goom2k4-0-memleaks.patch
@@ -21,6 +22,9 @@ goom: goom-$(GOOM_VERSION)-src.tar.gz .sum-goom
 	$(APPLY) $(SRC)/goom/goom2k4-noxmmx.patch
 	$(APPLY) $(SRC)/goom/goom2k4-xmmslibdir.patch
 ifdef HAVE_WIN32
+ifdef MSYS_BUILD
+	unix2dos $(SRC)/goom/goom2k4-0-win32.patch
+endif
 	$(APPLY) $(SRC)/goom/goom2k4-0-win32.patch
 endif
 ifdef HAVE_MACOSX

@@ -5,7 +5,6 @@
  * Copyright (C) 2007 Société des arts technologiques
  * Copyright (C) 2007 Savoir-faire Linux
  *
- * $Id: f43be234e0dbe1025746ef54250cb101e2cbeb5b $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *          Jean-Baptiste Kempf <jb@videolan.org>
@@ -145,21 +144,35 @@ inline void FileOpenPanel::BuildOldPanel()
     dialogBox->setToolTip( qtr( "Select one or multiple files" ) );
     dialogBox->setMinimumHeight( 250 );
 
-    // But hide the two OK/Cancel buttons. Enable them for debug.
-    QDialogButtonBox *fileDialogAcceptBox =
-                      dialogBox->findChildren<QDialogButtonBox*>()[0];
-    fileDialogAcceptBox->hide();
-
+#warning Qt open_panels should use a more sustainable way to customize FileDialogBox
     /* Ugly hacks to get the good Widget */
-    //This lineEdit is the normal line in the fileDialog.
-    QLineEdit *lineFileEdit = dialogBox->findChildren<QLineEdit*>()[0];
+    // But hide the two OK/Cancel buttons. Enable them for debug.
+    QList<QDialogButtonBox*> buttons =
+        dialogBox->findChildren<QDialogButtonBox*>();
+    if( !buttons.isEmpty() )
+    {
+        QDialogButtonBox *fileDialogAcceptBox = buttons[0];
+        fileDialogAcceptBox->hide();
+    }
+
     /* Make a list of QLabel inside the QFileDialog to access the good ones */
     QList<QLabel *> listLabel = dialogBox->findChildren<QLabel*>();
 
-    /* Hide the FileNames one. Enable it for debug */
-    listLabel[1]->setText( qtr( "File names:" ) );
-    /* Change the text that was uncool in the usual box */
-    listLabel[2]->setText( qtr( "Filter:" ) );
+    if( listLabel.size() > 3 )
+    {
+        /* Hide the FileNames one. Enable it for debug */
+        listLabel[1]->setText( qtr( "File names:" ) );
+        /* Change the text that was uncool in the usual box */
+        listLabel[2]->setText( qtr( "Filter:" ) );
+    }
+
+    //This lineEdit is the normal line in the fileDialog.
+    QList<QLineEdit*> lineEdits = dialogBox->findChildren<QLineEdit*>();
+    if( !lineEdits.isEmpty() )
+    {
+        QLineEdit *lineFileEdit = lineEdits[0];
+        CONNECT( lineFileEdit, textChanged( const QString& ), this, updateMRL() );
+    }
 
     dialogBox->layout()->setMargin( 0 );
     dialogBox->layout()->setSizeConstraint( QLayout::SetNoConstraint );
@@ -169,7 +182,6 @@ inline void FileOpenPanel::BuildOldPanel()
     // Add the DialogBox to the layout
     ui.gridLayout->addWidget( dialogBox, 0, 0, 1, 3 );
 
-    CONNECT( lineFileEdit, textChanged( const QString& ), this, updateMRL() );
     dialogBox->installEventFilter( this );
 }
 
@@ -331,7 +343,8 @@ DiscOpenPanel::DiscOpenPanel( QWidget *_parent, intf_thread_t *_p_intf ) :
     /* Get the default configuration path for the devices */
     psz_dvddiscpath = var_InheritString( p_intf, "dvd" );
     psz_vcddiscpath = var_InheritString( p_intf, "vcd" );
-    psz_cddadiscpath = var_InheritString( p_intf, "cd-audio" );
+    psz_cddadiscpath = config_GetType("cd-audio") ?
+                       var_InheritString( p_intf, "cd-audio" ) : NULL;
 
     /* State to avoid overwritting the users changes with the configuration */
     m_discType = None;
@@ -680,6 +693,9 @@ NetOpenPanel::NetOpenPanel( QWidget *_parent, intf_thread_t *_p_intf ) :
 
     /* Use a simple validator for URLs */
     ui.urlComboBox->setValidator( new UrlValidator( this ) );
+
+    /* QComboBox is by default case insensitive when editable */
+    ui.urlComboBox->completer()->setCaseSensitivity( Qt::CaseSensitive );
     ui.urlComboBox->setFocus();
 }
 
@@ -853,7 +869,7 @@ void CaptureOpenPanel::initialize()
     v4l2PropLayout->addWidget( v4l2StdLabel, 0 , 0 );
 
     v4l2StdBox = new QComboBox;
-    setfillVLCConfigCombo( "v4l2-standard", p_intf, v4l2StdBox );
+    setfillVLCConfigCombo( "v4l2-standard", v4l2StdBox );
     v4l2PropLayout->addWidget( v4l2StdBox, 0 , 1 );
     v4l2PropLayout->addItem( new QSpacerItem( 20, 20, QSizePolicy::Expanding ),
             1, 0, 3, 2 );
@@ -998,7 +1014,7 @@ void CaptureOpenPanel::initialize()
     dvbPropLayout->addWidget( dvbBandLabel, 2, 0 );
 
     dvbBandBox = new QComboBox;
-    setfillVLCConfigCombo( "dvb-bandwidth", p_intf, dvbBandBox );
+    setfillVLCConfigCombo( "dvb-bandwidth", dvbBandBox );
     dvbPropLayout->addWidget( dvbBandBox, 2, 1 );
 
     dvbBandLabel->hide();
@@ -1074,7 +1090,7 @@ void CaptureOpenPanel::initialize()
     pvrPropLayout->addWidget( pvrNormLabel, 0, 0 );
 
     pvrNormBox = new QComboBox;
-    setfillVLCConfigCombo( "v4l2-standard", p_intf, pvrNormBox );
+    setfillVLCConfigCombo( "v4l2-standard", pvrNormBox );
     pvrPropLayout->addWidget( pvrNormBox, 0, 1 );
 
     QLabel *pvrFreqLabel = new QLabel( qtr( "Frequency" ) );

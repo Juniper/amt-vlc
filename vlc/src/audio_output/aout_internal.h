@@ -2,7 +2,6 @@
  * aout_internal.h : internal defines for audio output
  *****************************************************************************
  * Copyright (C) 2002 VLC authors and VideoLAN
- * $Id: 8b5ff1bf267a4adf0eb4c7464ff1c8abfb389031 $
  *
  * Authors: Christophe Massiot <massiot@via.ecp.fr>
  *
@@ -27,6 +26,7 @@
 # include <stdatomic.h>
 
 # include <vlc_viewpoint.h>
+# include "../clock/clock.h"
 
 /* Max input rate factor (1/4 -> 4) */
 # define AOUT_MAX_INPUT_RATE (4)
@@ -35,13 +35,6 @@ enum {
     AOUT_RESAMPLING_NONE=0,
     AOUT_RESAMPLING_UP,
     AOUT_RESAMPLING_DOWN
-};
-
-struct aout_request_vout
-{
-    struct vout_thread_t  *(*pf_request_vout)( void *, struct vout_thread_t *,
-                                               const video_format_t *, bool );
-    void *p_private;
 };
 
 typedef struct aout_volume aout_volume_t;
@@ -70,24 +63,29 @@ typedef struct
 
     struct
     {
-        vlc_tick_t end; /**< Last seen PTS */
+        struct vlc_clock_t *clock;
         float rate; /**< Play-out speed rate */
         vlc_tick_t resamp_start_drift; /**< Resampler drift absolute value */
         int resamp_type; /**< Resampler mode (FIXME: redundant / resampling) */
         bool discontinuity;
+        vlc_tick_t request_delay;
+        vlc_tick_t delay;
+        vlc_tick_t first_pts;
     } sync;
+    vlc_tick_t original_pts;
 
     int requested_stereo_mode; /**< Requested stereo mode set by the user */
 
     audio_sample_format_t input_format;
     audio_sample_format_t mixer_format;
 
-    aout_request_vout_t request_vout;
     aout_filters_cfg_t filters_cfg;
 
     atomic_uint buffers_lost;
     atomic_uint buffers_played;
     atomic_uchar restart;
+
+    atomic_uintptr_t refs;
 } aout_owner_t;
 
 typedef struct
@@ -130,8 +128,6 @@ void aout_FormatsPrint(vlc_object_t *, const char *,
                        const audio_sample_format_t *);
 #define aout_FormatsPrint(o, t, a, b) \
         aout_FormatsPrint(VLC_OBJECT(o), t, a, b)
-bool aout_ChangeFilterString( vlc_object_t *manager, vlc_object_t *aout,
-                              const char *var, const char *name, bool b_add );
 
 /* From dec.c */
 #define AOUT_DEC_SUCCESS 0
@@ -139,14 +135,18 @@ bool aout_ChangeFilterString( vlc_object_t *manager, vlc_object_t *aout,
 #define AOUT_DEC_FAILED VLC_EGENERIC
 
 int aout_DecNew(audio_output_t *, const audio_sample_format_t *,
-                const audio_replay_gain_t *, const aout_request_vout_t *);
+                struct vlc_clock_t *clock, const audio_replay_gain_t *);
 void aout_DecDelete(audio_output_t *);
 int aout_DecPlay(audio_output_t *aout, block_t *block);
 void aout_DecGetResetStats(audio_output_t *, unsigned *, unsigned *);
 void aout_DecChangePause(audio_output_t *, bool b_paused, vlc_tick_t i_date);
 void aout_DecChangeRate(audio_output_t *aout, float rate);
-void aout_DecFlush(audio_output_t *, bool wait);
+void aout_DecChangeDelay(audio_output_t *aout, vlc_tick_t delay);
+void aout_DecFlush(audio_output_t *);
+void aout_DecDrain(audio_output_t *);
 void aout_RequestRestart (audio_output_t *, unsigned);
+void aout_RequestRetiming(audio_output_t *aout, vlc_tick_t system_ts,
+                          vlc_tick_t audio_ts);
 
 static inline void aout_InputRequestRestart(audio_output_t *aout)
 {
@@ -167,6 +167,18 @@ static inline void aout_SetWavePhysicalChannels(audio_sample_format_t *fmt)
 }
 
 /* From filters.c */
+
+/* Extended version of aout_FiltersNew
+ *
+ * The clock, that is not mandatory, will be used to create a new slave clock
+ * for the filter vizualisation plugins.
+ */
+aout_filters_t *aout_FiltersNewWithClock(vlc_object_t *, const vlc_clock_t *,
+                                         const audio_sample_format_t *,
+                                         const audio_sample_format_t *,
+                                         const aout_filters_cfg_t *cfg) VLC_USED;
+void aout_FiltersResetClock(aout_filters_t *filters);
+void aout_FiltersSetClockDelay(aout_filters_t *filters, vlc_tick_t delay);
 bool aout_FiltersCanResample (aout_filters_t *filters);
 
 #endif /* !LIBVLC_AOUT_INTERNAL_H */

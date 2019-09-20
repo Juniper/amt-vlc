@@ -2,7 +2,6 @@
  * mmal.c: MMAL-based vout plugin for Raspberry Pi
  *****************************************************************************
  * Copyright © 2014 jusst technologies GmbH
- * $Id: ce0682b4817c147fdc085e1a00c7b48846a62960 $
  *
  * Authors: Dennis Hamester <dennis.hamester@gmail.com>
  *          Julian Scheel <julian@jusst.de>
@@ -68,13 +67,13 @@
 #define PHASE_OFFSET_TARGET ((double)0.25)
 #define PHASE_CHECK_INTERVAL 100
 
-static int Open(vlc_object_t *);
-static void Close(vlc_object_t *);
+static int Open(vout_display_t *vd, const vout_display_cfg_t *cfg,
+                video_format_t *fmt, vlc_video_context *context);
+static void Close(vout_display_t *vd);
 
 vlc_module_begin()
     set_shortname(N_("MMAL vout"))
     set_description(N_("MMAL-based vout plugin for Raspberry Pi"))
-    set_capability("vout display", 90)
     add_shortcut("mmal_vout")
     add_integer(MMAL_LAYER_NAME, 1, MMAL_LAYER_TEXT, MMAL_LAYER_LONGTEXT, false)
     add_bool(MMAL_BLANK_BACKGROUND_NAME, true, MMAL_BLANK_BACKGROUND_TEXT,
@@ -83,7 +82,7 @@ vlc_module_begin()
                     MMAL_ADJUST_REFRESHRATE_LONGTEXT, false)
     add_bool(MMAL_NATIVE_INTERLACED, false, MMAL_NATIVE_INTERLACE_TEXT,
                     MMAL_NATIVE_INTERLACE_LONGTEXT, false)
-    set_callbacks(Open, Close)
+    set_callback_display(Open, 90)
 vlc_module_end()
 
 struct dmx_region_t {
@@ -107,6 +106,7 @@ struct vout_display_sys_t {
     plane_t planes[3]; /* Depending on video format up to 3 planes are used */
     picture_t **pictures; /* Actual list of alloced pictures passed into picture_pool */
     picture_pool_t *picture_pool;
+    vout_display_cfg_t last_cfg;
 
     MMAL_COMPONENT_T *component;
     MMAL_PORT_T *input;
@@ -153,8 +153,7 @@ static int configure_display(vout_display_t *vd, const vout_display_cfg_t *cfg,
 static picture_pool_t *vd_pool(vout_display_t *vd, unsigned count);
 static void vd_prepare(vout_display_t *vd, picture_t *picture,
                 subpicture_t *subpicture);
-static void vd_display(vout_display_t *vd, picture_t *picture,
-                subpicture_t *subpicture);
+static void vd_display(vout_display_t *vd, picture_t *picture);
 static int vd_control(vout_display_t *vd, int query, va_list args);
 static void vd_manage(vout_display_t *vd);
 
@@ -181,9 +180,9 @@ static void dmx_region_delete(struct dmx_region_t *dmx_region,
 static void show_background(vout_display_t *vd, bool enable);
 static void maintain_phase_sync(vout_display_t *vd);
 
-static int Open(vlc_object_t *object)
+static int Open(vout_display_t *vd, const vout_display_cfg_t *cfg,
+                video_format_t *fmt, vlc_video_context *context)
 {
-    vout_display_t *vd = (vout_display_t *)object;
     vout_display_sys_t *sys;
     uint32_t buffer_pitch, buffer_height;
     vout_display_place_t place;
@@ -192,7 +191,7 @@ static int Open(vlc_object_t *object)
     int ret = VLC_SUCCESS;
     unsigned i;
 
-    if (vout_display_IsWindowed(vd))
+    if (vout_display_cfg_IsWindowed(cfg))
         return VLC_EGENERIC;
 
     sys = calloc(1, sizeof(struct vout_display_sys_t));
@@ -203,7 +202,7 @@ static int Open(vlc_object_t *object)
     sys->layer = var_InheritInteger(vd, MMAL_LAYER_NAME);
     bcm_host_init();
 
-    sys->opaque = vd->fmt.i_chroma == VLC_CODEC_MMAL_OPAQUE;
+    sys->opaque = fmt->i_chroma == VLC_CODEC_MMAL_OPAQUE;
 
     status = mmal_component_create(MMAL_COMPONENT_DEFAULT_VIDEO_RENDERER, &sys->component);
     if (status != MMAL_SUCCESS) {
@@ -231,21 +230,22 @@ static int Open(vlc_object_t *object)
         sys->buffer_size = sys->input->buffer_size_recommended;
     } else {
         sys->input->format->encoding = MMAL_ENCODING_I420;
-        vd->fmt.i_chroma = VLC_CODEC_I420;
-        buffer_pitch = align(vd->fmt.i_width, 32);
-        buffer_height = align(vd->fmt.i_height, 16);
+        fmt->i_chroma = VLC_CODEC_I420;
+        buffer_pitch = align(fmt->i_width, 32);
+        buffer_height = align(fmt->i_height, 16);
         sys->i_planes = 3;
         sys->buffer_size = 3 * buffer_pitch * buffer_height / 2;
     }
 
-    sys->input->format->es->video.width = vd->fmt.i_width;
-    sys->input->format->es->video.height = vd->fmt.i_height;
+    sys->input->format->es->video.width = fmt->i_width;
+    sys->input->format->es->video.height = fmt->i_height;
     sys->input->format->es->video.crop.x = 0;
     sys->input->format->es->video.crop.y = 0;
-    sys->input->format->es->video.crop.width = vd->fmt.i_width;
-    sys->input->format->es->video.crop.height = vd->fmt.i_height;
+    sys->input->format->es->video.crop.width = fmt->i_width;
+    sys->input->format->es->video.crop.height = fmt->i_height;
     sys->input->format->es->video.par.num = vd->source.i_sar_num;
     sys->input->format->es->video.par.den = vd->source.i_sar_den;
+    sys->last_cfg = *cfg;
 
     status = mmal_port_format_commit(sys->input);
     if (status != MMAL_SUCCESS) {
@@ -256,14 +256,14 @@ static int Open(vlc_object_t *object)
     }
     sys->input->buffer_size = sys->input->buffer_size_recommended;
 
-    vout_display_PlacePicture(&place, &vd->source, vd->cfg, false);
+    vout_display_PlacePicture(&place, &vd->source, cfg);
     display_region.hdr.id = MMAL_PARAMETER_DISPLAYREGION;
     display_region.hdr.size = sizeof(MMAL_DISPLAYREGION_T);
     display_region.fullscreen = MMAL_FALSE;
-    display_region.src_rect.x = vd->fmt.i_x_offset;
-    display_region.src_rect.y = vd->fmt.i_y_offset;
-    display_region.src_rect.width = vd->fmt.i_visible_width;
-    display_region.src_rect.height = vd->fmt.i_visible_height;
+    display_region.src_rect.x = fmt->i_x_offset;
+    display_region.src_rect.y = fmt->i_y_offset;
+    display_region.src_rect.width = fmt->i_visible_width;
+    display_region.src_rect.height = fmt->i_visible_height;
     display_region.dest_rect.x = place.x;
     display_region.dest_rect.y = place.y;
     display_region.dest_rect.width = place.width;
@@ -282,8 +282,8 @@ static int Open(vlc_object_t *object)
     for (i = 0; i < sys->i_planes; ++i) {
         sys->planes[i].i_lines = buffer_height;
         sys->planes[i].i_pitch = buffer_pitch;
-        sys->planes[i].i_visible_lines = vd->fmt.i_visible_height;
-        sys->planes[i].i_visible_pitch = vd->fmt.i_visible_width;
+        sys->planes[i].i_visible_lines = fmt->i_visible_height;
+        sys->planes[i].i_visible_pitch = fmt->i_visible_width;
 
         if (i > 0) {
             sys->planes[i].i_lines /= 2;
@@ -301,15 +301,16 @@ static int Open(vlc_object_t *object)
     vd->prepare = vd_prepare;
     vd->display = vd_display;
     vd->control = vd_control;
+    vd->close = Close;
 
     vc_tv_register_callback(tvservice_cb, vd);
 
     if (query_resolution(vd, &sys->display_width, &sys->display_height) >= 0) {
-        vout_window_ReportSize(vd->cfg->window,
+        vout_window_ReportSize(cfg->window,
                                sys->display_width, sys->display_height);
     } else {
-        sys->display_width = vd->cfg->display.width;
-        sys->display_height = vd->cfg->display.height;
+        sys->display_width = cfg->display.width;
+        sys->display_height = cfg->display.height;
     }
 
     sys->dmx_handle = vc_dispmanx_display_open(0);
@@ -319,10 +320,11 @@ out:
     if (ret != VLC_SUCCESS)
         Close(object);
 
+    (void) context;
     return ret;
 }
 
-static void Close(vlc_object_t *object)
+static void Close(vout_display_t *vd)
 {
     vout_display_t *vd = (vout_display_t *)object;
     vout_display_sys_t *sys = vd->sys;
@@ -382,16 +384,16 @@ static inline uint32_t align(uint32_t x, uint32_t y) {
         return x + y - mod;
 }
 
-static int configure_display(vout_display_t *vd, const vout_display_cfg_t *cfg,
-                const video_format_t *fmt)
+static void configure_display(vout_display_t *vd,
+                              const vout_display_cfg_t *cfg,
+                              const video_format_t *fmt)
 {
     vout_display_sys_t *sys = vd->sys;
     vout_display_place_t place;
     MMAL_DISPLAYREGION_T display_region;
     MMAL_STATUS_T status;
 
-    if (!cfg && !fmt)
-        return -EINVAL;
+    assert(cfg != NULL || fmt != NULL);
 
     if (fmt) {
         sys->input->format->es->video.par.num = fmt->i_sar_num;
@@ -401,16 +403,16 @@ static int configure_display(vout_display_t *vd, const vout_display_cfg_t *cfg,
         if (status != MMAL_SUCCESS) {
             msg_Err(vd, "Failed to commit format for input port %s (status=%"PRIx32" %s)",
                             sys->input->name, status, mmal_status_to_string(status));
-            return -EINVAL;
+            return;
         }
     } else {
         fmt = &vd->source;
     }
 
     if (!cfg)
-        cfg = vd->cfg;
+        cfg = &sys->last_cfg;
 
-    vout_display_PlacePicture(&place, fmt, cfg, false);
+    vout_display_PlacePicture(&place, fmt, cfg);
 
     display_region.hdr.id = MMAL_PARAMETER_DISPLAYREGION;
     display_region.hdr.size = sizeof(MMAL_DISPLAYREGION_T);
@@ -430,7 +432,7 @@ static int configure_display(vout_display_t *vd, const vout_display_cfg_t *cfg,
     if (status != MMAL_SUCCESS) {
         msg_Err(vd, "Failed to set display region (status=%"PRIx32" %s)",
                         status, mmal_status_to_string(status));
-        return -EINVAL;
+        return;
     }
 
     show_background(vd, var_InheritBool(vd, MMAL_BLANK_BACKGROUND_NAME));
@@ -440,8 +442,11 @@ static int configure_display(vout_display_t *vd, const vout_display_cfg_t *cfg,
         adjust_refresh_rate(vd, fmt);
         set_latency_target(vd, true);
     }
+}
 
-    return 0;
+static void pic_destroy(picture_t *pic)
+{
+    free(pic->p_sys);
 }
 
 static picture_pool_t *vd_pool(vout_display_t *vd, unsigned count)
@@ -449,7 +454,6 @@ static picture_pool_t *vd_pool(vout_display_t *vd, unsigned count)
     vout_display_sys_t *sys = vd->sys;
     picture_resource_t picture_res;
     picture_pool_configuration_t picture_pool_cfg;
-    video_format_t fmt = vd->fmt;
     MMAL_STATUS_T status;
     unsigned i;
 
@@ -510,13 +514,15 @@ static picture_pool_t *vd_pool(vout_display_t *vd, unsigned count)
     }
 
     memset(&picture_res, 0, sizeof(picture_resource_t));
+    picture_res.pf_destroy = pic_destroy;
+
     sys->pictures = calloc(sys->num_buffers, sizeof(picture_t *));
     for (i = 0; i < sys->num_buffers; ++i) {
         picture_res.p_sys = calloc(1, sizeof(picture_sys_t));
         picture_res.p_sys->owner = (vlc_object_t *)vd;
         picture_res.p_sys->buffer = mmal_queue_get(sys->pool->queue);
 
-        sys->pictures[i] = picture_NewFromResource(&fmt, &picture_res);
+        sys->pictures[i] = picture_NewFromResource(&vd->fmt, &picture_res);
         if (!sys->pictures[i]) {
             msg_Err(vd, "Failed to create picture");
             free(picture_res.p_sys);
@@ -558,8 +564,7 @@ static void vd_prepare(vout_display_t *vd, picture_t *picture,
     picture->date += sys->phase_offset;
 }
 
-static void vd_display(vout_display_t *vd, picture_t *picture,
-                subpicture_t *subpicture)
+static void vd_display(vout_display_t *vd, picture_t *picture)
 {
     vout_display_sys_t *sys = vd->sys;
     picture_sys_t *pic_sys = picture->p_sys;
@@ -580,7 +585,7 @@ static void vd_display(vout_display_t *vd, picture_t *picture,
     if (!pic_sys->displayed || !sys->opaque) {
         buffer->cmd = 0;
         buffer->length = sys->input->buffer_size;
-        buffer->user_data = picture;
+        buffer->user_data = picture_Hold(picture);
 
         status = mmal_port_send_buffer(sys->input, buffer);
         if (status == MMAL_SUCCESS)
@@ -592,14 +597,9 @@ static void vd_display(vout_display_t *vd, picture_t *picture,
         }
 
         pic_sys->displayed = true;
-    } else {
-        picture_Release(picture);
     }
 
     display_subpicture(vd, subpicture);
-
-    if (subpicture)
-        subpicture_Delete(subpicture);
 
     if (sys->next_phase_check == 0 && sys->adjust_refresh_rate)
         maintain_phase_sync(vd);
@@ -618,30 +618,29 @@ static int vd_control(vout_display_t *vd, int query, va_list args)
     vout_display_sys_t *sys = vd->sys;
     vout_display_cfg_t cfg;
     const vout_display_cfg_t *tmp_cfg;
-    int ret = VLC_EGENERIC;
 
     switch (query) {
         case VOUT_DISPLAY_CHANGE_DISPLAY_SIZE:
             tmp_cfg = va_arg(args, const vout_display_cfg_t *);
             if (tmp_cfg->display.width == sys->display_width &&
                             tmp_cfg->display.height == sys->display_height) {
-                cfg = *vd->cfg;
+                cfg = sys->last_cfg;
                 cfg.display.width = sys->display_width;
                 cfg.display.height = sys->display_height;
-                if (configure_display(vd, &cfg, NULL) >= 0)
-                    ret = VLC_SUCCESS;
+                configure_display(vd, &cfg, NULL);
             }
             break;
 
         case VOUT_DISPLAY_CHANGE_SOURCE_ASPECT:
         case VOUT_DISPLAY_CHANGE_SOURCE_CROP:
-            if (configure_display(vd, NULL, &vd->source) >= 0)
-                ret = VLC_SUCCESS;
+            sys->last_cfg = *va_arg(args, const vout_display_cfg_t *);
+            configure_display(vd, NULL, &vd->source);
             break;
 
         case VOUT_DISPLAY_RESET_PICTURES:
             vlc_assert_unreachable();
         case VOUT_DISPLAY_CHANGE_ZOOM:
+        case VOUT_DISPLAY_CHANGE_DISPLAY_FILLED:
             msg_Warn(vd, "Unsupported control query %d", query);
             break;
 
@@ -650,7 +649,7 @@ static int vd_control(vout_display_t *vd, int query, va_list args)
             break;
     }
 
-    return ret;
+    return VLC_SUCCESS;
 }
 
 static void vd_manage(vout_display_t *vd)
@@ -667,7 +666,7 @@ static void vd_manage(vout_display_t *vd)
         if (query_resolution(vd, &width, &height) >= 0) {
             sys->display_width = width;
             sys->display_height = height;
-            vout_window_ReportSize(vd->cfg->window, width, height);
+            vout_window_ReportSize(sys->last_cfg->window, width, height);
         }
 
         sys->need_configure_display = false;
@@ -793,8 +792,8 @@ static void adjust_refresh_rate(vout_display_t *vd, const video_format_t *fmt)
                                 mode->scan_mode == HDMI_INTERLACED)
                     continue;
             } else {
-                if (mode->width != vd->fmt.i_visible_width ||
-                        mode->height != vd->fmt.i_visible_height)
+                if (mode->width != fmt->i_visible_width ||
+                        mode->height != fmt->i_visible_height)
                     continue;
                 if (mode->scan_mode != sys->b_progressive ? HDMI_NONINTERLACED : HDMI_INTERLACED)
                     continue;

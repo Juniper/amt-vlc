@@ -2,7 +2,6 @@
  * screen.h: Screen capture module.
  *****************************************************************************
  * Copyright (C) 2004-2008 VLC authors and VideoLAN
- * $Id: 53bafc564d07b8b9eaf1788cc1b3d9c946e41c05 $
  *
  * Authors: Gildas Bazin <gbazin@videolan.org>
  *          Antoine Cellerier <dionoea at videolan dot org>
@@ -46,7 +45,7 @@ typedef struct
 
     float f_fps;
     vlc_tick_t i_next_date;
-    int i_incr;
+    vlc_tick_t i_incr;
 
     vlc_tick_t i_start;
 

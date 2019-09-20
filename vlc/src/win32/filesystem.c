@@ -4,7 +4,7 @@
  * Copyright (C) 2005-2006 VLC authors and VideoLAN
  * Copyright © 2005-2008 Rémi Denis-Courmont
  *
- * Authors: Rémi Denis-Courmont <rem # videolan.org>
+ * Authors: Rémi Denis-Courmont
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published by
@@ -63,11 +63,6 @@ static wchar_t *widen_path (const char *path)
     }
     return wpath;
 }
-
-#define CONVERT_PATH(path, wpath, err) \
-    wchar_t *wpath = wide_path(path); \
-    if (wpath == NULL) return (err)
-
 
 int vlc_open (const char *filename, int flags, ...)
 {
@@ -326,6 +321,7 @@ ssize_t vlc_write(int fd, const void *buf, size_t len)
 
 ssize_t vlc_writev(int fd, const struct iovec *iov, int count)
 {
+    (void) fd; (void) iov; (void) count;
     vlc_assert_unreachable();
 }
 
@@ -360,12 +356,12 @@ int vlc_accept (int lfd, struct sockaddr *addr, socklen_t *alen, bool nonblock)
 #if !VLC_WINSTORE_APP
 FILE *vlc_win32_tmpfile(void)
 {
-    TCHAR tmp_path[MAX_PATH-14];
+    WCHAR tmp_path[MAX_PATH-14];
     int i_ret = GetTempPath (MAX_PATH-14, tmp_path);
     if (i_ret == 0)
         return NULL;
 
-    TCHAR tmp_name[MAX_PATH];
+    WCHAR tmp_name[MAX_PATH];
     i_ret = GetTempFileName(tmp_path, TEXT("VLC"), 0, tmp_name);
     if (i_ret == 0)
         return NULL;

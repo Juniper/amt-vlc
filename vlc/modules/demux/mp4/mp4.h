@@ -73,6 +73,13 @@ typedef enum RTP_timstamp_synchronization_s
     UNKNOWN_SYNC = 0, UNSYNCHRONIZED = 1, SYNCHRONIZED = 2, RESERVED = 3
 } RTP_timstamp_synchronization_t;
 
+enum
+{
+    USEAS_NONE = 0,
+    USEAS_CHAPTERS = 1 << 0,
+    USEAS_TIMECODE = 1 << 1,
+};
+
  /* Contain all needed information for read all track with vlc */
 typedef struct
 {
@@ -81,7 +88,8 @@ typedef struct
     int b_ok;               /* The track is usable */
     int b_enable;           /* is the trak enable by default */
     bool b_selected;  /* is the trak being played */
-    bool b_chapters_source;   /* True when used for chapter only */
+    int i_use_flags;  /* !=0 Set when track is referenced by specific reference types.
+                         You'll need to lookup other tracks tref to know the ref source */
     bool b_forced_spu; /* forced track selection (never done by default/priority) */
     uint32_t i_switch_group;
 
@@ -98,6 +106,7 @@ typedef struct
     int i_width;
     int i_height;
     float f_rotation;
+    int i_flip;
 
     /* more internal data */
     uint32_t        i_timescale;    /* time scale for this track only */
@@ -165,6 +174,7 @@ typedef struct
         uint64_t i_trun_sample;
         uint64_t i_trun_sample_pos;
 
+        int i_temp;
     } context;
 
     /* ASF packets handling */

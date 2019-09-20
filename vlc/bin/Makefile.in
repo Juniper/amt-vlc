@@ -844,7 +844,6 @@ LTLIBswscale = @LTLIBswscale@
 LTLIBtaglib = @LTLIBtaglib@
 LTLIBtelx = @LTLIBtelx@
 LTLIBtheora = @LTLIBtheora@
-LTLIBtizen_audio = @LTLIBtizen_audio@
 LTLIBtremor = @LTLIBtremor@
 LTLIBtwolame = @LTLIBtwolame@
 LTLIBudev = @LTLIBudev@

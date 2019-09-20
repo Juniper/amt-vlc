@@ -2,7 +2,6 @@
  * podcast_configuration.hpp: Podcast configuration dialog
  ****************************************************************************
  * Copyright (C) 2007 the VideoLAN team
- * $Id: b06ff12167147212658a8b1032dda02814921fd0 $
  *
  * Authors: Antoine Cellerier <dionoea at videolan dot org>
  *
@@ -25,7 +24,7 @@
 #define QVLC_PODCAST_CONFIGURATION_DIALOG_H_ 1
 
 #include "util/qvlcframe.hpp"
-#include "ui/podcast_configuration.h"
+#include "ui_podcast_configuration.h"
 #include "util/singleton.hpp"
 
 class PodcastConfigDialog : public QVLCDialog, public Singleton<PodcastConfigDialog>

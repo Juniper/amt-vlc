@@ -114,9 +114,9 @@ void aout_volume_Delete(aout_volume_t *vol)
 
     if (vol->module != NULL)
         module_unneed(obj, vol->module);
-    var_DelCallback(obj->obj.parent, "audio-replay-gain-mode",
+    var_DelCallback(vlc_object_parent(obj), "audio-replay-gain-mode",
                     ReplayGainCallback, vol);
-    vlc_object_release(obj);
+    vlc_object_delete(obj);
 }
 
 void aout_volume_SetVolume(aout_volume_t *vol, float factor)

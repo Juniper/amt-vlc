@@ -198,6 +198,8 @@ char *vlc_path2uri (const char *path, const char *scheme)
     {   /* Relative path: prepend the current working directory */
         char *cwd, *ret;
 
+        if (path[0] == '\0')
+            return NULL;
         if ((cwd = vlc_getcwd ()) == NULL)
             return NULL;
         if (asprintf (&buf, "%s"DIR_SEP"%s", cwd, path) == -1)
@@ -414,6 +416,7 @@ static int vlc_UrlParseInner(vlc_url_t *restrict url, const char *str)
     url->i_port = 0;
     url->psz_path = NULL;
     url->psz_option = NULL;
+    url->psz_fragment = NULL;
     url->psz_buffer = NULL;
     url->psz_pathbuffer = NULL;
 
@@ -447,12 +450,9 @@ static int vlc_UrlParseInner(vlc_url_t *restrict url, const char *str)
     next = strchr(cur, '#');
     if (next != NULL)
     {
-#if 0  /* TODO */
        *(next++) = '\0';
-       url->psz_fragment = next;
-#else
-       *next = '\0';
-#endif
+       if (vlc_uri_component_validate(next, "/?"))
+           url->psz_fragment = next;
     }
 
     /* Query parameters */
@@ -514,7 +514,8 @@ static int vlc_UrlParseInner(vlc_url_t *restrict url, const char *str)
             if (next != NULL)
                 *(next++) = '\0';
 
-            url->psz_host = vlc_idna_to_ascii(vlc_uri_decode(cur));
+            const char *host = vlc_uri_decode(cur);
+            url->psz_host = (host != NULL) ? vlc_idna_to_ascii(host) : NULL;
         }
 
         if (url->psz_host == NULL)
@@ -755,7 +756,8 @@ char *vlc_uri_compose(const vlc_url_t *uri)
         vlc_memstream_puts(&stream, uri->psz_path);
     if (uri->psz_option != NULL)
         vlc_memstream_printf(&stream, "?%s", uri->psz_option);
-    /* NOTE: fragment not handled currently */
+    if (uri->psz_fragment != NULL)
+        vlc_memstream_printf(&stream, "#%s", uri->psz_fragment);
 
     if (vlc_memstream_close(&stream))
         return NULL;
@@ -868,7 +870,7 @@ static void vlc_uri_putc(struct vlc_memstream *s, int c, const char *extras)
     if (isurisafe(c) || isurisubdelim(c) || (strchr(extras, c) != NULL))
         vlc_memstream_putc(s, c);
     else
-        vlc_memstream_printf(s, "%%%02hhX", c);
+        vlc_memstream_printf(s, "%%%02hhX", (unsigned char)c);
 }
 
 char *vlc_uri_fixup(const char *str)
@@ -914,7 +916,7 @@ char *vlc_uri_fixup(const char *str)
         encode_brackets = true;
 
         while (memchr("/?#", *p, 4) == NULL)
-            vlc_uri_putc(&stream, *(p++), "%:[]@" + encode_percent);
+            vlc_uri_putc(&stream, *(p++), &"%:[]@"[encode_percent]);
     }
 
     /* Handle URI path and what follows */

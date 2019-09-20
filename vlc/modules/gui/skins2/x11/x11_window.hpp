@@ -2,7 +2,6 @@
  * x11_window.hpp
  *****************************************************************************
  * Copyright (C) 2003 the VideoLAN team
- * $Id: 9ab9244125ef393f4ee088d4974ddb36ae1bc19f $
  *
  * Authors: Cyril Deguet     <asmax@via.ecp.fr>
  *          Olivier Teulière <ipkiss@via.ecp.fr>
@@ -30,6 +29,8 @@
 
 #include "../src/generic_window.hpp"
 #include "../src/os_window.hpp"
+
+#include <vlc_vout_window.h>
 
 class X11Display;
 class X11DragDrop;

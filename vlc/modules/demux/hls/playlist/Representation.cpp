@@ -28,9 +28,9 @@
 #include "M3U8.hpp"
 #include "Parser.hpp"
 #include "HLSSegment.hpp"
-#include "../adaptive/playlist/BasePeriod.h"
-#include "../adaptive/playlist/BaseAdaptationSet.h"
-#include "../adaptive/playlist/SegmentList.h"
+#include "../../adaptive/playlist/BasePeriod.h"
+#include "../../adaptive/playlist/BaseAdaptationSet.h"
+#include "../../adaptive/playlist/SegmentList.h"
 
 #include <ctime>
 
@@ -42,7 +42,6 @@ Representation::Representation  ( BaseAdaptationSet *set ) :
 {
     b_live = true;
     b_loaded = false;
-    switchpolicy = SegmentInformation::SWITCH_SEGMENT_ALIGNED; /* FIXME: based on streamformat */
     nextUpdateTime = 0;
     targetDuration = 0;
     streamFormat = StreamFormat::UNKNOWN;
@@ -137,21 +136,16 @@ bool Representation::needsUpdate() const
     return !b_loaded || (isLive() && nextUpdateTime < time(NULL));
 }
 
-bool Representation::runLocalUpdates(vlc_tick_t, uint64_t number, bool prune)
+bool Representation::runLocalUpdates(SharedResources *res,
+                                     vlc_tick_t, uint64_t, bool)
 {
     const time_t now = time(NULL);
     AbstractPlaylist *playlist = getPlaylist();
     if(!b_loaded || (isLive() && nextUpdateTime < now))
     {
-        /* ugly hack */
-        M3U8 *m3u = dynamic_cast<M3U8 *>(playlist);
-        M3U8Parser parser((m3u) ? m3u->getAuth() : NULL);
-        /* !ugly hack */
+        M3U8Parser parser(res);
         parser.appendSegmentsFromPlaylistURI(playlist->getVLCObject(), this);
         b_loaded = true;
-
-        if(prune)
-            pruneBySegmentNumber(number);
 
         return true;
     }

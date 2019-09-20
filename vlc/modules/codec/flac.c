@@ -2,7 +2,6 @@
  * flac.c: flac decoder/encoder module making use of libflac
  *****************************************************************************
  * Copyright (C) 1999-2001 VLC authors and VideoLAN
- * $Id: 055bce751c1195321b5dfb321c3af4be21ce1cf9 $
  *
  * Authors: Gildas Bazin <gbazin@videolan.org>
  *          Sigmund Augdal Helberg <dnumgis@videolan.org>
@@ -348,14 +347,14 @@ static void DecoderMetadataCallback( const FLAC__StreamDecoder *decoder,
                         {
                             if( (i_chan & i_wfxmask) == 0 )
                                 continue;
-                            for( size_t i=0; i<MAPPED_WFX_CHANNELS; i++ )
+                            for( size_t j=0; j<MAPPED_WFX_CHANNELS; j++ )
                             {
-                                if( wfx_remapping[i][0] == i_chan )
-                                    i_vlcmask |= wfx_remapping[i][1];
+                                if( wfx_remapping[j][0] == i_chan )
+                                    i_vlcmask |= wfx_remapping[j][1];
                             }
                         }
                         /* Check if we have the 1 to 1 mapping */
-                        if( vlc_popcount(i_vlcmask) != i_wfxchannels )
+                        if( (unsigned) vlc_popcount(i_vlcmask) != i_wfxchannels )
                         {
                             msg_Warn( p_dec, "Unsupported channel mask %x", i_wfxmask );
                             return;
@@ -368,8 +367,8 @@ static void DecoderMetadataCallback( const FLAC__StreamDecoder *decoder,
 
                         /* /!\ Invert our source/dest reordering,
                          * as Interleave() here works source indexes */
-                        for( unsigned i=0; i<i_wfxchannels; i++ )
-                            p_sys->rgi_channels_reorder[neworder[i]] = i;
+                        for( unsigned j=0; j<i_wfxchannels; j++ )
+                            p_sys->rgi_channels_reorder[neworder[j]] = j;
 
                         p_dec->fmt_out.audio.i_physical_channels = i_vlcmask;
                         p_dec->fmt_out.audio.i_channels = i_wfxchannels;
@@ -770,8 +769,7 @@ EncoderWriteCallback( const FLAC__StreamEncoder *encoder,
 
     p_sys->i_samples_delay -= samples;
 
-    p_block->i_length = CLOCK_FREQ *
-        (vlc_tick_t)samples / (vlc_tick_t)p_enc->fmt_in.audio.i_rate;
+    p_block->i_length = vlc_tick_from_samples(samples, p_enc->fmt_in.audio.i_rate);
 
     /* Update pts */
     p_sys->i_pts += p_block->i_length;
@@ -880,8 +878,8 @@ static block_t *Encode( encoder_t *p_enc, block_t *p_aout_buf )
     if( unlikely( !p_aout_buf ) ) return NULL;
 
     p_sys->i_pts = p_aout_buf->i_pts -
-                CLOCK_FREQ * (vlc_tick_t)p_sys->i_samples_delay /
-                (vlc_tick_t)p_enc->fmt_in.audio.i_rate;
+                vlc_tick_from_samples( p_sys->i_samples_delay,
+                            p_enc->fmt_in.audio.i_rate );
 
     p_sys->i_samples_delay += p_aout_buf->i_nb_samples;
 

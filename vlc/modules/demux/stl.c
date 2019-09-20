@@ -2,7 +2,6 @@
  * stl.c: EBU STL demuxer
  *****************************************************************************
  * Copyright (C) 2010 Laurent Aimar
- * $Id: 11dbb5ed4e447c9b722397a5746c93f3ad867f18 $
  *
  * Authors: Laurent Aimar <fenrir _AT_ videolan _DOT_ org>
  *
@@ -80,14 +79,14 @@ static size_t ParseInteger(uint8_t *data, size_t size)
 
     return strtol(tmp, NULL, 10);
 }
-static int64_t ParseTimeCode(uint8_t *data, double fps)
+static vlc_tick_t ParseTimeCode(uint8_t *data, double fps)
 {
     return CLOCK_FREQ * (data[0] * 3600 +
                          data[1] *   60 +
                          data[2] *    1 +
                          data[3] /  fps);
 }
-static int64_t ParseTextTimeCode(uint8_t *data, double fps)
+static vlc_tick_t ParseTextTimeCode(uint8_t *data, double fps)
 {
     uint8_t tmp[4];
     for (int i = 0; i < 4; i++)
@@ -102,13 +101,14 @@ static int Control(demux_t *demux, int query, va_list args)
     case DEMUX_CAN_SEEK:
         return vlc_stream_vaControl(demux->s, query, args);
     case DEMUX_GET_LENGTH: {
-        int64_t *l = va_arg(args, int64_t *);
-        *l = sys->count > 0 ? sys->index[sys->count-1].stop : 0;
+        *va_arg(args, vlc_tick_t *) =
+            sys->count > 0 ? sys->index[sys->count-1].stop : 0;
         return VLC_SUCCESS;
     }
     case DEMUX_GET_TIME: {
-        int64_t *t = va_arg(args, int64_t *);
-        *t = sys->next_date - var_GetInteger(demux->obj.parent, "spu-delay");
+        vlc_tick_t *t = va_arg(args, vlc_tick_t *);
+        *t = sys->next_date - var_GetInteger(vlc_object_parent(demux),
+                                             "spu-delay");
         if( *t < 0 )
             *t = sys->next_date;
         return VLC_SUCCESS;
@@ -119,7 +119,7 @@ static int Control(demux_t *demux, int query, va_list args)
         return VLC_SUCCESS;
     }
     case DEMUX_SET_TIME: {
-        int64_t t = va_arg(args, int64_t);
+        vlc_tick_t t = va_arg(args, vlc_tick_t);
         for( size_t i = 0; i + 1< sys->count; i++ )
         {
             if( sys->index[i + 1].start >= t &&
@@ -138,7 +138,7 @@ static int Control(demux_t *demux, int query, va_list args)
         double f = va_arg( args, double );
         if(sys->count && sys->index[sys->count-1].stop > 0)
         {
-            int64_t i64 = f * sys->index[sys->count-1].stop;
+            vlc_tick_t i64 = f * sys->index[sys->count-1].stop;
             return demux_Control(demux, DEMUX_SET_TIME, i64);
         }
         break;
@@ -152,7 +152,8 @@ static int Control(demux_t *demux, int query, va_list args)
         }
         else if(sys->count > 0 && sys->index[sys->count-1].stop > 0)
         {
-            *pf = sys->next_date - var_GetInteger(demux->obj.parent, "spu-delay");
+            *pf = sys->next_date - var_GetInteger(vlc_object_parent(demux),
+                                                  "spu-delay");
             if(*pf < 0)
                *pf = sys->next_date;
             *pf /= sys->index[sys->count-1].stop;
@@ -179,7 +180,8 @@ static int Demux(demux_t *demux)
 {
     demux_sys_t *sys = demux->p_sys;
 
-    vlc_tick_t i_barrier = sys->next_date - var_GetInteger(demux->obj.parent, "spu-delay");
+    vlc_tick_t i_barrier = sys->next_date
+        - var_GetInteger(vlc_object_parent(demux), "spu-delay");
     if(i_barrier < 0)
         i_barrier = sys->next_date;
 

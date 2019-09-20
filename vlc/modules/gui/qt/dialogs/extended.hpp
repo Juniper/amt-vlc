@@ -2,7 +2,6 @@
  * extended.hpp : Extended controls - Undocked
  ****************************************************************************
  * Copyright (C) 2006 the VideoLAN team
- * $Id: 44e2086190fe4cd32e76753e457b0dcf3781c41f $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *
@@ -28,6 +27,7 @@
 
 #include "components/extended_panels.hpp"
 #include "util/singleton.hpp"
+#include "components/player_controller.hpp"
 
 class QTabWidget;
 
@@ -55,7 +55,7 @@ private:
     QPushButton *m_applyButton;
     QHash<QString, QVariant> m_hashConfigs[2];
 private slots:
-    void changedItem( int );
+    void changedItem(PlayerController::PlayingState );
     void currentTabChanged( int );
     void saveConfig();
     void putAudioConfig( const QString& name, const QVariant value );

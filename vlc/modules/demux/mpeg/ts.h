@@ -29,6 +29,13 @@ typedef struct csa_t csa_t;
 
 #define TS_PSI_PAT_PID 0x00
 
+#if (VLC_TICK_INVALID + 1 != VLC_TICK_0)
+#   error "can't define TS_UNKNOWN reference"
+#else
+#   define TS_TICK_UNKNOWN (VLC_TICK_INVALID - 1)
+#endif
+#define SETANDVALID(a) (a != TS_TICK_UNKNOWN && a != VLC_TICK_INVALID)
+
 typedef enum ts_standards_e
 {
     TS_STANDARD_AUTO = 0,
@@ -84,11 +91,9 @@ struct demux_sys_t
 
     enum
     {
-        NO_ES, /* for preparse */
         DELAY_ES,
         CREATE_ES
     } es_creation;
-    #define PREPARSING p_sys->es_creation == NO_ES
 
     /* */
     bool        b_es_id_pid;
@@ -100,6 +105,7 @@ struct demux_sys_t
     bool        b_valid_scrambling;
 
     bool        b_trust_pcr;
+    bool        b_check_pcr_offset;
 
     /* */
     bool        b_access_control;

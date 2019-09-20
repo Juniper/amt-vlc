@@ -2,7 +2,6 @@
  * preferences_widgets.cpp : Widgets for preferences displays
  ****************************************************************************
  * Copyright (C) 2006-2011 the VideoLAN team
- * $Id: de989d2103ad795b3b816d50cb23784f0e509169 $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *          Antoine Cellerier <dionoea@videolan.org>
@@ -95,7 +94,7 @@ ConfigControl *ConfigControl::createControl( vlc_object_t *p_this,
         p_control = new ModuleListConfigControl( p_this, p_item, parent, true );
         break;
     case CONFIG_ITEM_STRING:
-        if( p_item->list.psz_cb )
+        if( p_item->list_count )
             p_control = new StringListConfigControl( p_this, p_item, parent );
         else
             p_control = new StringConfigControl( p_this, p_item, parent, false );
@@ -107,12 +106,10 @@ ConfigControl *ConfigControl::createControl( vlc_object_t *p_this,
         p_control = new ColorConfigControl( p_this, p_item, parent );
         break;
     case CONFIG_ITEM_INTEGER:
-        if( p_item->list.i_cb )
+        if( p_item->list_count )
             p_control = new IntegerListConfigControl( p_this, p_item, parent, false );
-        else if( p_item->min.i || p_item->max.i )
-            p_control = new IntegerRangeConfigControl( p_this, p_item, parent );
         else
-            p_control = new IntegerConfigControl( p_this, p_item, parent );
+            p_control = new IntegerRangeConfigControl( p_this, p_item, parent );
         break;
     case CONFIG_ITEM_LOADFILE:
     case CONFIG_ITEM_SAVEFILE:
@@ -131,10 +128,7 @@ ConfigControl *ConfigControl::createControl( vlc_object_t *p_this,
         p_control = new BoolConfigControl( p_this, p_item, parent );
         break;
     case CONFIG_ITEM_FLOAT:
-        if( p_item->min.f || p_item->max.f )
-            p_control = new FloatRangeConfigControl( p_this, p_item, parent );
-        else
-            p_control = new FloatConfigControl( p_this, p_item, parent );
+        p_control = new FloatRangeConfigControl( p_this, p_item, parent );
         break;
     default:
         break;
@@ -465,8 +459,7 @@ QString StringListConfigControl::getValue() const
     return combo->itemData( combo->currentIndex() ).toString();
 }
 
-void setfillVLCConfigCombo( const char *configname, intf_thread_t *p_intf,
-                            QComboBox *combo )
+void setfillVLCConfigCombo( const char *configname, QComboBox *combo )
 {
     module_config_t *p_config = config_FindConfig( configname );
     if( p_config == NULL )

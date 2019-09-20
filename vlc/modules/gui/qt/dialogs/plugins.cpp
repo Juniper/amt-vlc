@@ -2,7 +2,6 @@
  * plugins.cpp : Plug-ins and extensions listing
  ****************************************************************************
  * Copyright (C) 2008-2010 the VideoLAN team
- * $Id: 93c92b9fa651e89f12cbb45b72ec7573bda1b38d $
  *
  * Authors: Jean-Baptiste Kempf <jb (at) videolan.org>
  *          Jean-Philippe André <jpeg (at) videolan.org>
@@ -706,14 +705,12 @@ void ExtensionListModel::updateList()
 
     vlc_mutex_lock( &p_mgr->lock );
     extension_t *p_ext;
-    FOREACH_ARRAY( p_ext, p_mgr->extensions )
+    ARRAY_FOREACH( p_ext, p_mgr->extensions )
     {
         ext = new ExtensionCopy( p_ext );
         extensions.append( ext );
     }
-    FOREACH_END()
     vlc_mutex_unlock( &p_mgr->lock );
-    vlc_object_release( p_mgr );
 
     emit dataChanged( index( 0 ), index( rowCount() - 1 ) );
 }
@@ -728,7 +725,6 @@ int ExtensionListModel::rowCount( const QModelIndex& ) const
     vlc_mutex_lock( &p_mgr->lock );
     count = p_mgr->extensions.i_size;
     vlc_mutex_unlock( &p_mgr->lock );
-    vlc_object_release( p_mgr );
 
     return count;
 }
@@ -850,9 +846,9 @@ QVariant AddonsListModel::Addon::data( int role ) const
     case FilenameRole:
     {
         QList<QString> list;
-        FOREACH_ARRAY( addon_file_t *p_file, p_entry->files )
-        list << qfu( p_file->psz_filename );
-        FOREACH_END();
+        addon_file_t *p_file;
+        ARRAY_FOREACH( p_file, p_entry->files )
+            list << qfu( p_file->psz_filename );
         returnval = QVariant( list );
         break;
     }

@@ -2,7 +2,6 @@
  * simple_preferences.cpp : "Simple preferences"
  ****************************************************************************
  * Copyright (C) 2006-2010 the VideoLAN team
- * $Id: a6efacdcf5a2aef42afcb232217bc629e86a9c23 $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *          Antoine Cellerier <dionoea@videolan.org>
@@ -32,6 +31,7 @@
 
 #include <vlc_config_cat.h>
 #include <vlc_configuration.h>
+#include <vlc_aout.h>
 
 #include <QString>
 #include <QFont>
@@ -47,6 +47,17 @@
 #include <QScreen>
 #include <QtAlgorithms>
 #include <QDir>
+
+#include <QSpinBox>
+#include <QCheckBox>
+#include <QLabel>
+#include <QPushButton>
+#include <QGridLayout>
+#include <QWidget>
+#include <QHBoxLayout>
+#include <QDialog>
+#include <QBoxLayout>
+
 #include <assert.h>
 #include <math.h>
 
@@ -366,8 +377,6 @@ SPrefsPanel::SPrefsPanel( intf_thread_t *_p_intf, QWidget *_parent,
             CONFIG_BOOL( "video-deco", windowDecorations );
             CONFIG_GENERIC( "vout", StringList, ui.voutLabel, outputModule );
 
-            CONNECT( ui.outputModule, currentIndexChanged( int ),
-                     this, updateVideoOptions( int ) );
             optionWidgets["videoOutCoB"] = ui.outputModule;
 
             optionWidgets["fullscreenScreenB"] = ui.fullscreenScreenBox;
@@ -389,12 +398,7 @@ SPrefsPanel::SPrefsPanel( intf_thread_t *_p_intf, QWidget *_parent,
             }
 
 #ifdef _WIN32
-            CONFIG_BOOL( "directx-overlay", overlay );
             CONFIG_BOOL( "directx-hw-yuv", hwYUVBox );
-            CONNECT( ui.overlay, toggled( bool ), ui.hwYUVBox, setEnabled( bool ) );
-            optionWidgets["directxVideoB"] = ui.directXBox;
-#else
-            ui.directXBox->setVisible( false );
 #endif
 
 #ifdef __OS2__
@@ -416,8 +420,6 @@ SPrefsPanel::SPrefsPanel( intf_thread_t *_p_intf, QWidget *_parent,
                             snapshotsSequentialNumbering );
             CONFIG_GENERIC( "snapshot-format", StringList, ui.arLabel,
                             snapshotsFormat );
-
-            updateVideoOptions( ui.outputModule->currentIndex() );
          END_SPREFS_CAT;
 
         /******************************
@@ -656,13 +658,6 @@ SPrefsPanel::SPrefsPanel( intf_thread_t *_p_intf, QWidget *_parent,
                 ui.live555TransportLabel->hide();
             }
             CONFIG_GENERIC( "avcodec-hw", StringList, ui.hwAccelLabel, hwAccelModule );
-#ifdef _WIN32
-            HINSTANCE hdxva2_dll = LoadLibrary(TEXT("DXVA2.DLL") );
-            if( !hdxva2_dll )
-                ui.hwAccelModule->setEnabled( false );
-            else
-                FreeLibrary( hdxva2_dll );
-#endif
             CONFIG_BOOL( "input-fast-seek", fastSeekBox );
             optionWidgets["inputLE"] = ui.DVDDeviceComboBox;
             optionWidgets["cachingCoB"] = ui.cachingCombo;
@@ -718,7 +713,7 @@ SPrefsPanel::SPrefsPanel( intf_thread_t *_p_intf, QWidget *_parent,
             if( RegOpenKeyEx( HKEY_CURRENT_USER, TEXT("Software\\VideoLAN\\VLC\\"), 0, KEY_READ, &h_key )
                     == ERROR_SUCCESS )
             {
-                TCHAR szData[256];
+                WCHAR szData[256];
                 DWORD len = 256;
                 if( RegQueryValueEx( h_key, TEXT("Lang"), NULL, NULL, (LPBYTE) &szData, &len ) == ERROR_SUCCESS ) {
                     langReg = FromWide( szData );
@@ -734,6 +729,24 @@ SPrefsPanel::SPrefsPanel( intf_thread_t *_p_intf, QWidget *_parent,
                     + QString( " <a href=\"http://www.videolan.org/vlc/skins.php\">" )
                     + qtr( "VLC skins website" )+ QString( "</a>." ) );
             ui.skinsLabel->setFont( italicFont );
+
+            if ( vlc_ml_instance_get( p_intf ) != NULL )
+            {
+                mlModel = new MlFoldersModel( vlc_ml_instance_get( p_intf ) , this );
+
+                mlTableView = ui.entryPointsTV;
+
+                mlTableView->setModel( mlModel );
+
+                connect( mlModel , &QAbstractItemModel::modelReset , this , &SPrefsPanel::MLdrawControls );
+
+                BUTTONACT( ui.addButton , MLaddNewEntryPoint() );
+
+                MLdrawControls( );
+
+            }else {
+                ui.mlGroupBox->hide( );
+            }
 
 #ifdef _WIN32
             BUTTONACT( ui.assoButton, assoDialog() );
@@ -879,6 +892,9 @@ SPrefsPanel::SPrefsPanel( intf_thread_t *_p_intf, QWidget *_parent,
             optionWidgets["shadowCB"] = ui.shadowCheck;
             optionWidgets["backgroundCB"] = ui.backgroundCheck;
 
+            CONFIG_GENERIC( "secondary-sub-alignment", IntegerList,
+                            ui.secondarySubsAlignmentLabel, secondarySubsAlignment );
+            CONFIG_GENERIC_NO_BOOL( "secondary-sub-margin", Integer, ui.secondarySubsPosLabel, secondarySubsPosition );
         END_SPREFS_CAT;
 
         case SPrefsHotkeys:
@@ -947,17 +963,6 @@ SPrefsPanel::SPrefsPanel( intf_thread_t *_p_intf, QWidget *_parent,
 #undef CONFIG_GENERIC_NO_UI
 #undef CONFIG_GENERIC
 #undef CONFIG_BOOL
-}
-
-void SPrefsPanel::updateVideoOptions( int number )
-{
-    QString value = qobject_cast<QComboBox *>(optionWidgets["videoOutCoB"])
-                                            ->itemData( number ).toString();
-#ifdef _WIN32
-    if( optionWidgets["directxVideoB"] ) {
-        optionWidgets["directxVideoB"]->setVisible( ( value == "directdraw" ) );
-    }
-#endif
 }
 
 
@@ -1498,4 +1503,71 @@ void SPrefsPanel::saveAsso()
 }
 
 #endif /* _WIN32 */
+
+void SPrefsPanel::MLaddNewEntryPoint( ){
+    QUrl newEntryPoints = QFileDialog::getExistingDirectoryUrl( this , qtr("Please choose an entry point folder") ,
+                                             QUrl( QDir::homePath( ) ) );
+
+    if(! newEntryPoints.isEmpty() )
+        mlModel->add( newEntryPoints );
+}
+
+QWidget *SPrefsPanel::MLgenerateWidget( QModelIndex index , MlFoldersModel *mlf , QWidget *parent){
+    if ( index.column() == 0 ){
+
+        QWidget *wid = new QWidget( parent );
+
+        QBoxLayout* layout = new QBoxLayout( QBoxLayout::LeftToRight , wid );
+
+        QCheckBox*cb = new QCheckBox( wid );
+        cb->setFixedSize( 16 , 16 );
+
+        //cb->setChecked(mlf->data(index, MlFoldersModel::CustomCheckBoxRole).toBool()); //TODO: disable banning till un-banning works
+        cb->setEnabled( false );
+
+        layout->addWidget( cb , Qt::AlignCenter );
+        wid->setLayout( layout );
+
+        connect( cb , &QPushButton::clicked, [=]( ) {
+            mlf->setData( index , cb->isChecked() , MlFoldersModel::CustomCheckBoxRole);
+        } );
+        return wid;
+    }
+    else if ( index.column( ) == 2 ){
+        QWidget *wid = new QWidget( parent );
+
+        QBoxLayout* layout = new QBoxLayout( QBoxLayout::LeftToRight , wid );
+
+        QPushButton *pb = new QPushButton( "-" , wid );
+        pb->setFixedSize( 16 , 16 );
+
+        layout->addWidget( pb , Qt::AlignCenter );
+        wid->setLayout( layout );
+
+
+        connect( pb , &QPushButton::clicked , [=]() {
+             mlf->setData( index , {} , MlFoldersModel::CustomRemoveRole);
+        } );
+
+        return wid;
+    }
+
+    return nullptr;
+}
+
+void SPrefsPanel::MLdrawControls( ) {
+  for ( int col = 0 ; col < mlModel->columnCount( ) ; col++ )
+    for (int row = 0 ; row < mlModel->rowCount() ; row++ )
+      {
+    QModelIndex index = mlModel->index ( row , col );
+    mlTableView->setIndexWidget ( index, MLgenerateWidget ( index, mlModel,
+                               mlTableView ) );
+      }
+
+  mlTableView->resizeColumnsToContents( );
+  mlTableView->horizontalHeader()->setMinimumSectionSize( 100 );
+  mlTableView->horizontalHeader()->setSectionResizeMode( 1 , QHeaderView::Stretch );
+
+  mlTableView->horizontalHeader()->setFixedHeight( 24 );
+}
 

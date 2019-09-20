@@ -2,7 +2,6 @@
  * vlm.hpp : VLM Management
  ****************************************************************************
  * Copyright ( C ) 2006 the VideoLAN team
- * $Id: 2983115c148b6349227868fa6f86e02dcff087af $
  *
  * Authors: Jean-François Massol <jf.massol@gmail.com>
  *          Jean-Baptiste Kempf <jb@videolan.org>
@@ -31,7 +30,7 @@
 
 #include <vlc_vlm.h>
 
-#include "ui/vlm.h"
+#include "ui_vlm.h"
 #include "util/qvlcframe.hpp"
 #include "util/singleton.hpp"
 #include <QDateTime>

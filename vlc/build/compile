@@ -1,8 +1,8 @@
 #! /bin/sh
 rm -f .error$$
 ERROR=0
-export PATH="/Users/nlandsberg/Desktop/development/vlc/extras/tools/build/bin:/Users/nlandsberg/Desktop/development/vlc/extras/tools/build/bin:/Users/nlandsberg/Desktop/development/vlc/contrib/x86_64-apple-darwin16/bin::/bin:/sbin:/usr/bin:/usr/sbin" LANG=C
-(make V=1 $@ 2>&1 || touch .error$$)| /Users/nlandsberg/Desktop/development/vlc/extras/package/macosx/../../../extras/buildsystem/make.pl
+export PATH="/Users/nlandsberg/vlc/extras/tools/build/bin:/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/bin:/Users/nlandsberg/vlc/extras/tools/build/bin:/Users/nlandsberg/.pyenv/bin:/usr/local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Applications/Wireshark.app/Contents/MacOS" LANG=C
+(make V=1 $@ 2>&1 || touch .error$$)| ../extras/package/macosx/../../../extras/buildsystem/make.pl
 test -f .error$$ && ERROR=1
 rm -f .error$$
 exit $ERROR

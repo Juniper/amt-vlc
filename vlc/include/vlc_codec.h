@@ -491,6 +491,12 @@ enum vlc_decoder_device_type
     VLC_DECODER_DEVICE_DXVA2,
     VLC_DECODER_DEVICE_D3D11VA,
     VLC_DECODER_DEVICE_AWINDOW,
+    VLC_DECODER_DEVICE_MMAL,
+};
+
+struct vlc_decoder_device_operations
+{
+    void (*close)(struct vlc_decoder_device *);
 };
 
 /**
@@ -499,6 +505,8 @@ enum vlc_decoder_device_type
 typedef struct vlc_decoder_device
 {
     struct vlc_object_t obj;
+
+    const struct vlc_decoder_device_operations *ops;
 
     /** Private context that could be used by the "decoder device" module
      * implementation */
@@ -514,6 +522,10 @@ typedef struct vlc_decoder_device
      * The type of pointer will depend of the type:
      * VAAPI: VADisplay
      * VDPAU: vdp_t *
+     * DXVA2: IDirect3DDevice9*
+     * D3D11VA: ID3D11DeviceContext*
+     * AWindow: android AWindowHandler*
+     * MMAL: MMAL_PORT_T*
      */
     void *opaque;
 } vlc_decoder_device;
@@ -526,8 +538,15 @@ typedef struct vlc_decoder_device
  **/
 typedef int (*vlc_decoder_device_Open)(vlc_decoder_device *device,
                                         vout_window_t *window);
-/** "decoder device" module close entry point */
-typedef void (*vlc_decoder_device_Close)(vlc_decoder_device *device);
+
+#define set_callback_dec_device(activate, priority) \
+    { \
+        vlc_decoder_device_Open open__ = activate; \
+        (void) open__; \
+        set_callback(activate) \
+    } \
+    set_capability( "decoder device", priority )
+
 
 /**
  * Create a decoder device from a window

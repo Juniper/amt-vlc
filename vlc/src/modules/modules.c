@@ -2,7 +2,6 @@
  * modules.c : Builtin and plugin modules management functions
  *****************************************************************************
  * Copyright (C) 2001-2011 VLC authors and VideoLAN
- * $Id: 6201def20fc6e03cdd9966ec7406d6726d51f810 $
  *
  * Authors: Sam Hocevar <sam@zoy.org>
  *          Ethan C. Baldridge <BaldridgeE@cadmus.com>
@@ -43,24 +42,11 @@
 #include "vlc_arrays.h"
 #include "modules/modules.h"
 
-/**
- * Checks whether a module implements a capability.
- *
- * \param m the module
- * \param cap the capability to check
- * \return true if the module has the capability
- */
 bool module_provides (const module_t *m, const char *cap)
 {
     return !strcmp (module_get_capability (m), cap);
 }
 
-/**
- * Get the internal name of a module
- *
- * \param m the module
- * \return the module name
- */
 const char *module_get_object( const module_t *m )
 {
     if (unlikely(m->i_shortcuts == 0))
@@ -68,13 +54,6 @@ const char *module_get_object( const module_t *m )
     return m->pp_shortcuts[0];
 }
 
-/**
- * Get the human-friendly name of a module.
- *
- * \param m the module
- * \param long_name TRUE to have the long name of the module
- * \return the short or long name of the module
- */
 const char *module_get_name( const module_t *m, bool long_name )
 {
     if( long_name && ( m->psz_longname != NULL) )
@@ -85,46 +64,21 @@ const char *module_get_name( const module_t *m, bool long_name )
     return module_get_object (m);
 }
 
-/**
- * Get the help for a module
- *
- * \param m the module
- * \return the help
- */
 const char *module_get_help( const module_t *m )
 {
     return m->psz_help;
 }
 
-/**
- * Gets the capability of a module
- *
- * \param m the module
- * \return the capability, or "none" if unspecified
- */
 const char *module_get_capability (const module_t *m)
 {
     return (m->psz_capability != NULL) ? m->psz_capability : "none";
 }
 
-/**
- * Get the score for a module
- *
- * \param m the module
- * return the score for the capability
- */
 int module_get_score( const module_t *m )
 {
     return m->i_score;
 }
 
-/**
- * Translate a string using the module's text domain
- *
- * \param m the module
- * \param str the American English ASCII string to localize
- * \return the gettext-translated string
- */
 const char *module_gettext (const module_t *m, const char *str)
 {
     if (unlikely(str == NULL || *str == '\0'))
@@ -152,12 +106,12 @@ static bool module_match_name(const module_t *m, const char *name, size_t len)
      return false;
 }
 
-static int module_load (vlc_object_t *obj, module_t *m,
-                        vlc_activate_t init, va_list args)
+static int module_load(vlc_logger_t *log, module_t *m,
+                       vlc_activate_t init, bool forced, va_list args)
 {
     int ret = VLC_SUCCESS;
 
-    if (module_Map(obj, m->plugin))
+    if (module_Map(log, m->plugin))
         return VLC_EGENERIC;
 
     if (m->pf_activate != NULL)
@@ -165,17 +119,13 @@ static int module_load (vlc_object_t *obj, module_t *m,
         va_list ap;
 
         va_copy (ap, args);
-        ret = init (m->pf_activate, ap);
+        ret = init(m->pf_activate, forced, ap);
         va_end (ap);
     }
-
-    if (ret != VLC_SUCCESS)
-        vlc_objres_clear(obj);
 
     return ret;
 }
 
-#undef vlc_module_load
 /**
  * Finds and instantiates the best module of a certain type.
  * All candidates modules having the specified capability and name will be
@@ -188,7 +138,7 @@ static int module_load (vlc_object_t *obj, module_t *m,
  * variable arguments passed to this function. This scheme is meant to
  * support arbitrary prototypes for the module entry point.
  *
- * \param obj VLC object
+ * \param log logger (or NULL to ignore)
  * \param capability capability, i.e. class of module
  * \param name name of the module asked, if any
  * \param strict if true, do not fallback to plugin with a different name
@@ -196,9 +146,9 @@ static int module_load (vlc_object_t *obj, module_t *m,
  * \param probe module probe callback
  * \return the module or NULL in case of a failure
  */
-module_t *vlc_module_load(vlc_object_t *obj, const char *capability,
-                          const char *name, bool strict,
-                          vlc_activate_t probe, ...)
+module_t *(vlc_module_load)(struct vlc_logger *log, const char *capability,
+                            const char *name, bool strict,
+                            vlc_activate_t probe, ...)
 {
     if (name == NULL || name[0] == '\0')
         name = "any";
@@ -207,17 +157,16 @@ module_t *vlc_module_load(vlc_object_t *obj, const char *capability,
     module_t **mods;
     ssize_t total = module_list_cap (&mods, capability);
 
-    msg_Dbg (obj, "looking for %s module matching \"%s\": %zd candidates",
-             capability, name, total);
+    vlc_debug(log, "looking for %s module matching \"%s\": %zd candidates",
+              capability, name, total);
     if (total <= 0)
     {
         module_list_free (mods);
-        msg_Dbg (obj, "no %s modules", capability);
+        vlc_debug(log, "no %s modules", capability);
         return NULL;
     }
 
     module_t *module = NULL;
-    const bool b_force_backup = obj->obj.force; /* FIXME: remove this */
     va_list args;
 
     va_start(args, probe);
@@ -232,7 +181,7 @@ module_t *vlc_module_load(vlc_object_t *obj, const char *capability,
         if (!strcasecmp ("none", shortcut))
             goto done;
 
-        obj->obj.force = strict && strcasecmp ("any", shortcut);
+        bool force = strict && strcasecmp ("any", shortcut);
         for (ssize_t i = 0; i < total; i++)
         {
             module_t *cand = mods[i];
@@ -242,7 +191,7 @@ module_t *vlc_module_load(vlc_object_t *obj, const char *capability,
                 continue;
             mods[i] = NULL; // only try each module once at most...
 
-            int ret = module_load (obj, cand, probe, args);
+            int ret = module_load(log, cand, probe, force, args);
             switch (ret)
             {
                 case VLC_SUCCESS:
@@ -257,14 +206,13 @@ module_t *vlc_module_load(vlc_object_t *obj, const char *capability,
     /* None of the shortcuts matched, fall back to any module */
     if (!strict)
     {
-        obj->obj.force = false;
         for (ssize_t i = 0; i < total; i++)
         {
             module_t *cand = mods[i];
             if (cand == NULL || module_get_score (cand) <= 0)
                 continue;
 
-            int ret = module_load (obj, cand, probe, args);
+            int ret = module_load(log, cand, probe, false, args);
             switch (ret)
             {
                 case VLC_SUCCESS:
@@ -277,78 +225,57 @@ module_t *vlc_module_load(vlc_object_t *obj, const char *capability,
     }
 done:
     va_end (args);
-    obj->obj.force = b_force_backup;
     module_list_free (mods);
 
     if (module != NULL)
-    {
-        msg_Dbg (obj, "using %s module \"%s\"", capability,
-                 module_get_object (module));
-        vlc_object_set_name (obj, module_get_object (module));
-    }
+        vlc_debug(log, "using %s module \"%s\"", capability,
+                  module_get_object (module));
     else
-        msg_Dbg (obj, "no %s modules matched", capability);
+        vlc_debug(log, "no %s modules matched", capability);
     return module;
 }
 
-#undef vlc_module_unload
-/**
- * Deinstantiates a module.
- * \param module the module pointer as returned by vlc_module_load()
- * \param deinit deactivation callback
- */
-void vlc_module_unload(vlc_object_t *obj, module_t *module,
-                       vlc_deactivate_t deinit, ...)
-{
-    if (module->pf_deactivate != NULL)
-    {
-        va_list ap;
-
-        va_start(ap, deinit);
-        deinit(module->pf_deactivate, ap);
-        va_end(ap);
-    }
-
-    vlc_objres_clear(obj);
-}
-
-
-static int generic_start(void *func, va_list ap)
+static int generic_start(void *func, bool forced, va_list ap)
 {
     vlc_object_t *obj = va_arg(ap, vlc_object_t *);
     int (*activate)(vlc_object_t *) = func;
+    int ret;
 
-    return activate(obj);
-}
-
-static void generic_stop(void *func, va_list ap)
-{
-    vlc_object_t *obj = va_arg(ap, vlc_object_t *);
-    void (*deactivate)(vlc_object_t *) = func;
-
-    deactivate(obj);
+    obj->force = forced;
+    ret = activate(obj);
+    if (ret != VLC_SUCCESS)
+        vlc_objres_clear(obj);
+    return ret;
 }
 
 #undef module_need
 module_t *module_need(vlc_object_t *obj, const char *cap, const char *name,
                       bool strict)
 {
-    return vlc_module_load(obj, cap, name, strict, generic_start, obj);
+    const bool b_force_backup = obj->force; /* FIXME: remove this */
+    module_t *module = vlc_module_load(obj->logger, cap, name, strict,
+                                       generic_start, obj);
+    if (module != NULL) {
+        var_Create(obj, "module-name", VLC_VAR_STRING);
+        var_SetString(obj, "module-name", module_get_object(module));
+    }
+
+    obj->force = b_force_backup;
+    return module;
 }
 
 #undef module_unneed
 void module_unneed(vlc_object_t *obj, module_t *module)
 {
     msg_Dbg(obj, "removing module \"%s\"", module_get_object(module));
-    vlc_module_unload(obj, module, generic_stop, obj);
+    var_Destroy(obj, "module-name");
+
+    if (module->deactivate != NULL)
+        module->deactivate(obj);
+
+    vlc_objres_clear(obj);
 }
 
-/**
- * Get a pointer to a module_t given it's name.
- *
- * \param name the name of the module
- * \return a pointer to the module or NULL in case of a failure
- */
 module_t *module_find (const char *name)
 {
     size_t count;
@@ -372,24 +299,11 @@ module_t *module_find (const char *name)
     return NULL;
 }
 
-/**
- * Tell if a module exists
- *
- * \param psz_name th name of the module
- * \return TRUE if the module exists
- */
 bool module_exists (const char * psz_name)
 {
     return module_find (psz_name) != NULL;
 }
 
-/**
- * Get the configuration of a module
- *
- * \param module the module
- * \param psize the size of the configuration returned
- * \return the configuration as an array
- */
 module_config_t *module_config_get( const module_t *module, unsigned *restrict psize )
 {
     const vlc_plugin_t *plugin = module->plugin;
@@ -426,12 +340,6 @@ module_config_t *module_config_get( const module_t *module, unsigned *restrict p
     return config;
 }
 
-/**
- * Release the configuration
- *
- * \param the configuration
- * \return nothing
- */
 void module_config_free( module_config_t *config )
 {
     free( config );

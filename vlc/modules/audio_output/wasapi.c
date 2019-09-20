@@ -113,7 +113,7 @@ static HRESULT TimeGet(aout_stream_t *s, vlc_tick_t *restrict delay)
     hr = IAudioClient_GetService(sys->client, &IID_IAudioClock, &pv);
     if (FAILED(hr))
     {
-        msg_Err(s, "cannot get clock (error 0x%lx)", hr);
+        msg_Err(s, "cannot get clock (error 0x%lX)", hr);
         return hr;
     }
 
@@ -125,18 +125,16 @@ static HRESULT TimeGet(aout_stream_t *s, vlc_tick_t *restrict delay)
     IAudioClock_Release(clock);
     if (FAILED(hr))
     {
-        msg_Err(s, "cannot get position (error 0x%lx)", hr);
+        msg_Err(s, "cannot get position (error 0x%lX)", hr);
         return hr;
     }
 
-    lldiv_t w = lldiv(sys->written, sys->rate);
-    lldiv_t r = lldiv(pos, freq);
+    vlc_tick_t written = vlc_tick_from_frac(sys->written, sys->rate);
+    vlc_tick_t tick_pos = vlc_tick_from_frac(pos, freq);
 
     static_assert((10000000 % CLOCK_FREQ) == 0, "Frequency conversion broken");
 
-    *delay = vlc_tick_from_sec(w.quot - r.quot)
-           + (vlc_tick_from_sec(w.rem) / sys->rate)
-           - (vlc_tick_from_sec(r.rem) / freq)
+    *delay = written - tick_pos
            - VLC_TICK_FROM_MSFTIME(GetQPC() - qpcpos);
 
     return hr;
@@ -155,7 +153,7 @@ static HRESULT Play(aout_stream_t *s, block_t *block)
     hr = IAudioClient_GetService(sys->client, &IID_IAudioRenderClient, &pv);
     if (FAILED(hr))
     {
-        msg_Err(s, "cannot get render client (error 0x%lx)", hr);
+        msg_Err(s, "cannot get render client (error 0x%lX)", hr);
         goto out;
     }
 
@@ -166,7 +164,7 @@ static HRESULT Play(aout_stream_t *s, block_t *block)
         hr = IAudioClient_GetCurrentPadding(sys->client, &frames);
         if (FAILED(hr))
         {
-            msg_Err(s, "cannot get current padding (error 0x%lx)", hr);
+            msg_Err(s, "cannot get current padding (error 0x%lX)", hr);
             break;
         }
 
@@ -179,7 +177,7 @@ static HRESULT Play(aout_stream_t *s, block_t *block)
         hr = IAudioRenderClient_GetBuffer(render, frames, &dst);
         if (FAILED(hr))
         {
-            msg_Err(s, "cannot get buffer (error 0x%lx)", hr);
+            msg_Err(s, "cannot get buffer (error 0x%lX)", hr);
             break;
         }
 
@@ -189,7 +187,7 @@ static HRESULT Play(aout_stream_t *s, block_t *block)
         hr = IAudioRenderClient_ReleaseBuffer(render, frames, 0);
         if (FAILED(hr))
         {
-            msg_Err(s, "cannot release buffer (error 0x%lx)", hr);
+            msg_Err(s, "cannot release buffer (error 0x%lX)", hr);
             break;
         }
         IAudioClient_Start(sys->client);
@@ -221,7 +219,7 @@ static HRESULT Pause(aout_stream_t *s, bool paused)
     else
         hr = IAudioClient_Start(sys->client);
     if (FAILED(hr))
-        msg_Warn(s, "cannot %s stream (error 0x%lx)",
+        msg_Warn(s, "cannot %s stream (error 0x%lX)",
                  paused ? "stop" : "start", hr);
     return hr;
 }
@@ -240,7 +238,7 @@ static HRESULT Flush(aout_stream_t *s)
         sys->written = 0;
     }
     else
-        msg_Warn(s, "cannot reset stream (error 0x%lx)", hr);
+        msg_Warn(s, "cannot reset stream (error 0x%lX)", hr);
     return hr;
 }
 
@@ -352,12 +350,14 @@ static void vlc_ToWave(WAVEFORMATEXTENSIBLE *restrict wf,
     {
         case VLC_CODEC_FL64:
             audio->i_format = VLC_CODEC_FL32;
+            /* fall through */
         case VLC_CODEC_FL32:
             wf->SubFormat = KSDATAFORMAT_SUBTYPE_IEEE_FLOAT;
             break;
 
         case VLC_CODEC_U8:
             audio->i_format = VLC_CODEC_S16N;
+            /* fall through */
         case VLC_CODEC_S16N:
             wf->SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
             break;
@@ -455,6 +455,15 @@ static unsigned vlc_CheckWaveOrder (const WAVEFORMATEX *restrict wf,
     return aout_CheckChannelReorder(chans_in, chans_out, mask, table);
 }
 
+static void Stop(aout_stream_t *s)
+{
+    aout_stream_sys_t *sys = s->sys;
+
+    IAudioClient_Stop(sys->client); /* should not be needed */
+    IAudioClient_Release(sys->client);
+
+    free(sys);
+}
 
 static HRESULT Start(aout_stream_t *s, audio_sample_format_t *restrict pfmt,
                      const GUID *sid)
@@ -482,7 +491,7 @@ static HRESULT Start(aout_stream_t *s, audio_sample_format_t *restrict pfmt,
 
     if (fmt.i_format == VLC_CODEC_DTS)
     {
-        b_dtshd = var_GetBool(s->obj.parent, "dtshd");
+        b_dtshd = var_GetBool(vlc_object_parent(s), "dtshd");
         if (b_dtshd)
         {
             b_hdmi = true;
@@ -494,7 +503,7 @@ static HRESULT Start(aout_stream_t *s, audio_sample_format_t *restrict pfmt,
     HRESULT hr = aout_stream_Activate(s, &IID_IAudioClient, NULL, &pv);
     if (FAILED(hr))
     {
-        msg_Err(s, "cannot activate client (error 0x%lx)", hr);
+        msg_Err(s, "cannot activate client (error 0x%lX)", hr);
         goto error;
     }
     sys->client = pv;
@@ -552,13 +561,13 @@ static HRESULT Start(aout_stream_t *s, audio_sample_format_t *restrict pfmt,
         if (pfmt->i_format == VLC_CODEC_DTS && b_hdmi)
         {
             msg_Warn(s, "cannot negotiate DTS at 768khz IEC958 rate (HDMI), "
-                     "fallback to 48kHz (S/PDIF) (error 0x%lx)", hr);
+                     "fallback to 48kHz (S/PDIF) (error 0x%lX)", hr);
             IAudioClient_Release(sys->client);
             free(sys);
-            var_SetBool(s->obj.parent, "dtshd", false);
+            var_SetBool(vlc_object_parent(s), "dtshd", false);
             return Start(s, pfmt, sid);
         }
-        msg_Err(s, "cannot negotiate audio format (error 0x%lx)%s", hr,
+        msg_Err(s, "cannot negotiate audio format (error 0x%lX)%s", hr,
                 hr == AUDCLNT_E_UNSUPPORTED_FORMAT
                 && fmt.i_format == VLC_CODEC_SPDIFL ?
                 ": digital pass-through not supported" : "");
@@ -593,14 +602,14 @@ static HRESULT Start(aout_stream_t *s, audio_sample_format_t *restrict pfmt,
     CoTaskMemFree(pwf_closest);
     if (FAILED(hr))
     {
-        msg_Err(s, "cannot initialize audio client (error 0x%lx)", hr);
+        msg_Err(s, "cannot initialize audio client (error 0x%lX)", hr);
         goto error;
     }
 
     hr = IAudioClient_GetBufferSize(sys->client, &sys->frames);
     if (FAILED(hr))
     {
-        msg_Err(s, "cannot get buffer size (error 0x%lx)", hr);
+        msg_Err(s, "cannot get buffer size (error 0x%lX)", hr);
         goto error;
     }
     msg_Dbg(s, "buffer size    : %"PRIu32" frames", sys->frames);
@@ -622,6 +631,7 @@ static HRESULT Start(aout_stream_t *s, audio_sample_format_t *restrict pfmt,
     s->play = Play;
     s->pause = Pause;
     s->flush = Flush;
+    s->stop = Stop;
     return S_OK;
 error:
     CoTaskMemFree(pwf_mix);
@@ -631,21 +641,11 @@ error:
     return hr;
 }
 
-static void Stop(aout_stream_t *s)
-{
-    aout_stream_sys_t *sys = s->sys;
-
-    IAudioClient_Stop(sys->client); /* should not be needed */
-    IAudioClient_Release(sys->client);
-
-    free(sys);
-}
-
 vlc_module_begin()
     set_shortname("WASAPI")
     set_description(N_("Windows Audio Session API output"))
     set_capability("aout stream", 50)
     set_category(CAT_AUDIO)
     set_subcategory(SUBCAT_AUDIO_AOUT)
-    set_callbacks(Start, Stop)
+    set_callback(Start)
 vlc_module_end()

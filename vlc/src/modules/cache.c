@@ -2,7 +2,6 @@
  * cache.c: Plugins cache
  *****************************************************************************
  * Copyright (C) 2001-2007 VLC authors and VideoLAN
- * $Id: ccd9ffccae6fb7012c040c300f0f8fc171ec0a64 $
  *
  * Authors: Sam Hocevar <sam@zoy.org>
  *          Ethan C. Baldridge <BaldridgeE@cadmus.com>
@@ -57,7 +56,7 @@
 #ifdef HAVE_DYNAMIC_PLUGINS
 /* Sub-version number
  * (only used to avoid breakage in dev version when cache structure changes) */
-#define CACHE_SUBVERSION_NUM 35
+#define CACHE_SUBVERSION_NUM 36
 
 /* Cache filename */
 #define CACHE_NAME "plugins.dat"
@@ -202,8 +201,6 @@ static int vlc_cache_load_config(module_config_t *cfg, block_t *file)
 
         if (cfg->list_count)
             cfg->list.psz = xmalloc (cfg->list_count * sizeof (char *));
-        else
-            LOAD_STRING(cfg->list_cb_name);
         for (unsigned i = 0; i < cfg->list_count; i++)
         {
             LOAD_STRING (cfg->list.psz[i]);
@@ -223,8 +220,6 @@ static int vlc_cache_load_config(module_config_t *cfg, block_t *file)
         {
             LOAD_ALIGNOF(*cfg->list.i);
         }
-        else
-            LOAD_STRING(cfg->list_cb_name);
 
         LOAD_ARRAY(cfg->list.i, cfg->list_count);
     }
@@ -528,8 +523,6 @@ static int CacheSaveConfig (FILE *file, const module_config_t *cfg)
     if (IsConfigStringType (cfg->i_type))
     {
         SAVE_STRING (cfg->orig.psz);
-        if (cfg->list_count == 0)
-            SAVE_STRING(cfg->list_cb_name);
 
         for (unsigned i = 0; i < cfg->list_count; i++)
             SAVE_STRING (cfg->list.psz[i]);
@@ -544,8 +537,6 @@ static int CacheSaveConfig (FILE *file, const module_config_t *cfg)
         {
             SAVE_ALIGNOF(*cfg->list.i);
         }
-        else
-            SAVE_STRING(cfg->list_cb_name);
 
         for (unsigned i = 0; i < cfg->list_count; i++)
              SAVE_IMMEDIATE (cfg->list.i[i]);

@@ -30,7 +30,7 @@
 
 #include <vlc_common.h>
 #include <vlc_plugin.h>
-#include <vlc_input.h>
+#include <vlc_decoder.h>
 #include <vlc_sout.h>
 #include <vlc_block.h>
 
@@ -77,6 +77,7 @@ static const char *const ppsz_sout_options[] = {
 static void *Add( sout_stream_t *, const es_format_t * );
 static void  Del( sout_stream_t *, void * );
 static int   Send( sout_stream_t *, void *, block_t * );
+static int   Control( sout_stream_t *, int, va_list );
 
 typedef struct
 {
@@ -116,6 +117,7 @@ static int Open( vlc_object_t *p_this )
     p_stream->pf_add    = Add;
     p_stream->pf_del    = Del;
     p_stream->pf_send   = Send;
+    p_stream->pf_control = Control;
     p_stream->p_sys     = p_sys;
     p_stream->pace_nocontrol = true;
 
@@ -130,7 +132,6 @@ static void Close( vlc_object_t * p_this )
     sout_stream_t     *p_stream = (sout_stream_t*)p_this;
     sout_stream_sys_t *p_sys = p_stream->p_sys;
 
-    input_resource_Terminate( p_sys->p_resource );
     input_resource_Release( p_sys->p_resource );
     free( p_sys );
 }
@@ -191,4 +192,16 @@ static int Send( sout_stream_t *p_stream, void *id, block_t *p_buffer )
     }
 
     return VLC_SUCCESS;
+}
+
+static int Control( sout_stream_t *p_stream, int i_query, va_list args )
+{
+    if( i_query == SOUT_STREAM_ID_SPU_HIGHLIGHT )
+    {
+        decoder_t *p_dec = va_arg(args, void *);
+        void *spu_hl = va_arg(args, void *);
+        return input_DecoderSetSpuHighlight( p_dec, spu_hl );
+    }
+    (void) p_stream;
+    return VLC_EGENERIC;
 }

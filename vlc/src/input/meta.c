@@ -2,7 +2,6 @@
  * meta.c : Metadata handling
  *****************************************************************************
  * Copyright (C) 1998-2004 VLC authors and VideoLAN
- * $Id: b02cb25d6aff87dec03bfdbf89619fa9e6a73082 $
  *
  * Authors: Antoine Cellerier <dionoea@videolan.org>
  *          Clément Stenac <zorglub@videolan.org
@@ -29,7 +28,6 @@
 #include <assert.h>
 
 #include <vlc_common.h>
-#include <vlc_playlist.h>
 #include <vlc_url.h>
 #include <vlc_arrays.h>
 #include <vlc_modules.h>
@@ -217,8 +215,8 @@ void input_ExtractAttachmentAndCacheArt( input_thread_t *p_input,
     }
 
     /* */
-    input_attachment_t *p_attachment = NULL;
-    if( input_Control( p_input, INPUT_GET_ATTACHMENT, &p_attachment, name ) )
+    input_attachment_t *p_attachment = input_GetAttachment( p_input, name );
+    if( !p_attachment )
     {
         msg_Warn( p_input, "art attachment %s not found", name );
         return;
@@ -265,11 +263,11 @@ int input_item_WriteMeta( vlc_object_t *obj, input_item_t *p_item )
     module_t *p_mod = module_need( p_export, "meta writer", NULL, false );
     if( p_mod )
         module_unneed( p_export, p_mod );
-    vlc_object_release( p_export );
+    vlc_object_delete(p_export);
     return VLC_SUCCESS;
 
 error:
-    vlc_object_release( p_export );
+    vlc_object_delete(p_export);
     return VLC_EGENERIC;
 }
 

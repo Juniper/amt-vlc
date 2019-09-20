@@ -2,7 +2,6 @@
  * intf_dummy.c: dummy interface plugin
  *****************************************************************************
  * Copyright (C) 2000, 2001 the VideoLAN team
- * $Id: c36967f1b5336fa112a18f4eb7865b41b6dda7a1 $
  *
  * Authors: Samuel Hocevar <sam@zoy.org>
  *
@@ -40,7 +39,7 @@ vlc_module_begin ()
     set_shortname( N_("Dummy") )
     set_description( N_("Dummy interface") )
     set_capability( "interface", 0 )
-    set_callbacks( Open, NULL )
+    set_callback( Open )
 #if defined(_WIN32) && !VLC_WINSTORE_APP
     add_obsolete_bool( "dummy-quiet" )
 #endif

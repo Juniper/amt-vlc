@@ -2,7 +2,6 @@
  * libvlc-module.c: Options for the core (libvlc itself) module
  *****************************************************************************
  * Copyright (C) 1998-2009 VLC authors and VideoLAN
- * $Id: 82862ab474542b48de0cf2925b418c9e24c90769 $
  *
  * Authors: Vincent Seguin <seguin@via.ecp.fr>
  *          Samuel Hocevar <sam@zoy.org>
@@ -36,7 +35,6 @@
 #include <vlc_common.h>
 #include <vlc_plugin.h>
 #include <vlc_cpu.h>
-#include <vlc_playlist.h>
 #include "libvlc.h"
 #include "modules/modules.h"
 
@@ -45,6 +43,8 @@
 #include "vlc_meta.h"
 #include <vlc_aout.h>
 #include <vlc_vout.h>
+
+#include "clock/clock.h"
 
 static const char *const ppsz_snap_formats[] =
 { "png", "jpg", "tiff" };
@@ -370,17 +370,23 @@ static const char *const ppsz_pos_descriptions[] =
 { N_("Center"), N_("Left"), N_("Right"), N_("Top"), N_("Bottom"),
   N_("Top-Left"), N_("Top-Right"), N_("Bottom-Left"), N_("Bottom-Right") };
 
+static const int pi_sub_align_values[] = { -1, 0, 1, 2, 4, 8, 5, 6, 9, 10 };
+static const char *const ppsz_sub_align_descriptions[] =
+{ N_("Unset"), N_("Center"), N_("Left"), N_("Right"), N_("Top"), N_("Bottom"),
+  N_("Top-Left"), N_("Top-Right"), N_("Bottom-Left"), N_("Bottom-Right") };
+
 #define SS_TEXT N_("Disable screensaver")
 #define SS_LONGTEXT N_("Disable the screensaver during video playback." )
+
+static const int screensaver_values[] = { 0, 2, 1, };
+static const char *const screensaver_texts[] = {
+    N_("Never"), N_("When fullscreen"), N_("Always"),
+};
 
 #define VIDEO_DECO_TEXT N_("Window decorations")
 #define VIDEO_DECO_LONGTEXT N_( \
     "VLC can avoid creating window caption, frames, etc... around the video" \
     ", giving a \"minimal\" window.")
-
-#define VIDEO_SPLITTER_TEXT N_("Video splitter module")
-#define VIDEO_SPLITTER_LONGTEXT N_( \
-    "This adds video splitters like clone or wall" )
 
 #define VIDEO_FILTER_TEXT N_("Video filter module")
 #define VIDEO_FILTER_LONGTEXT N_( \
@@ -532,6 +538,17 @@ static const char *const ppsz_pos_descriptions[] =
     "This defines the maximum input delay jitter that the synchronization " \
     "algorithms should try to compensate (in milliseconds)." )
 
+#define CLOCK_MASTER_TEXT N_("Clock master source")
+
+static const int pi_clock_master_values[] = {
+    VLC_CLOCK_MASTER_AUDIO,
+    VLC_CLOCK_MASTER_MONOTONIC,
+};
+static const char *const ppsz_clock_master_descriptions[] = {
+    N_("Audio"),
+    N_("Monotonic")
+};
+
 #define NETSYNC_TEXT N_("Network synchronisation" )
 #define NETSYNC_LONGTEXT N_( "This allows you to remotely " \
         "synchronise clocks for server and client. The detailed settings " \
@@ -577,6 +594,11 @@ static const char *const ppsz_clock_descriptions[] =
     "(like DVB streams for example)." )
 
 /// \todo Document how to find it
+#define INPUT_VIDEOTRACK_TEXT N_("Video track")
+#define INPUT_VIDEOTRACK_LONGTEXT N_( \
+    "Stream number of the video track to use " \
+    "(from 0 to n).")
+
 #define INPUT_AUDIOTRACK_TEXT N_("Audio track")
 #define INPUT_AUDIOTRACK_LONGTEXT N_( \
     "Stream number of the audio track to use " \
@@ -603,6 +625,10 @@ static const char *const ppsz_clock_descriptions[] =
     "(comma separated, two or three letters country code, you may use 'any' as a fallback).")
 
 /// \todo Document how to find it
+#define INPUT_VIDEOTRACK_ID_TEXT N_("Video track ID")
+#define INPUT_VIDEOTRACK_ID_LONGTEXT N_( \
+    "Stream ID of the video track to use.")
+
 #define INPUT_AUDIOTRACK_ID_TEXT N_("Audio track ID")
 #define INPUT_AUDIOTRACK_ID_LONGTEXT N_( \
     "Stream ID of the audio track to use.")
@@ -628,6 +654,11 @@ static const char *const ppsz_prefres[] = {
     N_("Low Definition (360 lines)"),
     N_("Very Low Definition (240 lines)"),
 };
+
+#define INPUT_LOWDELAY_TEXT N_("Low delay mode")
+#define INPUT_LOWDELAY_LONGTEXT N_(\
+    "Try to minimize delay along decoding chain."\
+    "Might break with non compliant streams.")
 
 #define INPUT_REPEAT_TEXT N_("Input repetitions")
 #define INPUT_REPEAT_LONGTEXT N_( \
@@ -716,6 +747,15 @@ static const char *const ppsz_prefres[] = {
 #define SPU_LONGTEXT N_( \
     "You can completely disable the sub-picture processing.")
 
+#define SECONDARY_SUB_POSITION_TEXT N_("Position of secondary subtitles")
+#define SECONDARY_SUB_POSITION_LONGTEXT N_( \
+    "Place on video where to display secondary subtitles (default bottom center).")
+
+#define SECONDARY_SUB_MARGIN_TEXT N_("Force secondary subtitle position")
+#define SECONDARY_SUB_MARGIN_LONGTEXT N_( \
+    "You can use this option to vertically adjust the position secondary " \
+    "subtitles are displayed.")
+
 #define OSD_TEXT N_("On Screen Display")
 #define OSD_LONGTEXT N_( \
     "VLC can display messages on the video. This is called OSD (On Screen " \
@@ -754,6 +794,14 @@ static const char *const ppsz_prefres[] = {
 #define SUB_PATH_LONGTEXT N_( \
     "Look for a subtitle file in those paths too, if your subtitle " \
     "file was not found in the current directory.")
+
+#define SUB_FPS_TEXT  N_("Subtitle Frames per Second")
+#define SUB_FPS_LONGTEXT \
+    N_("Override the normal frames per second settings. ")
+
+#define SUB_DELAY_TEXT N_("Subtitle delay")
+#define SUB_DELAY_LONGTEXT \
+    N_("Apply a delay to all subtitles (in 1/10s, eg 100 means 10s).")
 
 #define SUB_FILE_TEXT N_("Use subtitle file")
 #define SUB_FILE_LONGTEXT N_( \
@@ -918,6 +966,8 @@ static const char *const ppsz_prefres[] = {
 #define ENCODER_LONGTEXT N_( \
     "This allows you to select a list of encoders that VLC will use in " \
     "priority.")
+
+#define DEC_DEV_TEXT N_("Preferred decoder hardware device")
 
 /*****************************************************************************
  * Sout
@@ -1097,6 +1147,25 @@ static const char *const ppsz_prefres[] = {
     "all the processor time and render the whole system unresponsive which " \
     "might require a reboot of your machine.")
 
+#define CLOCK_SOURCE_TEXT N_("Clock source")
+#ifdef _WIN32
+static const char *const clock_sources[] = {
+    "", "interrupt", "tick",
+#if !VLC_WINSTORE_APP
+    "multimedia",
+#endif
+    "perf", "wall",
+};
+
+static const char *const clock_sources_text[] = {
+    N_("Auto"), "Interrupt time", "Windows time",
+#if !VLC_WINSTORE_APP
+    "Multimedia timers",
+#endif
+    "Performance counters", "System time (DANGEROUS!)",
+};
+#endif
+
 #define PLAYLISTENQUEUE_TEXT N_( \
     "Enqueue items into playlist in one instance mode")
 #define PLAYLISTENQUEUE_LONGTEXT N_( \
@@ -1124,6 +1193,14 @@ static const char *const ppsz_prefres[] = {
 #define PREPARSE_TIMEOUT_TEXT N_( "Preparsing timeout" )
 #define PREPARSE_TIMEOUT_LONGTEXT N_( \
     "Maximum time allowed to preparse an item, in milliseconds" )
+
+#define PREPARSE_THREADS_TEXT N_( "Preparsing threads" )
+#define PREPARSE_THREADS_LONGTEXT N_( \
+    "Maximum number of threads used to preparse items" )
+
+#define FETCH_ART_THREADS_TEXT N_( "Fetch-art threads" )
+#define FETCH_ART_THREADS_LONGTEXT N_( \
+    "Maximum number of threads used to fetch art" )
 
 #define METADATA_NETWORK_TEXT N_( "Allow metadata network access" )
 
@@ -1396,6 +1473,8 @@ static const char *const mouse_wheel_texts[] = {
 #define SUBTITLE_TRACK_KEY_LONGTEXT N_("Cycle through the available subtitle tracks.")
 #define SUBTITLE_TOGGLE_KEY_TEXT N_("Toggle subtitles")
 #define SUBTITLE_TOGGLE_KEY_LONGTEXT N_("Toggle subtitle track visibility.")
+#define SUBTITLE_CONTROL_SECONDARY_KEY_TEXT N_("Toggle secondary subtitle control")
+#define SUBTITLE_CONTROL_SECONDARY_KEY_LONGTEXT N_("Use original subtitle controls to manage secondary subtitles.")
 #define PROGRAM_SID_NEXT_KEY_TEXT N_("Cycle next program Service ID")
 #define PROGRAM_SID_NEXT_KEY_LONGTEXT N_("Cycle through the available next program Service IDs (SIDs).")
 #define PROGRAM_SID_PREV_KEY_TEXT N_("Cycle previous program Service ID")
@@ -1579,13 +1658,12 @@ vlc_module_begin ()
               MOUSE_EVENTS_LONGTEXT, true )
     add_obsolete_integer( "vout-event" ) /* deprecated since 1.1.0 */
     add_obsolete_integer( "x11-event" ) /* renamed since 1.0.0 */
-    add_obsolete_bool( "overlay" ) /* renamed since 3.0.0 */
     add_bool( "video-on-top", 0, VIDEO_ON_TOP_TEXT,
               VIDEO_ON_TOP_LONGTEXT, false )
     add_bool( "video-wallpaper", false, WALLPAPER_TEXT,
               WALLPAPER_LONGTEXT, false )
-    add_bool( "disable-screensaver", true, SS_TEXT, SS_LONGTEXT,
-              true )
+    add_integer("disable-screensaver", 1, SS_TEXT, SS_LONGTEXT, true)
+        change_integer_list(screensaver_values, screensaver_texts)
 
     add_bool( "video-title-show", 1, VIDEO_TITLE_SHOW_TEXT,
               VIDEO_TITLE_SHOW_LONGTEXT, false )
@@ -1621,10 +1699,12 @@ vlc_module_begin ()
         change_safe ()
     add_integer( "height", -1, HEIGHT_TEXT, HEIGHT_LONGTEXT, true )
         change_safe ()
+#if defined(__APPLE__) || defined(_WIN32)
     add_integer( "video-x", 0, VIDEOX_TEXT, VIDEOX_LONGTEXT, true )
         change_safe ()
     add_integer( "video-y", 0, VIDEOY_TEXT, VIDEOY_LONGTEXT, true )
         change_safe ()
+#endif
     add_string( "crop", NULL, CROP_TEXT, CROP_LONGTEXT, false )
         change_safe ()
     add_string( "custom-crop-ratios", NULL, CUSTOM_CROP_RATIOS_TEXT,
@@ -1665,10 +1745,6 @@ vlc_module_begin ()
     add_module_list("video-filter", "video filter", NULL,
                     VIDEO_FILTER_TEXT, VIDEO_FILTER_LONGTEXT)
 
-    set_subcategory( SUBCAT_VIDEO_SPLITTER )
-    add_module_list("video-splitter", "video splitter", NULL,
-                    VIDEO_SPLITTER_TEXT, VIDEO_SPLITTER_LONGTEXT)
-    add_obsolete_string( "vout-filter" ) /* since 2.0.0 */
 #if 0
     add_string( "pixel-ratio", "1", PIXEL_RATIO_TEXT, PIXEL_RATIO_TEXT )
 #endif
@@ -1685,6 +1761,8 @@ vlc_module_begin ()
                TEXTRENDERER_TEXT, TEXTRENDERER_LONGTEXT)
 
     set_section( N_("Subtitles") , NULL )
+    add_float( "sub-fps", 0.0, SUB_FPS_TEXT, SUB_FPS_LONGTEXT, false )
+    add_integer( "sub-delay", 0, SUB_DELAY_TEXT, SUB_DELAY_LONGTEXT, false )
     add_loadfile("sub-file", NULL, SUB_FILE_TEXT, SUB_FILE_LONGTEXT)
         change_safe()
     add_bool( "sub-autodetect-file", true,
@@ -1702,12 +1780,20 @@ vlc_module_begin ()
                  SUB_MARGIN_LONGTEXT, true )
     add_integer_with_range( "sub-text-scale", 100, 10, 500,
                SUB_TEXT_SCALE_TEXT, SUB_TEXT_SCALE_LONGTEXT, false )
-        change_volatile  ()
     set_section( N_( "Overlays" ) , NULL )
     add_module_list("sub-source", "sub source", NULL,
                     SUB_SOURCE_TEXT, SUB_SOURCE_LONGTEXT)
     add_module_list("sub-filter", "sub filter", NULL,
                     SUB_FILTER_TEXT, SUB_FILTER_LONGTEXT)
+
+    set_section( N_( "Multiple Subtitles" ) , NULL )
+    add_integer( "secondary-sub-alignment", -1, SECONDARY_SUB_POSITION_TEXT,
+                 SECONDARY_SUB_POSITION_LONGTEXT, false )
+        change_integer_list( pi_sub_align_values, ppsz_sub_align_descriptions )
+    /* Push the secondary subtitles up a bit so they won't overlap with
+       the primary subtitles using the default settings.*/
+    add_integer( "secondary-sub-margin", 100, SECONDARY_SUB_MARGIN_TEXT,
+                 SECONDARY_SUB_MARGIN_LONGTEXT, true )
 
 /* Input options */
     set_category( CAT_INPUT )
@@ -1719,6 +1805,9 @@ vlc_module_begin ()
         change_safe ()
     add_string( "programs", "",
                 INPUT_PROGRAMS_TEXT, INPUT_PROGRAMS_LONGTEXT, true )
+        change_safe ()
+    add_integer( "video-track", -1,
+                 INPUT_VIDEOTRACK_TEXT, INPUT_VIDEOTRACK_LONGTEXT, true )
         change_safe ()
     add_integer( "audio-track", -1,
                  INPUT_AUDIOTRACK_TEXT, INPUT_AUDIOTRACK_LONGTEXT, true )
@@ -1738,6 +1827,9 @@ vlc_module_begin ()
                  INPUT_MENUTRACK_LANG_TEXT, INPUT_MENUTRACK_LANG_LONGTEXT,
                   false )
         change_safe ()
+    add_integer( "video-track-id", -1, INPUT_VIDEOTRACK_ID_TEXT,
+                 INPUT_VIDEOTRACK_ID_LONGTEXT, true )
+        change_safe ()
     add_integer( "audio-track-id", -1, INPUT_AUDIOTRACK_ID_TEXT,
                  INPUT_AUDIOTRACK_ID_LONGTEXT, true )
         change_safe ()
@@ -1752,6 +1844,9 @@ vlc_module_begin ()
                  INPUT_PREFERREDRESOLUTION_LONGTEXT, false )
         change_safe ()
         change_integer_list( pi_prefres, ppsz_prefres )
+    add_bool( "low-delay", 0, INPUT_LOWDELAY_TEXT,
+              INPUT_LOWDELAY_LONGTEXT, true )
+        change_safe ()
 
     set_section( N_( "Playback control" ) , NULL)
     add_integer( "input-repeat", 0,
@@ -1914,6 +2009,9 @@ vlc_module_begin ()
     add_integer( "clock-jitter", 5000, CLOCK_JITTER_TEXT,
               CLOCK_JITTER_LONGTEXT, true )
         change_safe()
+    add_integer( "clock-master", VLC_CLOCK_MASTER_DEFAULT,
+                 CLOCK_MASTER_TEXT, NULL, true )
+        change_integer_list( pi_clock_master_values, ppsz_clock_master_descriptions )
 
     add_bool( "network-synchronisation", false, NETSYNC_TEXT,
               NETSYNC_LONGTEXT, true )
@@ -1939,6 +2037,7 @@ vlc_module_begin ()
                 CODEC_LONGTEXT, true )
     add_string( "encoder",  NULL, ENCODER_TEXT,
                 ENCODER_LONGTEXT, true )
+    add_string( "dec-dev", NULL, DEC_DEV_TEXT, NULL, true )
 
     set_subcategory( SUBCAT_INPUT_ACCESS )
     add_category_hint(N_("Input"), INPUT_CAT_LONGTEXT)
@@ -2030,8 +2129,10 @@ vlc_module_begin ()
 #ifdef HAVE_DYNAMIC_PLUGINS
     add_bool( "plugins-cache", true, PLUGINS_CACHE_TEXT,
               PLUGINS_CACHE_LONGTEXT, true )
+        change_volatile ()
     add_bool( "plugins-scan", true, PLUGINS_SCAN_TEXT,
               PLUGINS_SCAN_LONGTEXT, true )
+        change_volatile ()
     add_obsolete_string( "plugin-path" ) /* since 2.0.0 */
 #endif
     add_obsolete_string( "data-path" ) /* since 2.1.0 */
@@ -2040,7 +2141,7 @@ vlc_module_begin ()
 
     set_section( N_("Performance options"), NULL )
 
-#if defined (LIBVLC_USE_PTHREAD) && !defined (__APPLE__)
+#if defined (LIBVLC_USE_PTHREAD)
     add_bool( "rt-priority", false, RT_PRIORITY_TEXT,
               RT_PRIORITY_LONGTEXT, true )
     add_integer( "rt-offset", 0, RT_OFFSET_TEXT,
@@ -2056,10 +2157,9 @@ vlc_module_begin ()
               HPRIORITY_LONGTEXT, false )
 #endif
 
-#define CLOCK_SOURCE_TEXT N_("Clock source")
 #ifdef _WIN32
     add_string( "clock-source", NULL, CLOCK_SOURCE_TEXT, CLOCK_SOURCE_TEXT, true )
-        change_string_cb( EnumClockSource )
+        change_string_list( clock_sources, clock_sources_text )
 #endif
 
 /* Playlist options */
@@ -2109,6 +2209,12 @@ vlc_module_begin ()
 
     add_integer( "preparse-timeout", 5000, PREPARSE_TIMEOUT_TEXT,
                  PREPARSE_TIMEOUT_LONGTEXT, false )
+
+    add_integer( "preparse-threads", 1, PREPARSE_THREADS_TEXT,
+                 PREPARSE_THREADS_LONGTEXT, false )
+
+    add_integer( "fetch-art-threads", 1, FETCH_ART_THREADS_TEXT,
+                 FETCH_ART_THREADS_LONGTEXT, false )
 
     add_obsolete_integer( "album-art" )
     add_bool( "metadata-network-access", false, METADATA_NETWORK_TEXT,
@@ -2264,6 +2370,7 @@ vlc_module_begin ()
 #   define KEY_AUDIO_TRACK        "l"
 #   define KEY_SUBTITLE_TRACK     "s"
 #   define KEY_SUBTITLE_TOGGLE    "Shift+s"
+#   define KEY_SUBTITLE_CONTROL_S "Command+Shift+v"
 #   define KEY_SUBTITLE_REVTRACK  "Alt+s"
 #   define KEY_PROGRAM_SID_NEXT   "x"
 #   define KEY_PROGRAM_SID_PREV   "Shift+x"
@@ -2407,6 +2514,7 @@ vlc_module_begin ()
 #   define KEY_AUDIO_TRACK        "b"
 #   define KEY_SUBTITLE_TRACK     "v"
 #   define KEY_SUBTITLE_TOGGLE    "Shift+v"
+#   define KEY_SUBTITLE_CONTROL_S "Ctrl+Shift+v"
 #   define KEY_SUBTITLE_REVTRACK  "Alt+v"
 #   define KEY_PROGRAM_SID_NEXT   "x"
 #   define KEY_PROGRAM_SID_PREV   "Shift+x"
@@ -2576,6 +2684,8 @@ vlc_module_begin ()
             SUBTITLE_TRACK_KEY_TEXT, SUBTITLE_TRACK_KEY_LONGTEXT)
     add_key("key-subtitle-toggle", KEY_SUBTITLE_TOGGLE,
             SUBTITLE_TOGGLE_KEY_TEXT, SUBTITLE_TOGGLE_KEY_LONGTEXT)
+    add_key("key-subtitle-control-secondary", KEY_SUBTITLE_CONTROL_S,
+            SUBTITLE_CONTROL_SECONDARY_KEY_TEXT, SUBTITLE_CONTROL_SECONDARY_KEY_LONGTEXT)
     add_key("key-program-sid-next", KEY_PROGRAM_SID_NEXT,
             PROGRAM_SID_NEXT_KEY_TEXT, PROGRAM_SID_NEXT_KEY_LONGTEXT)
     add_key("key-program-sid-prev", KEY_PROGRAM_SID_PREV,

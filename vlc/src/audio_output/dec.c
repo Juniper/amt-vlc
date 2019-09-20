@@ -1,8 +1,7 @@
 /*****************************************************************************
  * dec.c : audio output API towards decoders
  *****************************************************************************
- * Copyright (C) 2002-2007 VLC authors and VideoLAN
- * $Id: 5c1f834d36ad2ea8c98316234d67afa4408fddee $
+ * Copyright (C) 2002-2019 VLC authors, VideoLAN and Videolabs SAS
  *
  * Authors: Christophe Massiot <massiot@via.ecp.fr>
  *
@@ -36,16 +35,30 @@
 #include <vlc_aout.h>
 
 #include "aout_internal.h"
+#include "clock/clock.h"
 #include "libvlc.h"
+
+static void aout_Drain(audio_output_t *aout)
+{
+    if (aout->drain)
+        aout->drain(aout);
+    else
+    {
+        vlc_tick_t delay;
+        if (aout->time_get(aout, &delay) == 0)
+            vlc_tick_sleep(delay);
+    }
+}
 
 /**
  * Creates an audio output
  */
-int aout_DecNew( audio_output_t *p_aout,
-                 const audio_sample_format_t *p_format,
-                 const audio_replay_gain_t *p_replay_gain,
-                 const aout_request_vout_t *p_request_vout )
+int aout_DecNew(audio_output_t *p_aout, const audio_sample_format_t *p_format,
+                vlc_clock_t *clock, const audio_replay_gain_t *p_replay_gain)
 {
+    assert(p_aout);
+    assert(p_format);
+    assert(clock);
     if( p_format->i_bitspersample > 0 )
     {
         /* Sanitize audio format, input need to have a valid physical channels
@@ -59,7 +72,7 @@ int aout_DecNew( audio_output_t *p_aout,
         }
     }
 
-    if( p_format->i_rate > 352800 )
+    if( p_format->i_rate > 384000 )
     {
         msg_Err( p_aout, "excessive audio sample frequency (%u)",
                  p_format->i_rate );
@@ -80,7 +93,7 @@ int aout_DecNew( audio_output_t *p_aout,
     atomic_store_explicit(&owner->restart, 0, memory_order_relaxed);
     owner->input_format = *p_format;
     owner->mixer_format = owner->input_format;
-    owner->request_vout = *p_request_vout;
+    owner->sync.clock = clock;
 
     owner->filters_cfg = AOUT_FILTERS_CFG_INIT;
     if (aout_OutputNew (p_aout, &owner->mixer_format, &owner->filters_cfg))
@@ -88,9 +101,9 @@ int aout_DecNew( audio_output_t *p_aout,
     aout_volume_SetFormat (owner->volume, owner->mixer_format.i_format);
 
     /* Create the audio filtering "input" pipeline */
-    owner->filters = aout_FiltersNew (p_aout, p_format, &owner->mixer_format,
-                                      &owner->request_vout,
-                                      &owner->filters_cfg);
+    owner->filters = aout_FiltersNewWithClock(VLC_OBJECT(p_aout), clock, p_format,
+                                              &owner->mixer_format,
+                                              &owner->filters_cfg);
     if (owner->filters == NULL)
     {
         aout_OutputDelete (p_aout);
@@ -101,9 +114,10 @@ error:
     }
 
     owner->sync.rate = 1.f;
-    owner->sync.end = VLC_TICK_INVALID;
     owner->sync.resamp_type = AOUT_RESAMPLING_NONE;
     owner->sync.discontinuity = true;
+    owner->original_pts = VLC_TICK_INVALID;
+    owner->sync.delay = owner->sync.request_delay = 0;
 
     atomic_init (&owner->buffers_lost, 0);
     atomic_init (&owner->buffers_played, 0);
@@ -120,6 +134,7 @@ void aout_DecDelete (audio_output_t *aout)
 
     if (owner->mixer_format.i_format)
     {
+        aout_DecFlush(aout);
         aout_FiltersDelete (aout, owner->filters);
         aout_OutputDelete (aout);
     }
@@ -160,20 +175,21 @@ static int aout_CheckReady (audio_output_t *aout)
         }
 
         msg_Dbg (aout, "restarting filters...");
-        owner->sync.end = VLC_TICK_INVALID;
         owner->sync.resamp_type = AOUT_RESAMPLING_NONE;
 
         if (owner->mixer_format.i_format)
         {
-            owner->filters = aout_FiltersNew (aout, &owner->input_format,
-                                              &owner->mixer_format,
-                                              &owner->request_vout,
-                                              &owner->filters_cfg);
+            owner->filters = aout_FiltersNewWithClock(VLC_OBJECT(aout),
+                                                      owner->sync.clock,
+                                                      &owner->input_format,
+                                                      &owner->mixer_format,
+                                                      &owner->filters_cfg);
             if (owner->filters == NULL)
             {
                 aout_OutputDelete (aout);
                 owner->mixer_format.i_format = 0;
             }
+            aout_FiltersSetClockDelay(owner->filters, owner->sync.delay);
         }
         /* TODO: This would be a good time to call clean up any video output
          * left over by an audio visualization:
@@ -205,11 +221,13 @@ static void aout_StopResampling (audio_output_t *aout)
     aout_FiltersAdjustResampling (owner->filters, 0);
 }
 
+static void aout_DecSynchronize(audio_output_t *aout, vlc_tick_t system_now,
+                                vlc_tick_t dec_pts);
 static void aout_DecSilence (audio_output_t *aout, vlc_tick_t length, vlc_tick_t pts)
 {
     aout_owner_t *owner = aout_owner (aout);
     const audio_sample_format_t *fmt = &owner->mixer_format;
-    size_t frames = (fmt->i_rate * length) / CLOCK_FREQ;
+    size_t frames = samples_from_vlc_tick(length, fmt->i_rate);
 
     block_t *block = block_Alloc (frames * fmt->i_bytes_per_frame
                                   / fmt->i_frame_length);
@@ -222,15 +240,17 @@ static void aout_DecSilence (audio_output_t *aout, vlc_tick_t length, vlc_tick_t
     block->i_pts = pts;
     block->i_dts = pts;
     block->i_length = length;
-    aout->play(aout, block, pts);
+
+    const vlc_tick_t system_now = vlc_tick_now();
+    const vlc_tick_t system_pts =
+       vlc_clock_ConvertToSystem(owner->sync.clock, system_now, pts,
+                                 owner->sync.rate);
+    aout->play(aout, block, system_pts);
 }
 
-static void aout_DecSynchronize(audio_output_t *aout, vlc_tick_t dec_pts)
+static void aout_DecSynchronize(audio_output_t *aout, vlc_tick_t system_now,
+                                vlc_tick_t dec_pts)
 {
-    aout_owner_t *owner = aout_owner (aout);
-    const float rate = owner->sync.rate;
-    vlc_tick_t drift;
-
     /**
      * Depending on the drift between the actual and intended playback times,
      * the audio core may ignore the drift, trigger upsampling or downsampling,
@@ -247,9 +267,45 @@ static void aout_DecSynchronize(audio_output_t *aout, vlc_tick_t dec_pts)
      * all samples in the buffer will have been played. Then:
      *    pts = vlc_tick_now() + delay
      */
-    if (aout->time_get(aout, &drift) != 0)
+    aout_owner_t *owner = aout_owner (aout);
+    vlc_tick_t delay;
+
+    if (aout->time_get(aout, &delay) != 0)
         return; /* nothing can be done if timing is unknown */
-    drift += vlc_tick_now () - dec_pts;
+
+    if (owner->sync.discontinuity)
+    {
+        /* Chicken-egg situation for most aout modules that can't be started
+         * deferred (all except PulseAudio). These modules will start to play
+         * data immediately and ignore the given play_date (that take the clock
+         * jitter into account). We don't want to let aout_RequestRetiming()
+         * handle the first silence (from the "Early audio output" case) since
+         * this function will first update the clock without taking the jitter
+         * into account. Therefore, we manually insert silence that correspond
+         * to the clock jitter value before updating the clock.
+         */
+        vlc_tick_t play_date =
+            vlc_clock_ConvertToSystem(owner->sync.clock, system_now + delay,
+                                      dec_pts, owner->sync.rate);
+        vlc_tick_t jitter = play_date - system_now;
+        if (jitter > 0)
+        {
+            aout_DecSilence (aout, jitter, dec_pts - delay);
+            if (aout->time_get(aout, &delay) != 0)
+                return;
+        }
+    }
+
+    aout_RequestRetiming(aout, system_now + delay, dec_pts);
+}
+
+void aout_RequestRetiming(audio_output_t *aout, vlc_tick_t system_ts,
+                          vlc_tick_t audio_ts)
+{
+    aout_owner_t *owner = aout_owner (aout);
+    float rate = owner->sync.rate;
+    vlc_tick_t drift =
+        -vlc_clock_Update(owner->sync.clock, system_ts, audio_ts, rate);
 
     /* Late audio output.
      * This can happen due to insufficient caching, scheduling jitter
@@ -258,7 +314,7 @@ static void aout_DecSynchronize(audio_output_t *aout, vlc_tick_t dec_pts)
      * where supported. The other alternative is to flush the buffers
      * completely. */
     if (drift > (owner->sync.discontinuity ? 0
-                : lroundf(+3 * AOUT_MAX_PTS_DELAY * rate)))
+                : lroundf(+3 * AOUT_MAX_PTS_DELAY / rate)))
     {
         if (!owner->sync.discontinuity)
             msg_Warn (aout, "playback way too late (%"PRId64"): "
@@ -266,27 +322,21 @@ static void aout_DecSynchronize(audio_output_t *aout, vlc_tick_t dec_pts)
         else
             msg_Dbg (aout, "playback too late (%"PRId64"): "
                      "flushing buffers", drift);
-        aout->flush(aout, false);
-
+        aout_DecFlush(aout);
         aout_StopResampling (aout);
-        owner->sync.end = VLC_TICK_INVALID;
-        owner->sync.discontinuity = true;
 
-        /* Now the output might be too early... Recheck. */
-        if (aout->time_get(aout, &drift) != 0)
-            return; /* nothing can be done if timing is unknown */
-        drift += vlc_tick_now () - dec_pts;
+        return; /* nothing can be done if timing is unknown */
     }
 
     /* Early audio output.
      * This is rare except at startup when the buffers are still empty. */
     if (drift < (owner->sync.discontinuity ? 0
-                : lroundf(-3 * AOUT_MAX_PTS_ADVANCE * rate)))
+                : lroundf(-3 * AOUT_MAX_PTS_ADVANCE / rate)))
     {
         if (!owner->sync.discontinuity)
             msg_Warn (aout, "playback way too early (%"PRId64"): "
                       "playing silence", drift);
-        aout_DecSilence (aout, -drift, dec_pts);
+        aout_DecSilence (aout, -drift, audio_ts);
 
         aout_StopResampling (aout);
         owner->sync.discontinuity = true;
@@ -352,15 +402,18 @@ int aout_DecPlay(audio_output_t *aout, block_t *block)
 
     assert (block->i_pts != VLC_TICK_INVALID);
 
-    block->i_length = CLOCK_FREQ * block->i_nb_samples
-                                 / owner->input_format.i_rate;
+    block->i_length = vlc_tick_from_samples( block->i_nb_samples,
+                                   owner->input_format.i_rate );
 
     int ret = aout_CheckReady (aout);
     if (unlikely(ret == AOUT_DEC_FAILED))
         goto drop; /* Pipeline is unrecoverably broken :-( */
 
     if (block->i_flags & BLOCK_FLAG_DISCONTINUITY)
+    {
         owner->sync.discontinuity = true;
+        owner->original_pts = VLC_TICK_INVALID;
+    }
 
     if (atomic_load_explicit(&owner->vp.update, memory_order_relaxed))
     {
@@ -370,26 +423,52 @@ int aout_DecPlay(audio_output_t *aout, block_t *block)
         vlc_mutex_unlock (&owner->vp.lock);
     }
 
+    if (owner->original_pts == VLC_TICK_INVALID)
+    {
+        /* Use the original PTS for synchronization and as a play date of the
+         * aout module. This PTS need to be saved here in order to use the PTS
+         * of the first block that has been filtered. Indeed, aout filters may
+         * need more than one block to output a new one. */
+        owner->original_pts = block->i_pts;
+    }
+
     block = aout_FiltersPlay(owner->filters, block, owner->sync.rate);
     if (block == NULL)
-        goto lost;
+        return ret;
+
+    const vlc_tick_t original_pts = owner->original_pts;
+    owner->original_pts = VLC_TICK_INVALID;
 
     /* Software volume */
     aout_volume_Amplify (owner->volume, block);
 
-    /* Drift correction */
-    aout_DecSynchronize(aout, block->i_pts);
+    /* Update delay */
+    if (owner->sync.request_delay != owner->sync.delay)
+    {
+        owner->sync.delay = owner->sync.request_delay;
+        vlc_tick_t delta = vlc_clock_SetDelay(owner->sync.clock, owner->sync.delay);
+        aout_FiltersSetClockDelay(owner->filters, owner->sync.delay);
+        if (delta > 0)
+            aout_DecSilence (aout, delta, block->i_pts);
+    }
 
+    /* Drift correction */
+    vlc_tick_t system_now = vlc_tick_now();
+    aout_DecSynchronize(aout, system_now, original_pts);
+
+    const vlc_tick_t play_date =
+        vlc_clock_ConvertToSystem(owner->sync.clock, system_now, original_pts,
+                                  owner->sync.rate);
     /* Output */
-    owner->sync.end = block->i_pts + block->i_length + 1;
     owner->sync.discontinuity = false;
-    aout->play(aout, block, block->i_pts);
+    aout->play(aout, block, play_date);
+
     atomic_fetch_add_explicit(&owner->buffers_played, 1, memory_order_relaxed);
     return ret;
 drop:
     owner->sync.discontinuity = true;
+    owner->original_pts = VLC_TICK_INVALID;
     block_Release (block);
-lost:
     atomic_fetch_add_explicit(&owner->buffers_lost, 1, memory_order_relaxed);
     return ret;
 }
@@ -409,16 +488,13 @@ void aout_DecChangePause (audio_output_t *aout, bool paused, vlc_tick_t date)
 {
     aout_owner_t *owner = aout_owner (aout);
 
-    if (owner->sync.end != VLC_TICK_INVALID)
-    {
-        if (paused)
-            owner->sync.end -= date;
-        else
-            owner->sync.end += date;
-    }
-
     if (owner->mixer_format.i_format)
-        aout->pause(aout, paused, date);
+    {
+        if (aout->pause != NULL)
+            aout->pause(aout, paused, date);
+        else if (paused)
+            aout->flush(aout);
+    }
 }
 
 void aout_DecChangeRate(audio_output_t *aout, float rate)
@@ -428,22 +504,59 @@ void aout_DecChangeRate(audio_output_t *aout, float rate)
     owner->sync.rate = rate;
 }
 
-void aout_DecFlush (audio_output_t *aout, bool wait)
+void aout_DecChangeDelay(audio_output_t *aout, vlc_tick_t delay)
+{
+    aout_owner_t *owner = aout_owner(aout);
+
+    owner->sync.request_delay = delay;
+}
+
+void aout_DecFlush(audio_output_t *aout)
 {
     aout_owner_t *owner = aout_owner (aout);
 
-    owner->sync.end = VLC_TICK_INVALID;
     if (owner->mixer_format.i_format)
     {
-        if (wait)
-        {
-            block_t *block = aout_FiltersDrain (owner->filters);
-            if (block)
-                aout->play(aout, block, block->i_pts);
-        }
-        else
-            aout_FiltersFlush (owner->filters);
+        aout_FiltersFlush (owner->filters);
 
-        aout->flush(aout, wait);
+        aout->flush(aout);
+        vlc_clock_Reset(owner->sync.clock);
+        aout_FiltersResetClock(owner->filters);
+
+        if (owner->sync.delay > 0)
+        {
+            /* Also reset the delay in case of a positive delay. This will
+             * trigger a silence playback before the next play. Consequently,
+             * the first play date won't be (delay + dejitter) but only
+             * dejitter. This will allow the aout to update the master clock
+             * sooner.
+             */
+            vlc_clock_SetDelay(owner->sync.clock, 0);
+            aout_FiltersSetClockDelay(owner->filters, 0);
+            owner->sync.request_delay = owner->sync.delay;
+            owner->sync.delay = 0;
+        }
     }
+    owner->sync.discontinuity = true;
+    owner->original_pts = VLC_TICK_INVALID;
+}
+
+void aout_DecDrain(audio_output_t *aout)
+{
+    aout_owner_t *owner = aout_owner (aout);
+
+    if (!owner->mixer_format.i_format)
+        return;
+
+    block_t *block = aout_FiltersDrain (owner->filters);
+    if (block)
+        aout->play(aout, block, vlc_tick_now());
+
+    aout_Drain(aout);
+
+    vlc_clock_Reset(owner->sync.clock);
+    aout_FiltersResetClock(owner->filters);
+
+    owner->sync.discontinuity = true;
+    owner->original_pts = VLC_TICK_INVALID;
 }

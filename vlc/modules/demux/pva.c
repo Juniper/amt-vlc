@@ -2,7 +2,6 @@
  * pva.c: PVA demuxer
  *****************************************************************************
  * Copyright (C) 2004 VLC authors and VideoLAN
- * $Id: cec3189914c46d4d3948cdb208ceb13f74650040 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *
@@ -32,6 +31,8 @@
 #include <vlc_common.h>
 #include <vlc_plugin.h>
 #include <vlc_demux.h>
+
+#include "mpeg/pes.h"
 
 /*****************************************************************************
  * Module descriptor
@@ -233,7 +234,7 @@ static int Demux( demux_t *p_demux )
                 p_frame->p_buffer += i_skip;
                 p_frame->i_buffer -= i_skip;
                 if( i_pts >= 0 )
-                    p_frame->i_pts = VLC_TICK_0 + i_pts * 100 / 9;
+                    p_frame->i_pts = FROM_SCALE(i_pts);
                 block_ChainAppend( &p_sys->p_es, p_frame );
             }
             break;
@@ -319,7 +320,7 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
 
 #if 0
         case DEMUX_GET_TIME:
-            pi64 = va_arg( args, int64_t * );
+            pi64 = va_arg( args, vlc_tick_t * );
             if( p_sys->i_time < 0 )
             {
                 *pi64 = 0;
@@ -330,10 +331,10 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
 
 #if 0
         case DEMUX_GET_LENGTH:
-            pi64 = va_arg( args, int64_t * );
+            pi64 = va_arg( args, vlc_tick_t * );
             if( p_sys->i_mux_rate > 0 )
             {
-                *pi64 = CLOCK_FREQ * ( stream_Size( p_demux->s ) / 50 ) / p_sys->i_mux_rate;
+                *pi64 = vlc_tick_from_samples( stream_Size( p_demux->s ) / 50, p_sys->i_mux_rate);
                 return VLC_SUCCESS;
             }
             *pi64 = 0;
@@ -398,8 +399,8 @@ static void ParsePES( demux_t *p_demux )
     uint8_t     hdr[30];
 
     unsigned    i_skip;
-    vlc_tick_t  i_dts = -1;
-    vlc_tick_t  i_pts = -1;
+    stime_t     i_dts = -1;
+    stime_t     i_pts = -1;
 
     p_sys->p_pes = NULL;
 
@@ -421,19 +422,11 @@ static void ParsePES( demux_t *p_demux )
     i_skip = hdr[8] + 9;
     if( hdr[7]&0x80 )    /* has pts */
     {
-        i_pts = ((vlc_tick_t)(hdr[ 9]&0x0e ) << 29)|
-                 (vlc_tick_t)(hdr[10] << 22)|
-                ((vlc_tick_t)(hdr[11]&0xfe) << 14)|
-                 (vlc_tick_t)(hdr[12] << 7)|
-                 (vlc_tick_t)(hdr[12] >> 1);
+        i_pts = GetPESTimestamp( &hdr[9] );
 
         if( hdr[7]&0x40 )    /* has dts */
         {
-             i_dts = ((vlc_tick_t)(hdr[14]&0x0e ) << 29)|
-                     (vlc_tick_t)(hdr[15] << 22)|
-                    ((vlc_tick_t)(hdr[16]&0xfe) << 14)|
-                     (vlc_tick_t)(hdr[17] << 7)|
-                     (vlc_tick_t)(hdr[18] >> 1);
+             i_dts = GetPESTimestamp( &hdr[14] );
         }
     }
 
@@ -450,12 +443,12 @@ static void ParsePES( demux_t *p_demux )
     p_pes->p_buffer += i_skip;
 
     if( i_dts >= 0 )
-        p_pes->i_dts = VLC_TICK_0 + i_dts * 100 / 9;
+        p_pes->i_dts = FROM_SCALE(i_dts);
     if( i_pts >= 0 )
-        p_pes->i_pts = VLC_TICK_0 + i_pts * 100 / 9;
+        p_pes->i_pts = FROM_SCALE(i_pts);
 
     /* Set PCR */
-    if( p_pes->i_pts > 0 )
+    if( p_pes->i_pts != VLC_TICK_INVALID )
     {
         es_out_SetPCR( p_demux->out, p_pes->i_pts);
         p_sys->b_pcr_audio = true;

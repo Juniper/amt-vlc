@@ -167,7 +167,7 @@ Open( vlc_object_t *p_obj, bool b_change_ratio )
      * up a delay).  */
     if( b_change_ratio )
     {
-        soxr_quality_spec_t q_spec = soxr_quality_spec( SOXR_LQ, SOXR_VR );
+        q_spec = soxr_quality_spec( SOXR_LQ, SOXR_VR );
         p_sys->vr_soxr = soxr_create( 1, f_ratio, i_channels,
                                       &error, &io_spec, &q_spec, NULL );
         if( error )
@@ -239,8 +239,14 @@ SoXR_Resample( filter_t *p_filter, soxr_t soxr, block_t *p_in, size_t i_olen )
     const size_t i_oframesize = p_filter->fmt_out.audio.i_bytes_per_frame;
     const size_t i_ilen = p_in ? p_in->i_nb_samples : 0;
 
-    block_t *p_out = i_ilen >= i_olen ? p_in
-                   : block_Alloc( i_olen * i_oframesize );
+    block_t *p_out;
+    if( i_ilen >= i_olen )
+    {
+        i_olen = i_ilen;
+        p_out = p_in;
+    }
+    else
+        p_out = block_Alloc( i_olen * i_oframesize );
 
     soxr_error_t error = soxr_process( soxr, p_in ? p_in->p_buffer : NULL,
                                        i_ilen, &i_idone, p_out->p_buffer,
@@ -257,7 +263,7 @@ SoXR_Resample( filter_t *p_filter, soxr_t soxr, block_t *p_in, size_t i_olen )
 
     p_out->i_buffer = i_odone * i_oframesize;
     p_out->i_nb_samples = i_odone;
-    p_out->i_length = i_odone * CLOCK_FREQ / p_filter->fmt_out.audio.i_rate;
+    p_out->i_length = vlc_tick_from_samples(i_odone, p_filter->fmt_out.audio.i_rate);
 
     if( p_in )
     {
@@ -336,7 +342,7 @@ Resample( filter_t *p_filter, block_t *p_in )
             assert( !p_out );
             p_out = SoXR_Resample( p_filter, soxr, p_in, i_olen );
             if( !p_out )
-                return NULL;
+                goto error;
         }
 
         if( p_flushed_out )
@@ -348,7 +354,7 @@ Resample( filter_t *p_filter, block_t *p_in )
             block_ChainAppend( &p_flushed_out, p_out );
             p_out = block_ChainGather( p_flushed_out );
             if( !p_out )
-                return NULL;
+                goto error;
             p_out->i_nb_samples = i_nb_samples;
         }
         p_out->i_pts = i_pts;
@@ -365,6 +371,9 @@ Resample( filter_t *p_filter, block_t *p_in )
             p_out->i_pts = i_pts;
         return p_out;
     }
+error:
+    block_Release( p_in );
+    return NULL;
 }
 
 static block_t *

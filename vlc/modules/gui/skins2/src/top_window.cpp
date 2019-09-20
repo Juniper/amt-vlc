@@ -2,7 +2,6 @@
  * top_window.cpp
  *****************************************************************************
  * Copyright (C) 2003 the VideoLAN team
- * $Id: 56eb998ac943e187617c1a185f61a27845e2b5ca $
  *
  * Authors: Cyril Deguet     <asmax@via.ecp.fr>
  *          Olivier Teulière <ipkiss@via.ecp.fr>
@@ -48,7 +47,6 @@
 #include "../utils/ustring.hpp"
 
 #include <vlc_actions.h>
-#include <vlc_input.h>
 #include <vlc_url.h>
 #include <list>
 
@@ -255,15 +253,21 @@ void TopWindow::processEvent( EvtDragDrop &rEvtDragDrop )
     }
     else
     {
-        input_thread_t *pInput = getIntf()->p_sys->p_input;
         bool is_subtitle = false;
         std::list<std::string> files = rEvtDragDrop.getFiles();
-        if( files.size() == 1 && pInput != NULL )
+        // one single media, try it as a subtitle add-on
+        if( files.size() == 1 )
         {
             std::list<std::string>::const_iterator it = files.begin();
-            is_subtitle = !input_AddSlave( pInput, SLAVE_TYPE_SPU,
-                                           it->c_str(), true, true, true );
+            vlc_playlist_Lock( getPL() );
+            vlc_player_t *player = vlc_playlist_GetPlayer( getPL() );
+            is_subtitle =
+                !vlc_player_AddAssociatedMedia( player, SPU_ES, it->c_str(),
+                    true /*select*/, true /* OSD notify*/,
+                    true /*check subtitle extension */ );
+            vlc_playlist_Unlock( getPL() );
         }
+        // try it as a normal media mrl
         if( !is_subtitle )
         {
             std::list<std::string>::const_iterator it = files.begin();

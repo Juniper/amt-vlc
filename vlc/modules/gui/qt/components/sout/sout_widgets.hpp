@@ -2,7 +2,6 @@
  * sout_widgets.hpp : Widgets for stream output destination boxes
  ****************************************************************************
  * Copyright (C) 2009 the VideoLAN team
- * $Id: 9143cdba64a4e601e2ad75a982b2ec71f4ec74bf $
  *
  * Authors: Jean-Baptiste Kempf <jb@videolan.org>
  *
@@ -116,6 +115,32 @@ class UDPDestBox: public VirtualDestBox
     private:
         QLineEdit *UDPEdit;
         QSpinBox *UDPPort;
+};
+
+class SRTDestBox: public VirtualDestBox
+{
+    Q_OBJECT
+    public:
+        SRTDestBox( QWidget *_parent = NULL, const char *mux = NULL );
+        QString getMRL( const QString& ) Q_DECL_OVERRIDE;
+    private:
+        QLineEdit *SRTEdit;
+        QSpinBox *SRTPort;
+        QLineEdit *SAPName;
+        QString mux;
+};
+
+class RISTDestBox: public VirtualDestBox
+{
+    Q_OBJECT
+    public:
+        RISTDestBox( QWidget *_parent = NULL, const char *mux = NULL );
+        QString getMRL( const QString& ) Q_DECL_OVERRIDE;
+    private:
+        QLineEdit *RISTAddress;
+        QSpinBox *RISTPort;
+        QLineEdit *RISTName;
+        QString mux;
 };
 
 class RTPDestBox: public VirtualDestBox

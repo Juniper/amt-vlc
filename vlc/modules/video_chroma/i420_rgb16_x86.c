@@ -2,7 +2,6 @@
  * i420_rgb16_x86.c : YUV to bitmap RGB conversion module for vlc
  *****************************************************************************
  * Copyright (C) 2000 VLC authors and VideoLAN
- * $Id: 37c425cf3dc0f3b8f9ddffdea948f64f12c5423e $
  *
  * Authors: Samuel Hocevar <sam@zoy.org>
  *          Damien Fouilleul <damienf@videolan.org>
@@ -122,7 +121,7 @@ void I420_R5G5B5( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
     uint16_t *  p_pic_start;       /* beginning of the current line for copy */
 
     /* Conversion buffer pointer */
-    uint16_t *  p_buffer_start = (uint16_t*)p_sys->p_buffer;
+    uint16_t *  p_buffer_start;
     uint16_t *  p_buffer;
 
     /* Offset array pointer */
@@ -147,6 +146,13 @@ void I420_R5G5B5( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
                (p_filter->fmt_out.video.i_y_offset + p_filter->fmt_out.video.i_visible_height),
                &b_hscale, &i_vscale, p_offset_start );
 
+    if(b_hscale &&
+       AllocateOrGrow(&p_sys->p_buffer, &p_sys->i_buffer_size,
+                      p_filter->fmt_in.video.i_x_offset +
+                      p_filter->fmt_in.video.i_visible_width,
+                      p_sys->i_bytespp))
+        return;
+    else p_buffer_start = (uint16_t*)p_sys->p_buffer;
 
     /*
      * Perform conversion
@@ -165,6 +171,7 @@ void I420_R5G5B5( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
     */
 
     p_buffer = b_hscale ? p_buffer_start : p_pic;
+
     if( 0 == (15 & (p_src->p[Y_PLANE].i_pitch|
                     p_dest->p->i_pitch|
                     ((intptr_t)p_y)|
@@ -225,7 +232,6 @@ void I420_R5G5B5( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
         for( i_y = 0; i_y < (p_filter->fmt_in.video.i_y_offset + p_filter->fmt_in.video.i_visible_height); i_y++ )
         {
             p_pic_start = p_pic;
-            p_buffer = b_hscale ? p_buffer_start : p_pic;
 
             for ( i_x = (p_filter->fmt_in.video.i_x_offset + p_filter->fmt_in.video.i_visible_width)/16; i_x--; )
             {
@@ -316,7 +322,6 @@ void I420_R5G5B5( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
             p_y += 8;
             p_u += 4;
             p_v += 4;
-            p_buffer += 8;
         }
         SCALE_WIDTH;
         SCALE_HEIGHT( 420, 2 );
@@ -356,7 +361,7 @@ void I420_R5G6B5( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
     uint16_t *  p_pic_start;       /* beginning of the current line for copy */
 
     /* Conversion buffer pointer */
-    uint16_t *  p_buffer_start = (uint16_t*)p_sys->p_buffer;
+    uint16_t *  p_buffer_start;
     uint16_t *  p_buffer;
 
     /* Offset array pointer */
@@ -381,6 +386,13 @@ void I420_R5G6B5( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
                (p_filter->fmt_out.video.i_y_offset + p_filter->fmt_out.video.i_visible_height),
                &b_hscale, &i_vscale, p_offset_start );
 
+    if(b_hscale &&
+       AllocateOrGrow(&p_sys->p_buffer, &p_sys->i_buffer_size,
+                      p_filter->fmt_in.video.i_x_offset +
+                      p_filter->fmt_in.video.i_visible_width,
+                      p_sys->i_bytespp))
+        return;
+    else p_buffer_start = (uint16_t*)p_sys->p_buffer;
 
     /*
      * Perform conversion
@@ -399,6 +411,7 @@ void I420_R5G6B5( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
     */
 
     p_buffer = b_hscale ? p_buffer_start : p_pic;
+
     if( 0 == (15 & (p_src->p[Y_PLANE].i_pitch|
                     p_dest->p->i_pitch|
                     ((intptr_t)p_y)|
@@ -459,7 +472,6 @@ void I420_R5G6B5( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
         for( i_y = 0; i_y < (p_filter->fmt_in.video.i_y_offset + p_filter->fmt_in.video.i_visible_height); i_y++ )
         {
             p_pic_start = p_pic;
-            p_buffer = b_hscale ? p_buffer_start : p_pic;
 
             for ( i_x = (p_filter->fmt_in.video.i_x_offset + p_filter->fmt_in.video.i_visible_width)/16; i_x--; )
             {
@@ -550,7 +562,6 @@ void I420_R5G6B5( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
             p_y += 8;
             p_u += 4;
             p_v += 4;
-            p_buffer += 8;
         }
         SCALE_WIDTH;
         SCALE_HEIGHT( 420, 2 );
@@ -590,7 +601,7 @@ void I420_A8R8G8B8( filter_t *p_filter, picture_t *p_src,
     int         i_chroma_width = (p_filter->fmt_in.video.i_x_offset + p_filter->fmt_in.video.i_visible_width) / 2; /* chroma width */
     uint32_t *  p_pic_start;       /* beginning of the current line for copy */
     /* Conversion buffer pointer */
-    uint32_t *  p_buffer_start = (uint32_t*)p_sys->p_buffer;
+    uint32_t *  p_buffer_start;
     uint32_t *  p_buffer;
 
     /* Offset array pointer */
@@ -615,6 +626,14 @@ void I420_A8R8G8B8( filter_t *p_filter, picture_t *p_src,
                (p_filter->fmt_out.video.i_y_offset + p_filter->fmt_out.video.i_visible_height),
                &b_hscale, &i_vscale, p_offset_start );
 
+    if(b_hscale &&
+       AllocateOrGrow(&p_sys->p_buffer, &p_sys->i_buffer_size,
+                      p_filter->fmt_in.video.i_x_offset +
+                      p_filter->fmt_in.video.i_visible_width,
+                      p_sys->i_bytespp))
+        return;
+    else p_buffer_start = (uint32_t*)p_sys->p_buffer;
+
     /*
      * Perform conversion
      */
@@ -632,6 +651,7 @@ void I420_A8R8G8B8( filter_t *p_filter, picture_t *p_src,
     */
 
     p_buffer = b_hscale ? p_buffer_start : p_pic;
+
     if( 0 == (15 & (p_src->p[Y_PLANE].i_pitch|
                     p_dest->p->i_pitch|
                     ((intptr_t)p_y)|
@@ -671,8 +691,8 @@ void I420_A8R8G8B8( filter_t *p_filter, picture_t *p_src,
                     SSE2_UNPACK_32_ARGB_UNALIGNED
                 );
                 p_y += 16;
-                p_u += 4;
-                p_v += 4;
+                p_u += 8;
+                p_v += 8;
             }
             SCALE_WIDTH;
             SCALE_HEIGHT( 420, 4 );
@@ -692,7 +712,6 @@ void I420_A8R8G8B8( filter_t *p_filter, picture_t *p_src,
         for( i_y = 0; i_y < (p_filter->fmt_in.video.i_y_offset + p_filter->fmt_in.video.i_visible_height); i_y++ )
         {
             p_pic_start = p_pic;
-            p_buffer = b_hscale ? p_buffer_start : p_pic;
 
             for ( i_x = (p_filter->fmt_in.video.i_x_offset + p_filter->fmt_in.video.i_visible_width) / 16; i_x--; )
             {
@@ -782,7 +801,6 @@ void I420_A8R8G8B8( filter_t *p_filter, picture_t *p_src,
             p_y += 8;
             p_u += 4;
             p_v += 4;
-            p_buffer += 8;
         }
         SCALE_WIDTH;
         SCALE_HEIGHT( 420, 4 );
@@ -822,7 +840,7 @@ void I420_R8G8B8A8( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
     int         i_chroma_width = (p_filter->fmt_in.video.i_x_offset + p_filter->fmt_in.video.i_visible_width) / 2; /* chroma width */
     uint32_t *  p_pic_start;       /* beginning of the current line for copy */
     /* Conversion buffer pointer */
-    uint32_t *  p_buffer_start = (uint32_t*)p_sys->p_buffer;
+    uint32_t *  p_buffer_start;
     uint32_t *  p_buffer;
 
     /* Offset array pointer */
@@ -847,6 +865,14 @@ void I420_R8G8B8A8( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
                (p_filter->fmt_out.video.i_y_offset + p_filter->fmt_out.video.i_visible_height),
                &b_hscale, &i_vscale, p_offset_start );
 
+    if(b_hscale &&
+       AllocateOrGrow(&p_sys->p_buffer, &p_sys->i_buffer_size,
+                      p_filter->fmt_in.video.i_x_offset +
+                      p_filter->fmt_in.video.i_visible_width,
+                      p_sys->i_bytespp))
+        return;
+    else p_buffer_start = (uint32_t*)p_sys->p_buffer;
+
     /*
      * Perform conversion
      */
@@ -864,6 +890,7 @@ void I420_R8G8B8A8( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
     */
 
     p_buffer = b_hscale ? p_buffer_start : p_pic;
+
     if( 0 == (15 & (p_src->p[Y_PLANE].i_pitch|
                     p_dest->p->i_pitch|
                     ((intptr_t)p_y)|
@@ -903,8 +930,8 @@ void I420_R8G8B8A8( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
                     SSE2_UNPACK_32_RGBA_UNALIGNED
                 );
                 p_y += 16;
-                p_u += 4;
-                p_v += 4;
+                p_u += 8;
+                p_v += 8;
             }
             SCALE_WIDTH;
             SCALE_HEIGHT( 420, 4 );
@@ -924,7 +951,6 @@ void I420_R8G8B8A8( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
         for( i_y = 0; i_y < (p_filter->fmt_in.video.i_y_offset + p_filter->fmt_in.video.i_visible_height); i_y++ )
         {
             p_pic_start = p_pic;
-            p_buffer = b_hscale ? p_buffer_start : p_pic;
 
             for ( i_x = (p_filter->fmt_in.video.i_x_offset + p_filter->fmt_in.video.i_visible_width) / 16; i_x--; )
             {
@@ -1014,7 +1040,6 @@ void I420_R8G8B8A8( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
             p_y += 8;
             p_u += 4;
             p_v += 4;
-            p_buffer += 8;
         }
         SCALE_WIDTH;
         SCALE_HEIGHT( 420, 4 );
@@ -1054,7 +1079,7 @@ void I420_B8G8R8A8( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
     int         i_chroma_width = (p_filter->fmt_in.video.i_x_offset + p_filter->fmt_in.video.i_visible_width) / 2; /* chroma width */
     uint32_t *  p_pic_start;       /* beginning of the current line for copy */
     /* Conversion buffer pointer */
-    uint32_t *  p_buffer_start = (uint32_t*)p_sys->p_buffer;
+    uint32_t *  p_buffer_start;
     uint32_t *  p_buffer;
 
     /* Offset array pointer */
@@ -1079,6 +1104,14 @@ void I420_B8G8R8A8( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
                (p_filter->fmt_out.video.i_y_offset + p_filter->fmt_out.video.i_visible_height),
                &b_hscale, &i_vscale, p_offset_start );
 
+    if(b_hscale &&
+       AllocateOrGrow(&p_sys->p_buffer, &p_sys->i_buffer_size,
+                      p_filter->fmt_in.video.i_x_offset +
+                      p_filter->fmt_in.video.i_visible_width,
+                      p_sys->i_bytespp))
+        return;
+    else p_buffer_start = (uint32_t*)p_sys->p_buffer;
+
     /*
      * Perform conversion
      */
@@ -1096,6 +1129,7 @@ void I420_B8G8R8A8( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
     */
 
     p_buffer = b_hscale ? p_buffer_start : p_pic;
+
     if( 0 == (15 & (p_src->p[Y_PLANE].i_pitch|
                     p_dest->p->i_pitch|
                     ((intptr_t)p_y)|
@@ -1135,8 +1169,8 @@ void I420_B8G8R8A8( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
                     SSE2_UNPACK_32_BGRA_UNALIGNED
                 );
                 p_y += 16;
-                p_u += 4;
-                p_v += 4;
+                p_u += 8;
+                p_v += 8;
             }
             SCALE_WIDTH;
             SCALE_HEIGHT( 420, 4 );
@@ -1156,7 +1190,6 @@ void I420_B8G8R8A8( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
         for( i_y = 0; i_y < (p_filter->fmt_in.video.i_y_offset + p_filter->fmt_in.video.i_visible_height); i_y++ )
         {
             p_pic_start = p_pic;
-            p_buffer = b_hscale ? p_buffer_start : p_pic;
 
             for ( i_x = (p_filter->fmt_in.video.i_x_offset + p_filter->fmt_in.video.i_visible_width) / 16; i_x--; )
             {
@@ -1203,6 +1236,9 @@ void I420_B8G8R8A8( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
         }
     }
 
+    /* make sure all SSE2 stores are visible thereafter */
+    SSE2_END;
+
 #else
 
     i_rewind = (-(p_filter->fmt_in.video.i_x_offset + p_filter->fmt_in.video.i_visible_width)) & 7;
@@ -1243,7 +1279,6 @@ void I420_B8G8R8A8( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
             p_y += 8;
             p_u += 4;
             p_v += 4;
-            p_buffer += 8;
         }
         SCALE_WIDTH;
         SCALE_HEIGHT( 420, 4 );
@@ -1283,7 +1318,7 @@ void I420_A8B8G8R8( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
     int         i_chroma_width = (p_filter->fmt_in.video.i_x_offset + p_filter->fmt_in.video.i_visible_width) / 2; /* chroma width */
     uint32_t *  p_pic_start;       /* beginning of the current line for copy */
     /* Conversion buffer pointer */
-    uint32_t *  p_buffer_start = (uint32_t*)p_sys->p_buffer;
+    uint32_t *  p_buffer_start;
     uint32_t *  p_buffer;
 
     /* Offset array pointer */
@@ -1308,6 +1343,14 @@ void I420_A8B8G8R8( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
                (p_filter->fmt_out.video.i_y_offset + p_filter->fmt_out.video.i_visible_height),
                &b_hscale, &i_vscale, p_offset_start );
 
+    if(b_hscale &&
+       AllocateOrGrow(&p_sys->p_buffer, &p_sys->i_buffer_size,
+                      p_filter->fmt_in.video.i_x_offset +
+                      p_filter->fmt_in.video.i_visible_width,
+                      p_sys->i_bytespp))
+        return;
+    else p_buffer_start = (uint32_t*)p_sys->p_buffer;
+
     /*
      * Perform conversion
      */
@@ -1325,6 +1368,7 @@ void I420_A8B8G8R8( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
     */
 
     p_buffer = b_hscale ? p_buffer_start : p_pic;
+
     if( 0 == (15 & (p_src->p[Y_PLANE].i_pitch|
                     p_dest->p->i_pitch|
                     ((intptr_t)p_y)|
@@ -1364,8 +1408,8 @@ void I420_A8B8G8R8( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
                     SSE2_UNPACK_32_ABGR_UNALIGNED
                 );
                 p_y += 16;
-                p_u += 4;
-                p_v += 4;
+                p_u += 8;
+                p_v += 8;
             }
             SCALE_WIDTH;
             SCALE_HEIGHT( 420, 4 );
@@ -1385,7 +1429,6 @@ void I420_A8B8G8R8( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
         for( i_y = 0; i_y < (p_filter->fmt_in.video.i_y_offset + p_filter->fmt_in.video.i_visible_height); i_y++ )
         {
             p_pic_start = p_pic;
-            p_buffer = b_hscale ? p_buffer_start : p_pic;
 
             for ( i_x = (p_filter->fmt_in.video.i_x_offset + p_filter->fmt_in.video.i_visible_width) / 16; i_x--; )
             {
@@ -1431,6 +1474,9 @@ void I420_A8B8G8R8( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
             p_buffer = b_hscale ? p_buffer_start : p_pic;
         }
     }
+
+    /* make sure all SSE2 stores are visible thereafter */
+    SSE2_END;
 
 #else
 
@@ -1472,7 +1518,6 @@ void I420_A8B8G8R8( filter_t *p_filter, picture_t *p_src, picture_t *p_dest )
             p_y += 8;
             p_u += 4;
             p_v += 4;
-            p_buffer += 8;
         }
         SCALE_WIDTH;
         SCALE_HEIGHT( 420, 4 );

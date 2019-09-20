@@ -2,7 +2,6 @@
  * simple_preferences.hpp : Simple prefs
  ****************************************************************************
  * Copyright (C) 2006 the VideoLAN team
- * $Id: 856b88ba9714b565427b4849ea2670d2ce56e51b $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *
@@ -31,11 +30,17 @@
 #include <vlc_common.h>
 #include <vlc_interface.h>
 
-#include "ui/sprefs_input.h"
-#include "ui/sprefs_audio.h"
-#include "ui/sprefs_video.h"
-#include "ui/sprefs_subtitles.h"
-#include "ui/sprefs_interface.h"
+#include "ui_sprefs_input.h"
+#include "ui_sprefs_audio.h"
+#include "ui_sprefs_video.h"
+#include "ui_sprefs_subtitles.h"
+#include "ui_sprefs_interface.h"
+
+#include <vlc_media_library.h>
+#include <QDialogButtonBox>
+#include <QTableView>
+#include <QFileDialog>
+#include "components/mediacenter/ml_folders_model.hpp"
 
 #ifdef _WIN32
 # include "util/registry.hpp"
@@ -108,6 +113,9 @@ private:
 
     char *lang;
 
+    MlFoldersModel *mlModel;
+    QTableView * mlTableView;
+
 #ifdef _WIN32
     QList<QTreeWidgetItem *> listAsso;
     bool addType( const char * psz_ext, QTreeWidgetItem*, QTreeWidgetItem*, QVLCRegistry* );
@@ -117,7 +125,6 @@ private:
 /* Display only the options for the selected audio output */
 private slots:
     void lastfm_Changed( int );
-    void updateVideoOptions( int );
     void updateAudioOptions( int );
     void updateAudioVolume( int );
     void langChanged( int );
@@ -126,6 +133,10 @@ private slots:
     void updateCheckBoxes( QTreeWidgetItem*, int );
     void saveAsso();
 #endif
+    void MLaddNewEntryPoint( );
+    QWidget * MLgenerateWidget( QModelIndex index , MlFoldersModel *mlf , QWidget *parent );
+    void MLdrawControls( );
+
     void configML();
     void changeStyle( QString );
 };

@@ -2,7 +2,6 @@
  * dxa9.c : DXVA2 GPU surface conversion module for vlc
  *****************************************************************************
  * Copyright (C) 2015 VLC authors, VideoLAN and VideoLabs
- * $Id: 26c955ebfb4f0b44b1128b55d61aa2bd4df3ab1f $
  *
  * Authors: Steve Lhomme <robux4@gmail.com>
  *
@@ -42,6 +41,9 @@
 #include <d3d9.h>
 #include "../../video_chroma/d3d9_fmt.h"
 
+typedef picture_sys_d3d9_t VA_PICSYS;
+#include "../../codec/avcodec/va_surface.h"
+
 typedef struct
 {
     /* GPU to CPU */
@@ -54,7 +56,7 @@ typedef struct
     picture_t         *staging;
 } filter_sys_t;
 
-static bool GetLock(filter_t *p_filter, LPDIRECT3DSURFACE9 d3d,
+static bool GetLock(filter_t *p_filter, IDirect3DSurface9 *d3d,
                     D3DLOCKED_RECT *p_lock, D3DSURFACE_DESC *p_desc)
 {
     if (unlikely(FAILED( IDirect3DSurface9_GetDesc(d3d, p_desc))))
@@ -72,7 +74,7 @@ static bool GetLock(filter_t *p_filter, LPDIRECT3DSURFACE9 d3d,
 static void DXA9_YV12(filter_t *p_filter, picture_t *src, picture_t *dst)
 {
     copy_cache_t *p_copy_cache = (copy_cache_t*) p_filter->p_sys;
-    picture_sys_t *p_sys = &((struct va_pic_context *)src->context)->picsys;
+    picture_sys_d3d9_t *p_sys = &((struct va_pic_context *)src->context)->picsys;
 
     D3DSURFACE_DESC desc;
     D3DLOCKED_RECT lock;
@@ -142,7 +144,7 @@ static void DXA9_YV12(filter_t *p_filter, picture_t *src, picture_t *dst)
 static void DXA9_NV12(filter_t *p_filter, picture_t *src, picture_t *dst)
 {
     copy_cache_t *p_copy_cache = (copy_cache_t*) p_filter->p_sys;
-    picture_sys_t *p_sys = &((struct va_pic_context *)src->context)->picsys;
+    picture_sys_d3d9_t *p_sys = &((struct va_pic_context *)src->context)->picsys;
 
     D3DSURFACE_DESC desc;
     D3DLOCKED_RECT lock;
@@ -172,10 +174,9 @@ static void DXA9_NV12(filter_t *p_filter, picture_t *src, picture_t *dst)
 
 static void DestroyPicture(picture_t *picture)
 {
-    picture_sys_t *p_sys = picture->p_sys;
-    ReleasePictureSys( p_sys );
+    picture_sys_d3d9_t *p_sys = picture->p_sys;
+    ReleaseD3D9PictureSys( p_sys );
     free(p_sys);
-    free(picture);
 }
 
 static void DeleteFilter( filter_t * p_filter )
@@ -186,7 +187,7 @@ static void DeleteFilter( filter_t * p_filter )
     es_format_Clean( &p_filter->fmt_in );
     es_format_Clean( &p_filter->fmt_out );
 
-    vlc_object_release( p_filter );
+    vlc_object_delete(p_filter);
 }
 
 static picture_t *NewBuffer(filter_t *p_filter)
@@ -233,7 +234,7 @@ struct d3d_pic_context
 static void d3d9_pic_context_destroy(struct picture_context_t *ctx)
 {
     struct va_pic_context *pic_ctx = (struct va_pic_context*)ctx;
-    ReleasePictureSys(&pic_ctx->picsys);
+    ReleaseD3D9PictureSys(&pic_ctx->picsys);
     free(pic_ctx);
 }
 
@@ -246,15 +247,15 @@ static struct picture_context_t *d3d9_pic_context_copy(struct picture_context_t 
     pic_ctx->s.destroy = d3d9_pic_context_destroy;
     pic_ctx->s.copy    = d3d9_pic_context_copy;
     pic_ctx->picsys = src_ctx->picsys;
-    AcquirePictureSys(&pic_ctx->picsys);
+    AcquireD3D9PictureSys(&pic_ctx->picsys);
     return &pic_ctx->s;
 }
 
 static void YV12_D3D9(filter_t *p_filter, picture_t *src, picture_t *dst)
 {
     filter_sys_t *sys = p_filter->p_sys;
-    picture_sys_t *p_sys = dst->p_sys;
-    picture_sys_t *p_staging_sys = sys->staging->p_sys;
+    picture_sys_d3d9_t *p_sys = dst->p_sys;
+    picture_sys_d3d9_t *p_staging_sys = sys->staging->p_sys;
 
     D3DSURFACE_DESC texDesc;
     IDirect3DSurface9_GetDesc( p_sys->surface, &texDesc);
@@ -288,7 +289,7 @@ static void YV12_D3D9(filter_t *p_filter, picture_t *src, picture_t *dst)
             pic_ctx->s.destroy = d3d9_pic_context_destroy;
             pic_ctx->s.copy    = d3d9_pic_context_copy;
             pic_ctx->picsys = *p_sys;
-            AcquirePictureSys(&pic_ctx->picsys);
+            AcquireD3D9PictureSys(&pic_ctx->picsys);
             dst->context = &pic_ctx->s;
         }
     }
@@ -364,7 +365,7 @@ int D3D9OpenCPUConverter( vlc_object_t *obj )
 {
     filter_t *p_filter = (filter_t *)obj;
     int err = VLC_EGENERIC;
-    LPDIRECT3DSURFACE9 texture = NULL;
+    IDirect3DSurface9 *texture = NULL;
     filter_t *p_cpu_filter = NULL;
     picture_t *p_dst = NULL;
     video_format_t fmt_staging;
@@ -411,9 +412,10 @@ int D3D9OpenCPUConverter( vlc_object_t *obj )
 
     if ( p_filter->fmt_in.video.i_chroma != texDesc.Format )
     {
-        picture_resource_t res;
-        res.pf_destroy = DestroyPicture;
-        picture_sys_t *res_sys = calloc(1, sizeof(picture_sys_t));
+        picture_resource_t res = {
+            .pf_destroy = DestroyPicture,
+        };
+        picture_sys_d3d9_t *res_sys = calloc(1, sizeof(picture_sys_d3d9_t));
         if (res_sys == NULL) {
             err = VLC_ENOMEM;
             goto done;
@@ -440,7 +442,7 @@ int D3D9OpenCPUConverter( vlc_object_t *obj )
                                                           &texture,
                                                           NULL);
         if (FAILED(hr)) {
-            msg_Err(p_filter, "Failed to create a %4.4s staging texture to extract surface pixels (hr=0x%0lx)", (char *)texDesc.Format, hr );
+            msg_Err(p_filter, "Failed to create a %4.4s staging texture to extract surface pixels (hr=0x%lX)", (char *)texDesc.Format, hr );
             goto done;
         }
         res_sys->surface = texture;

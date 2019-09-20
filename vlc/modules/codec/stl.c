@@ -2,7 +2,6 @@
  * stl.c: EBU STL decoder
  *****************************************************************************
  * Copyright (C) 2010 Laurent Aimar
- * $Id: 1c27a7130bbdc6a5dfd90d95ab15f0eedc40ee39 $
  *
  * Authors: Laurent Aimar <fenrir _AT_ videolan _DOT_ org>
  *
@@ -87,8 +86,8 @@ typedef struct
 {
     uint8_t i_accumulating;
     uint8_t i_justify;
-    int64_t i_start;
-    int64_t i_end;
+    vlc_tick_t i_start;
+    vlc_tick_t i_end;
     text_style_t *p_style;
     text_segment_t *p_segment;
     text_segment_t **pp_segment_last;
@@ -246,9 +245,9 @@ static void GroupApplyStyle(stl_sg_t *p_group, uint8_t code)
     }
 }
 
-static int64_t ParseTimeCode(const uint8_t *data, double fps)
+static vlc_tick_t ParseTimeCode(const uint8_t *data, double fps)
 {
-    return CLOCK_FREQ * (data[0] * 3600 +
+    return vlc_tick_from_sec( data[0] * 3600 +
                          data[1] *   60 +
                          data[2] *    1 +
                          data[3] /  fps);
@@ -371,8 +370,8 @@ static void ResetGroups(decoder_sys_t *p_sys)
         }
 
         p_group->i_accumulating = false;
-        p_group->i_end = 0;
-        p_group->i_start = 0;
+        p_group->i_end = VLC_TICK_INVALID;
+        p_group->i_start = VLC_TICK_INVALID;
         p_group->i_justify = 0;
     }
 }
@@ -413,7 +412,7 @@ static int Decode(decoder_t *p_dec, block_t *p_block)
 
                 p_sub->b_absolute = false;
 
-                if(p_group->i_end && p_group->i_start >= p_block->i_dts)
+                if(p_group->i_end != VLC_TICK_INVALID && p_group->i_start >= p_block->i_dts)
                 {
                     p_sub->i_start = VLC_TICK_0 + p_group->i_start;
                     p_sub->i_stop =  VLC_TICK_0 + p_group->i_end;
@@ -422,7 +421,7 @@ static int Decode(decoder_t *p_dec, block_t *p_block)
                 {
                     p_sub->i_start    = p_block->i_pts;
                     p_sub->i_stop     = p_block->i_pts + p_block->i_length;
-                    p_sub->b_ephemer  = (p_block->i_length == 0);
+                    p_sub->b_ephemer  = (p_block->i_length == VLC_TICK_INVALID);
                 }
                 decoder_QueueSub(p_dec, p_sub);
             }
@@ -435,7 +434,7 @@ static int Decode(decoder_t *p_dec, block_t *p_block)
     return VLCDEC_SUCCESS;
 }
 
-static int ParseGSI(const decoder_t *dec, decoder_sys_t *p_sys)
+static int ParseGSI(decoder_t *dec, decoder_sys_t *p_sys)
 {
     uint8_t *header = dec->fmt_in.p_extra;
     if (!header) {

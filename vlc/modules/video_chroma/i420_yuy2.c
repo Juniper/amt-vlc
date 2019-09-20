@@ -2,7 +2,6 @@
  * i420_yuy2.c : YUV to YUV conversion module for vlc
  *****************************************************************************
  * Copyright (C) 2000, 2001 VLC authors and VideoLAN
- * $Id: b1a0359fc9b237cd1ce7d6ba87e155396348afdd $
  *
  * Authors: Samuel Hocevar <sam@zoy.org>
  *          Damien Fouilleul <damien@videolan.org>
@@ -100,7 +99,7 @@ vlc_module_begin ()
     set_capability( "video converter", 250 )
 # define vlc_CPU_capable() vlc_CPU_ALTIVEC()
 #endif
-    set_callbacks( Activate, NULL )
+    set_callback( Activate )
 vlc_module_end ()
 
 /*****************************************************************************
@@ -304,20 +303,17 @@ static void I420_YUY2( filter_t *p_filter, picture_t *p_source,
         p_y1 = p_y2;
         p_y2 += p_source->p[Y_PLANE].i_pitch;
 
-#if !defined (MODULE_NAME_IS_i420_yuy2_mmx)
         for( i_x = (p_filter->fmt_in.video.i_x_offset + p_filter->fmt_in.video.i_visible_width) / 8; i_x-- ; )
         {
+#if !defined (MODULE_NAME_IS_i420_yuy2_mmx)
             C_YUV420_YUYV( );
             C_YUV420_YUYV( );
             C_YUV420_YUYV( );
             C_YUV420_YUYV( );
-        }
 #else
-        for( i_x = (p_filter->fmt_in.video.i_x_offset + p_filter->fmt_in.video.i_visible_width) / 8 ; i_x-- ; )
-        {
             MMX_CALL( MMX_YUV420_YUYV );
-        }
 #endif
+        }
         for( i_x = ( (p_filter->fmt_in.video.i_x_offset + p_filter->fmt_in.video.i_visible_width) % 8 ) / 2; i_x-- ; )
         {
             C_YUV420_YUYV( );
@@ -532,11 +528,9 @@ static void I420_YVYU( filter_t *p_filter, picture_t *p_source,
             C_YUV420_YVYU( );
         }
 
-        p_y1 += i_source_margin;
         p_y2 += i_source_margin;
         p_u += i_source_margin_c;
         p_v += i_source_margin_c;
-        p_line1 += i_dest_margin;
         p_line2 += i_dest_margin;
     }
 
@@ -575,11 +569,9 @@ static void I420_YVYU( filter_t *p_filter, picture_t *p_source,
                 C_YUV420_YVYU( );
             }
 
-            p_y1 += i_source_margin;
             p_y2 += i_source_margin;
             p_u += i_source_margin_c;
             p_v += i_source_margin_c;
-            p_line1 += i_dest_margin;
             p_line2 += i_dest_margin;
         }
     }
@@ -603,11 +595,9 @@ static void I420_YVYU( filter_t *p_filter, picture_t *p_source,
                 C_YUV420_YVYU( );
             }
 
-            p_y1 += i_source_margin;
             p_y2 += i_source_margin;
             p_u += i_source_margin_c;
             p_v += i_source_margin_c;
-            p_line1 += i_dest_margin;
             p_line2 += i_dest_margin;
         }
     }
@@ -745,11 +735,9 @@ static void I420_UYVY( filter_t *p_filter, picture_t *p_source,
             C_YUV420_UYVY( );
         }
 
-        p_y1 += i_source_margin;
         p_y2 += i_source_margin;
         p_u += i_source_margin_c;
         p_v += i_source_margin_c;
-        p_line1 += i_dest_margin;
         p_line2 += i_dest_margin;
     }
 
@@ -788,11 +776,9 @@ static void I420_UYVY( filter_t *p_filter, picture_t *p_source,
                 C_YUV420_UYVY( );
             }
 
-            p_y1 += i_source_margin;
             p_y2 += i_source_margin;
             p_u += i_source_margin_c;
             p_v += i_source_margin_c;
-            p_line1 += i_dest_margin;
             p_line2 += i_dest_margin;
         }
     }
@@ -816,11 +802,9 @@ static void I420_UYVY( filter_t *p_filter, picture_t *p_source,
                 C_YUV420_UYVY( );
             }
 
-            p_y1 += i_source_margin;
             p_y2 += i_source_margin;
             p_u += i_source_margin_c;
             p_v += i_source_margin_c;
-            p_line1 += i_dest_margin;
             p_line2 += i_dest_margin;
         }
     }
@@ -880,11 +864,9 @@ static void I420_Y211( filter_t *p_filter, picture_t *p_source,
             C_YUV420_Y211( );
         }
 
-        p_y1 += i_source_margin;
         p_y2 += i_source_margin;
         p_u += i_source_margin_c;
         p_v += i_source_margin_c;
-        p_line1 += i_dest_margin;
         p_line2 += i_dest_margin;
     }
 }

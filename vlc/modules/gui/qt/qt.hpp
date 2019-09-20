@@ -2,7 +2,6 @@
  * qt.hpp : Qt interface
  ****************************************************************************
  * Copyright (C) 2006-2009 the VideoLAN team
- * $Id: 85211a8f2709c5aac7bd7d6b0c39db489773717c $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *          Jean-Baptiste Kempf <jb@videolan.org>
@@ -31,7 +30,8 @@
 
 #include <vlc_common.h>
 #include <vlc_interface.h> /* intf_thread_t */
-#include <vlc_playlist.h>  /* playlist_t */
+#include <vlc_playlist.h>  /* vlc_playlist_t */
+#include <vlc_player.h>  /* vlc_player_t */
 
 #include <qconfig.h>
 
@@ -51,10 +51,8 @@
 #define HAS_QT510 ( QT_VERSION >= 0x051000 )
 
 enum {
-    DialogEventTypeOffset = 0,
-    IMEventTypeOffset     = 100,
-    PLEventTypeOffset     = 200,
-    MsgEventTypeOffset    = 300,
+    IMEventTypeOffset     = 0,
+    MsgEventTypeOffset    = 100
 };
 
 enum{
@@ -63,6 +61,12 @@ enum{
     NOTIFICATION_ALWAYS = 2,
 };
 
+namespace vlc {
+namespace playlist {
+class PlaylistControllerModel;
+}
+}
+class PlayerController;
 struct intf_sys_t
 {
     vlc_thread_t thread;
@@ -70,46 +74,47 @@ struct intf_sys_t
     class QVLCApp *p_app;          /* Main Qt Application */
     class MainInterface *p_mi;     /* Main Interface, NULL if DialogProvider Mode */
     class QSettings *mainSettings; /* Qt State settings not messing main VLC ones */
-    class PLModel *pl_model;
 
     QUrl filepath;        /* Last path used in dialogs */
 
     unsigned voutWindowType; /* Type of vout_window_t provided */
     bool b_isDialogProvider; /* Qt mode or Skins mode */
-    playlist_t *p_playlist;  /* playlist */
+
+    vlc_playlist_t *p_playlist;  /* playlist */
+    vlc_player_t *p_player; /* player */
+    vlc::playlist::PlaylistControllerModel* p_mainPlaylistController;
+    PlayerController* p_mainPlayerController;
+
 #ifdef _WIN32
     bool disable_volume_keys;
 #endif
 };
 
-#define THEPL p_intf->p_sys->p_playlist
-
 /**
  * This class may be used for scope-bound locking/unlocking
- * of a playlist_t*. As hinted, the playlist is locked when
+ * of a player_t*. As hinted, the player is locked when
  * the object is created, and unlocked when the object is
  * destroyed.
  */
-
-struct vlc_playlist_locker {
-    vlc_playlist_locker( playlist_t* p_playlist )
-        : p_playlist( p_playlist )
+struct vlc_player_locker {
+    vlc_player_locker( vlc_player_t* p_player )
+        : p_player( p_player )
     {
-        playlist_Lock( p_playlist );
+        vlc_player_Lock( p_player );
     }
 
-    ~vlc_playlist_locker()
+    ~vlc_player_locker()
     {
-        playlist_Unlock( p_playlist );
+        vlc_player_Unlock( p_player );
     }
 
     private:
-        playlist_t* p_playlist;
+        vlc_player_t* p_player;
 };
 
 #define THEDP DialogsProvider::getInstance()
-#define THEMIM MainInputManager::getInstance( p_intf )
-#define THEAM ActionsManager::getInstance( p_intf )
+#define THEMIM p_intf->p_sys->p_mainPlayerController
+#define THEMPL p_intf->p_sys->p_mainPlaylistController
 
 #define qfu( i ) QString::fromUtf8( i )
 #define qfue( i ) QString::fromUtf8( i ).replace( "&", "&&" ) /* for actions/buttons */

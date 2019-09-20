@@ -2,7 +2,6 @@
  * dummy.c: dummy stream output module
  *****************************************************************************
  * Copyright (C) 2003-2004 VLC authors and VideoLAN
- * $Id: 24886f60d97cf351abc0e46c352e287afc2fa476 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *
@@ -50,7 +49,7 @@ vlc_module_begin ()
     set_description( N_("Dummy stream output") )
     set_capability( "sout stream", 50 )
     add_shortcut( "dummy", "drop" )
-    set_callbacks( Open, NULL )
+    set_callback( Open )
 vlc_module_end ()
 
 /*****************************************************************************

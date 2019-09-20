@@ -34,14 +34,17 @@
 #include "conn.h"
 #include "message.h"
 
+const char vlc_module_name[] = "test_h1chunked";
+
 /* I/O callbacks */
 static const char *stream_content;
 static size_t stream_length;
 static bool stream_bad;
 
-static int fd_callback(struct vlc_tls *tls)
+static int fd_callback(struct vlc_tls *tls, short *restrict events)
 {
     (void) tls;
+    (void) events;
     return -1;
 }
 
@@ -76,11 +79,16 @@ static void close_callback(struct vlc_tls *tls)
     (void) tls;
 }
 
-static struct vlc_tls chunked_tls =
+static const struct vlc_tls_operations chunked_ops =
 {
     .get_fd = fd_callback,
     .readv = recv_callback,
     .close = close_callback,
+};
+
+static struct vlc_tls chunked_tls =
+{
+    .ops = &chunked_ops,
 };
 
 static void stream_close_callback(struct vlc_http_stream *stream, bool bad)
