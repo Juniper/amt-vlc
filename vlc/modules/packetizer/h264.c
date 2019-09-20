@@ -2,7 +2,6 @@
  * h264.c: h264/avc video packetizer
  *****************************************************************************
  * Copyright (C) 2001, 2002, 2006 VLC authors and VideoLAN
- * $Id: 686659f03a26ee8b1785fc9e376577fa80acef12 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Eric Petit <titer@videolan.org>
@@ -227,10 +226,12 @@ static void ActivateSets( decoder_t *p_dec, const h264_sequence_parameter_set_t 
                 }
             }
             if( p_dec->fmt_in.video.primaries == COLOR_PRIMARIES_UNDEF )
+            {
                 h264_get_colorimetry( p_sps, &p_dec->fmt_out.video.primaries,
                                       &p_dec->fmt_out.video.transfer,
                                       &p_dec->fmt_out.video.space,
-                                      &p_dec->fmt_out.video.b_color_range_full );
+                                      &p_dec->fmt_out.video.color_range );
+            }
         }
 
         if( p_dec->fmt_out.i_extra == 0 && p_pps )
@@ -539,24 +540,24 @@ static void ResetOutputVariables( decoder_sys_t *p_sys )
     p_sys->i_recovery_frame_cnt = UINT_MAX;
 }
 
-static void PacketizeReset( void *p_private, bool b_broken )
+static void PacketizeReset( void *p_private, bool b_flush )
 {
     decoder_t *p_dec = p_private;
     decoder_sys_t *p_sys = p_dec->p_sys;
 
-    if( b_broken || !p_sys->b_slice )
+    if( b_flush || !p_sys->b_slice )
     {
         DropStoredNAL( p_sys );
         ResetOutputVariables( p_sys );
         p_sys->p_active_pps = NULL;
         p_sys->p_active_sps = NULL;
+        p_sys->b_recovered = false;
+        p_sys->i_recoveryfnum = UINT_MAX;
         /* POC */
         h264_poc_context_init( &p_sys->pocctx );
         p_sys->prevdatedpoc.pts = VLC_TICK_INVALID;
     }
     p_sys->i_next_block_flags = BLOCK_FLAG_DISCONTINUITY;
-    p_sys->b_recovered = false;
-    p_sys->i_recoveryfnum = UINT_MAX;
     date_Set( &p_sys->dts, VLC_TICK_INVALID );
 }
 static block_t *PacketizeParse( void *p_private, bool *pb_ts_used, block_t *p_block )
@@ -588,6 +589,8 @@ static block_t *ParseNALBlock( decoder_t *p_dec, bool *pb_ts_used, block_t *p_fr
     const int i_nal_type = p_frag->p_buffer[4]&0x1f;
     const vlc_tick_t i_frag_dts = p_frag->i_dts;
     const vlc_tick_t i_frag_pts = p_frag->i_pts;
+    bool b_au_end = p_frag->i_flags & BLOCK_FLAG_AU_END;
+    p_frag->i_flags &= ~BLOCK_FLAG_AU_END;
 
     if( p_sys->b_slice && (!p_sys->p_active_pps || !p_sys->p_active_sps) )
     {
@@ -740,6 +743,11 @@ static block_t *ParseNALBlock( decoder_t *p_dec, bool *pb_ts_used, block_t *p_fr
             date_Set( &p_sys->dts, i_frag_dts );
     }
 
+    if( p_sys->b_slice && b_au_end && !p_pic )
+    {
+        p_pic = OutputPicture( p_dec );
+    }
+
     if( p_pic && (p_pic->i_flags & BLOCK_FLAG_DROP) )
     {
         block_Release( p_pic );
@@ -841,10 +849,11 @@ static block_t *OutputPicture( decoder_t *p_dec )
     }
 
     /* Now rebuild NAL Sequence, inserting PPS/SPS if any */
-    if( p_sys->frame.p_head->i_flags & BLOCK_FLAG_PRIVATE_AUD )
+    if( p_sys->leading.p_head &&
+       (p_sys->leading.p_head->i_flags & BLOCK_FLAG_PRIVATE_AUD) )
     {
-        block_t *p_au = p_sys->frame.p_head;
-        p_sys->frame.p_head = p_au->p_next;
+        block_t *p_au = p_sys->leading.p_head;
+        p_sys->leading.p_head = p_au->p_next;
         p_au->p_next = NULL;
         block_ChainLastAppend( &pp_pic_last, p_au );
     }
@@ -938,6 +947,9 @@ static block_t *OutputPicture( decoder_t *p_dec )
                 date_Decrement( &pts, -diff );
 
             p_pic->i_pts = date_Get( &pts );
+            /* non monotonically increasing dts on some videos 33333 33333...35000 */
+            if( p_pic->i_pts < p_pic->i_dts )
+                p_pic->i_pts = p_pic->i_dts;
         }
         /* In case there's no PTS at all */
         else if( CanSwapPTSwithDTS( &p_sys->slice, p_sps ) )
@@ -971,8 +983,8 @@ static block_t *OutputPicture( decoder_t *p_dec )
     {
         if( p_sps->vui.i_time_scale )
         {
-            p_pic->i_length = CLOCK_FREQ * i_num_clock_ts *
-                              p_sps->vui.i_num_units_in_tick / p_sps->vui.i_time_scale;
+            p_pic->i_length = vlc_tick_from_samples(i_num_clock_ts *
+                              p_sps->vui.i_num_units_in_tick, p_sps->vui.i_time_scale);
         }
         else
         {

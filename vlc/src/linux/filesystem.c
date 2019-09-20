@@ -3,7 +3,7 @@
  *****************************************************************************
  * Copyright © 2018 Rémi Denis-Courmont
  *
- * Authors: Rémi Denis-Courmont <rem # videolan.org>
+ * Authors: Rémi Denis-Courmont
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published by
@@ -36,11 +36,23 @@
 
 int vlc_memfd(void)
 {
+    int fd;
 #ifdef HAVE_MEMFD_CREATE
-    int fd = memfd_create(PACKAGE_NAME"-memfd",
-                          MFD_CLOEXEC | MFD_ALLOW_SEALING);
+    fd = memfd_create(PACKAGE_NAME"-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
     if (fd != -1 || errno != ENOSYS)
         return fd;
 #endif
-    return open("/tmp", O_RDWR | O_CLOEXEC | O_TMPFILE, S_IRUSR | S_IWUSR);
+
+    /* Fallback to open with O_TMPFILE, */
+    fd = open("/tmp", O_RDWR | O_CLOEXEC | O_TMPFILE, S_IRUSR | S_IWUSR);
+    if (fd != -1 || (errno != EISDIR && errno != EOPNOTSUPP))
+        return fd;
+
+    /* Fallback to POSIX implementation if O_TMPFILE is not supported (errno is
+     * EISDIR, or EOPNOTSUPP, cf. man open(2). */
+    char bufpath[] = "/tmp/"PACKAGE_NAME"XXXXXX";
+    fd = vlc_mkstemp(bufpath);
+    if (fd != -1)
+        unlink(bufpath);
+    return fd;
 }

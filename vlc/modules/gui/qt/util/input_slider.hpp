@@ -2,7 +2,6 @@
  * input_slider.hpp : VolumeSlider and SeekSlider
  ****************************************************************************
  * Copyright (C) 2006-2011 the VideoLAN team
- * $Id: aad65ce4d49878da9f14b958e837e747d1970436 $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *          Jean-Baptiste Kempf <jb@videolan.org>
@@ -36,13 +35,10 @@
 #include <QPainter>
 #include <QTime>
 
-#define MSTRTIME_MAX_SIZE 22
-
 class QMouseEvent;
 class QWheelEvent;
 class QHideEvent;
 class QTimer;
-class SeekPoints;
 class QPropertyAnimation;
 class QCommonStyle;
 class TimeTooltip;
@@ -58,7 +54,6 @@ public:
     SeekSlider( intf_thread_t *p_intf, Qt::Orientation q, QWidget *_parent = 0,
                 bool _classic = false );
     virtual ~SeekSlider();
-    void setChapters( SeekPoints * );
 
 protected:
     void mouseMoveEvent( QMouseEvent *event ) Q_DECL_OVERRIDE;
@@ -94,7 +89,7 @@ private:
     TimeTooltip *mTimeTooltip;
     float f_buffering;
     QTime bufferingStart;
-    SeekPoints* chapters;
+    QAbstractListModel* chapters;
     bool b_classic;
     bool b_seekable;
     int mHandleLength;
@@ -118,7 +113,7 @@ private:
     QTimer *startAnimLoadingTimer;
 
 public slots:
-    void setPosition( float, int64_t, int );
+    void setPosition( float, vlc_tick_t, int );
     void setSeekable( bool b ) { b_seekable = b ; }
     void updateBuffering( float );
     void hideHandle();

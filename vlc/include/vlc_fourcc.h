@@ -116,6 +116,7 @@
 #define VLC_CODEC_CDG             VLC_FOURCC('C','D','G',' ')
 #define VLC_CODEC_FRWU            VLC_FOURCC('F','R','W','U')
 #define VLC_CODEC_AMV             VLC_FOURCC('A','M','V',' ')
+#define VLC_CODEC_VP4             VLC_FOURCC('V','P','4','0')
 #define VLC_CODEC_VP7             VLC_FOURCC('V','P','7','0')
 #define VLC_CODEC_VP8             VLC_FOURCC('V','P','8','0')
 #define VLC_CODEC_VP9             VLC_FOURCC('V','P','9','0')
@@ -290,6 +291,8 @@
 #define VLC_CODEC_NV42            VLC_FOURCC('N','V','4','2')
 /* 2 planes Y/UV 4:2:0 10-bit */
 #define VLC_CODEC_P010            VLC_FOURCC('P','0','1','0')
+/* 2 planes Y/UV 4:2:0 16-bit */
+#define VLC_CODEC_P016            VLC_FOURCC('P','0','1','6')
 
 /* Packed YUV */
 

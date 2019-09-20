@@ -2,7 +2,6 @@
  * avparser.c
  *****************************************************************************
  * Copyright (C) 2015 VLC authors and VideoLAN
- * $Id: 6e91375aa2e1bfcc5d06adc107efa347447b57b2 $
  *
  * Authors: Denis Charmet <typx@videolan.org>
  *
@@ -179,7 +178,7 @@ static block_t *Packetize ( decoder_t *p_dec, block_t **pp_block )
 
     p_sys->i_offset += av_parser_parse2( p_sys->p_parser_ctx, p_sys->p_codec_ctx,
                                          &p_outdata, &i_outlen, p_indata, i_inlen,
-                                         p_block->i_pts, p_block->i_dts, -1);
+                                         TO_AV_TS(p_block->i_pts), TO_AV_TS(p_block->i_dts), -1);
 
     if( unlikely( i_outlen <= 0 || !p_outdata ) )
         goto out;

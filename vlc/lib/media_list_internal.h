@@ -3,7 +3,6 @@
  * Also contains some internal utility functions
  *****************************************************************************
  * Copyright (C) 2005-2009 VLC authors and VideoLAN
- * $Id: 2e65d42ca75eb6808cf7f3035d5bc2007f62ef38 $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *
@@ -65,8 +64,5 @@ int libvlc_media_list_internal_remove_index(
 
 void libvlc_media_list_internal_end_reached(
         libvlc_media_list_t * p_mlist );
-
-int libvlc_media_list_add_file_content( libvlc_media_list_t *p_ml,
-                                        const char *psz_uri );
 
 #endif

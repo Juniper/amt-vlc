@@ -2,7 +2,6 @@
  * media_discoverer.c: libvlc new API media discoverer functions
  *****************************************************************************
  * Copyright (C) 2007 VLC authors and VideoLAN
- * $Id: f3a13a7717c2c193527fd08d4528425c060020da $
  *
  * Authors: Pierre d'Herbemont <pdherbemont # videolan.org>
  *
@@ -28,6 +27,7 @@
 #include <assert.h>
 
 #include <vlc/libvlc.h>
+#include <vlc/libvlc_picture.h>
 #include <vlc/libvlc_media.h>
 #include <vlc/libvlc_media_list.h>
 #include <vlc/libvlc_media_discoverer.h>
@@ -251,8 +251,7 @@ libvlc_media_discoverer_media_list( libvlc_media_discoverer_t * p_mdis )
 /**************************************************************************
  * running (Public)
  **************************************************************************/
-int
-libvlc_media_discoverer_is_running( libvlc_media_discoverer_t * p_mdis )
+bool libvlc_media_discoverer_is_running(libvlc_media_discoverer_t * p_mdis)
 {
     return p_mdis->p_sd != NULL;
 }

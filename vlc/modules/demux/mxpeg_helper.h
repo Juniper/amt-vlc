@@ -2,7 +2,6 @@
  * mxpeg_helper.h: MXPEG helper functions
  *****************************************************************************
  * Copyright (C) 2012 VLC authors and VideoLAN
- * $Id: 6c38519ce6509e399779b246d8c25409111853a0 $
  *
  * Authors: Sébastien Escudier
  *

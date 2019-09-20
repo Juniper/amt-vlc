@@ -2,7 +2,6 @@
  * libs.h: VLC Lua wrapper libraries
  *****************************************************************************
  * Copyright (C) 2008 the VideoLAN team
- * $Id: 3a61684c326efaae5dc105c0ba624dbc4258826b $
  *
  * Authors: Antoine Cellerier <dionoea at videolan tod org>
  *
@@ -23,6 +22,8 @@
 
 #ifndef VLC_LUA_LIBS_H
 #define VLC_LUA_LIBS_H
+
+#include "vlc.h"
 
 void luaopen_config( lua_State * );
 void luaopen_dialog( lua_State *, void * );

@@ -2,7 +2,6 @@
  * ios.m: iOS OpenGL ES provider
  *****************************************************************************
  * Copyright (C) 2001-2017 VLC authors and VideoLAN
- * $Id: ed20827884d3908ecaa37ce4e428fcb6cfad54de $
  *
  * Authors: Pierre d'Herbemont <pdherbemont at videolan dot org>
  *          Felix Paul Kühne <fkuehne at videolan dot org>
@@ -51,12 +50,13 @@
 /**
  * Forward declarations
  */
-static int Open(vlc_object_t *);
-static void Close(vlc_object_t *);
+static int Open(vout_display_t *vd, const vout_display_cfg_t *cfg,
+                video_format_t *fmt, vlc_video_context *context);
+static void Close(vout_display_t *vd);
 
 static picture_pool_t* PicturePool(vout_display_t *, unsigned);
 static void PictureRender(vout_display_t *, picture_t *, subpicture_t *, vlc_tick_t);
-static void PictureDisplay(vout_display_t *, picture_t *, subpicture_t *);
+static void PictureDisplay(vout_display_t *, picture_t *);
 static int Control(vout_display_t*, int, va_list);
 
 static void *OurGetProcAddress(vlc_gl_t *, const char *);
@@ -73,8 +73,7 @@ vlc_module_begin ()
     set_description("iOS OpenGL video output")
     set_category(CAT_VIDEO)
     set_subcategory(SUBCAT_VIDEO_VOUT)
-    set_capability("vout display", 300)
-    set_callbacks(Open, Close)
+    set_callback_display(Open, 300)
 
     add_shortcut("vout_ios2", "vout_ios")
     add_glopts()
@@ -106,9 +105,9 @@ vlc_module_end ()
     vout_display_cfg_t _cfg;
 }
 
-- (id)initWithFrameAndVd:(CGRect)frame withVd:(vout_display_t*)vd;
+- (id)initWithFrame:(CGRect)frame andVD:(vout_display_t*)vd;
 - (void)cleanAndRelease:(BOOL)flushed;
-- (BOOL)makeCurrentWithGL:(EAGLContext **)previousEaglContext withGL:(vlc_gl_t *)gl;
+- (BOOL)makeCurrent:(EAGLContext **)previousEaglContext withGL:(vlc_gl_t *)gl;
 - (void)releaseCurrent:(EAGLContext *)previousEaglContext;
 - (void)presentRenderbuffer;
 
@@ -123,6 +122,7 @@ struct vout_display_sys_t
     vlc_gl_t *gl;
 
     picture_pool_t *picturePool;
+    vout_window_t *embed;
 };
 
 struct gl_sys
@@ -141,14 +141,13 @@ static void *OurGetProcAddress(vlc_gl_t *gl, const char *name)
     return dlsym(RTLD_DEFAULT, name);
 }
 
-static int Open(vlc_object_t *this)
+static int Open(vout_display_t *vd, const vout_display_cfg_t *cfg,
+                video_format_t *fmt, vlc_video_context *context)
 {
-    vout_display_t *vd = (vout_display_t *)this;
-
-    if (vout_display_IsWindowed(vd))
+    if (vout_display_cfg_IsWindowed(cfg))
         return VLC_EGENERIC;
 
-    vout_display_sys_t *sys = vlc_obj_calloc (this, 1, sizeof(*sys));
+    vout_display_sys_t *sys = vlc_obj_calloc(vd, 1, sizeof(*sys));
 
     if (!sys)
         return VLC_ENOMEM;
@@ -157,7 +156,7 @@ static int Open(vlc_object_t *this)
     sys->picturePool = NULL;
     sys->gl = NULL;
 
-    var_Create(vd->obj.parent, "ios-eaglcontext", VLC_VAR_ADDRESS);
+    var_Create(vlc_object_parent(vd), "ios-eaglcontext", VLC_VAR_ADDRESS);
 
     @autoreleasepool {
         /* setup the actual OpenGL ES view */
@@ -169,19 +168,19 @@ static int Open(vlc_object_t *this)
                                              waitUntilDone:YES];
         if (!sys->glESView) {
             msg_Err(vd, "Creating OpenGL ES 2 view failed");
-            var_Destroy(vd->obj.parent, "ios-eaglcontext");
+            var_Destroy(vlc_object_parent(vd), "ios-eaglcontext");
             return VLC_EGENERIC;
         }
 
         const vlc_fourcc_t *subpicture_chromas;
-        video_format_t fmt = vd->fmt;
 
-        sys->gl = vlc_object_create(this, sizeof(*sys->gl));
+        sys->embed = cfg->window;
+        sys->gl = vlc_object_create(vd, sizeof(*sys->gl));
         if (!sys->gl)
             goto bailout;
 
         struct gl_sys *glsys = sys->gl->sys =
-            vlc_obj_malloc(this, sizeof(struct gl_sys));
+            vlc_obj_malloc(VLC_OBJECT(vd), sizeof(struct gl_sys));
         if (unlikely(!sys->gl->sys))
             goto bailout;
         glsys->glESView = sys->glESView;
@@ -197,44 +196,40 @@ static int Open(vlc_object_t *this)
         if (vlc_gl_MakeCurrent(sys->gl) != VLC_SUCCESS)
             goto bailout;
 
-        vout_display_opengl_t *vgl = vout_display_opengl_New(&vd->fmt, &subpicture_chromas,
-                                                             sys->gl, &vd->cfg->viewpoint);
+        vout_display_opengl_t *vgl = vout_display_opengl_New(fmt, &subpicture_chromas,
+                                                             sys->gl, &cfg->viewpoint,
+                                                             context);
         vlc_gl_ReleaseCurrent(sys->gl);
         if (!vgl)
             goto bailout;
         glsys->vgl = vgl;
 
-        /* */
-        vout_display_info_t info = vd->info;
-        info.has_pictures_invalid = false;
-        info.subpicture_chromas = subpicture_chromas;
-
         /* Setup vout_display_t once everything is fine */
-        vd->info = info;
+        vd->info.subpicture_chromas = subpicture_chromas;
 
-        vd->pool = PicturePool;
+        vd->pool    = vout_display_opengl_HasPool(vgl) ? PicturePool : NULL;
         vd->prepare = PictureRender;
         vd->display = PictureDisplay;
         vd->control = Control;
+        vd->close   = Close;
 
         return VLC_SUCCESS;
 
     bailout:
-        Close(this);
+        Close(vd);
         return VLC_EGENERIC;
     }
 }
 
-static void Close (vlc_object_t *this)
+static void Close(vout_display_t *vd)
 {
-    vout_display_t *vd = (vout_display_t *)this;
     vout_display_sys_t *sys = vd->sys;
 
     @autoreleasepool {
         BOOL flushed = NO;
         if (sys->gl != NULL) {
             struct gl_sys *glsys = sys->gl->sys;
-            msg_Dbg(this, "deleting display");
+            msg_Dbg(vd, "deleting display");
 
             if (likely(glsys->vgl))
             {
@@ -246,12 +241,12 @@ static void Close (vlc_object_t *this)
                     flushed = YES;
                 }
             }
-            vlc_object_release(sys->gl);
+            vlc_object_delete(sys->gl);
         }
 
         [sys->glESView cleanAndRelease:flushed];
     }
-    var_Destroy(vd->obj.parent, "ios-eaglcontext");
+    var_Destroy(vlc_object_parent(vd), "ios-eaglcontext");
 }
 
 /*****************************************************************************
@@ -270,13 +265,8 @@ static int Control(vout_display_t *vd, int query, va_list ap)
         case VOUT_DISPLAY_CHANGE_SOURCE_CROP:
         case VOUT_DISPLAY_CHANGE_DISPLAY_SIZE:
         {
-            const vout_display_cfg_t *cfg;
-
-            if (query == VOUT_DISPLAY_CHANGE_SOURCE_ASPECT ||
-                query == VOUT_DISPLAY_CHANGE_SOURCE_CROP)
-                cfg = vd->cfg;
-            else
-                cfg = (const vout_display_cfg_t*)va_arg(ap, const vout_display_cfg_t *);
+            const vout_display_cfg_t *cfg =
+                va_arg(ap, const vout_display_cfg_t *);
 
             assert(cfg);
 
@@ -297,21 +287,17 @@ static int Control(vout_display_t *vd, int query, va_list ap)
     }
 }
 
-static void PictureDisplay(vout_display_t *vd, picture_t *pic, subpicture_t *subpicture)
+static void PictureDisplay(vout_display_t *vd, picture_t *pic)
 {
     vout_display_sys_t *sys = vd->sys;
     struct gl_sys *glsys = sys->gl->sys;
+    VLC_UNUSED(pic);
 
     if (vlc_gl_MakeCurrent(sys->gl) == VLC_SUCCESS)
     {
         vout_display_opengl_Display(glsys->vgl, &vd->source);
         vlc_gl_ReleaseCurrent(sys->gl);
     }
-
-    picture_Release(pic);
-
-    if (subpicture)
-        subpicture_Delete(subpicture);
 }
 
 static void PictureRender(vout_display_t *vd, picture_t *pic, subpicture_t *subpicture,
@@ -348,7 +334,7 @@ static int GLESMakeCurrent(vlc_gl_t *gl)
 {
     struct gl_sys *sys = gl->sys;
 
-    if (![sys->glESView makeCurrentWithGL:&sys->previousEaglContext withGL:gl])
+    if (![sys->glESView makeCurrent:&sys->previousEaglContext withGL:gl])
         return VLC_EGENERIC;
     return VLC_SUCCESS;
 }
@@ -382,10 +368,10 @@ static void GLESSwap(vlc_gl_t *gl)
 {
     id *ret = [[value objectAtIndex:0] pointerValue];
     vout_display_t *vd = [[value objectAtIndex:1] pointerValue];
-    *ret = [[self alloc] initWithFrameAndVd:CGRectMake(0.,0.,320.,240.) withVd:vd];
+    *ret = [[self alloc] initWithFrame:CGRectMake(0.,0.,320.,240.) andVD:vd];
 }
 
-- (id)initWithFrameAndVd:(CGRect)frame withVd:(vout_display_t*)vd
+- (id)initWithFrame:(CGRect)frame andVD:(vout_display_t*)vd
 {
     _appActive = ([UIApplication sharedApplication].applicationState == UIApplicationStateActive);
     if (unlikely(!_appActive))
@@ -415,17 +401,14 @@ static void GLESSwap(vlc_gl_t *gl)
     if (unlikely(!_eaglContext)
      || unlikely(![EAGLContext setCurrentContext:_eaglContext]))
     {
-        if (_eaglContext)
-            [_eaglContext release];
-        vlc_mutex_destroy(&_mutex);
-        vlc_cond_destroy(&_gl_attached_wait);
-        [super dealloc];
+        [_eaglContext release];
+        [self release];
         return nil;
     }
     [self releaseCurrent:previousEaglContext];
 
     /* Set "ios-eaglcontext" to be used by cvpx fitlers/glconv */
-    var_SetAddress(_voutDisplay->obj.parent, "ios-eaglcontext", _eaglContext);
+    var_SetAddress(vlc_object_parent(_voutDisplay), "ios-eaglcontext", _eaglContext);
 
     _layer = (CAEAGLLayer *)self.layer;
     _layer.drawableProperties = [NSDictionary dictionaryWithObject:kEAGLColorFormatRGBA8 forKey: kEAGLDrawablePropertyColorFormat];
@@ -435,10 +418,8 @@ static void GLESSwap(vlc_gl_t *gl)
 
     if (![self fetchViewContainer])
     {
-        vlc_mutex_destroy(&_mutex);
-        vlc_cond_destroy(&_gl_attached_wait);
         [_eaglContext release];
-        [super dealloc];
+        [self release];
         return nil;
     }
 
@@ -594,7 +575,7 @@ static void GLESSwap(vlc_gl_t *gl)
     return YES;
 }
 
-- (BOOL)makeCurrentWithGL:(EAGLContext **)previousEaglContext withGL:(vlc_gl_t *)gl
+- (BOOL)makeCurrent:(EAGLContext **)previousEaglContext withGL:(vlc_gl_t *)gl
 {
     vlc_mutex_lock(&_mutex);
     assert(!_gl_attached);
@@ -604,14 +585,19 @@ static void GLESSwap(vlc_gl_t *gl)
         vlc_mutex_unlock(&_mutex);
         return NO;
     }
-    assert(_eaglEnabled);
 
+    assert(_eaglEnabled);
     *previousEaglContext = [EAGLContext currentContext];
 
-    BOOL success = [EAGLContext setCurrentContext:_eaglContext];
+    if (![EAGLContext setCurrentContext:_eaglContext])
+    {
+        vlc_mutex_unlock(&_mutex);
+        return NO;
+    }
+
     BOOL resetBuffers = NO;
 
-    if (success && gl != NULL)
+    if (gl != NULL)
     {
         struct gl_sys *glsys = gl->sys;
 
@@ -633,8 +619,7 @@ static void GLESSwap(vlc_gl_t *gl)
         }
     }
 
-    if (success)
-        _gl_attached = YES;
+    _gl_attached = YES;
 
     vlc_mutex_unlock(&_mutex);
 
@@ -643,7 +628,7 @@ static void GLESSwap(vlc_gl_t *gl)
         [self releaseCurrent:*previousEaglContext];
         return NO;
     }
-    return success;
+    return YES;
 }
 
 - (void)releaseCurrent:(EAGLContext *)previousEaglContext
@@ -679,7 +664,7 @@ static void GLESSwap(vlc_gl_t *gl)
     cfg.display.width  = _viewSize.width * _scaleFactor;
     cfg.display.height = _viewSize.height * _scaleFactor;
 
-    vout_display_PlacePicture(place, &_voutDisplay->source, &cfg, false);
+    vout_display_PlacePicture(place, &_voutDisplay->source, &cfg);
 }
 
 - (void)reshape
@@ -704,9 +689,6 @@ static void GLESSwap(vlc_gl_t *gl)
         _place = place;
     }
 
-    vout_display_SendEventDisplaySize(_voutDisplay, _viewSize.width * _scaleFactor,
-                                      _viewSize.height * _scaleFactor);
-
     vlc_mutex_unlock(&_mutex);
 }
 
@@ -722,9 +704,8 @@ static void GLESSwap(vlc_gl_t *gl)
     UIGestureRecognizerState state = [tapRecognizer state];
     CGPoint touchPoint = [tapRecognizer locationInView:self];
     CGFloat scaleFactor = self.contentScaleFactor;
-    vout_display_SendMouseMovedDisplayCoordinates(_voutDisplay, ORIENT_NORMAL,
-                                                  (int)touchPoint.x * scaleFactor, (int)touchPoint.y * scaleFactor,
-                                                  &_place);
+    vout_display_SendMouseMovedDisplayCoordinates(_voutDisplay,
+                                                  (int)touchPoint.x * scaleFactor, (int)touchPoint.y * scaleFactor);
 
     vout_display_SendEventMousePressed(_voutDisplay, MOUSE_BUTTON_LEFT);
     vout_display_SendEventMouseReleased(_voutDisplay, MOUSE_BUTTON_LEFT);
@@ -777,13 +758,15 @@ static void GLESSwap(vlc_gl_t *gl)
     {
         _appActive = NO;
 
-        if (_eaglEnabled)
-        {
-            /* Wait for the vout to unlock the eagl context before releasing
-             * it. */
-            while (_gl_attached)
-                vlc_cond_wait(&_gl_attached_wait, &_mutex);
+        /* Wait for the vout to unlock the eagl context before releasing
+         * it. */
+        while (_gl_attached && _eaglEnabled)
+            vlc_cond_wait(&_gl_attached_wait, &_mutex);
 
+        /* _eaglEnabled can change during the vlc_cond_wait
+         * as the mutex is unlocked during that, so this check
+         * has to be done after the vlc_cond_wait! */
+        if (_eaglEnabled) {
             [self flushEAGLLocked];
             _eaglEnabled = NO;
         }

@@ -21,10 +21,11 @@
 #ifndef VLC_OPENGL_CONVERTER_H
 #define VLC_OPENGL_CONVERTER_H
 
-#include <vlc_plugin.h>
 #include <vlc_common.h>
-#include <vlc_picture_pool.h>
+#include <vlc_codec.h>
 #include <vlc_opengl.h>
+#include <vlc_picture_pool.h>
+#include <vlc_plugin.h>
 
 /* if USE_OPENGL_ES2 is defined, OpenGL ES version 2 will be used, otherwise
  * normal OpenGL will be used */
@@ -43,8 +44,9 @@
 #else /* !defined (__APPLE__) */
 # if defined (USE_OPENGL_ES2)
 #  include <GLES2/gl2.h>
+#  include <GLES2/gl2ext.h>
 # else
-#  ifdef _WIN32
+#  ifdef HAVE_GL_WGLEW_H
 #   include <GL/glew.h>
 #  endif
 #  include <GL/gl.h>
@@ -250,12 +252,15 @@ struct pl_shader_res;
 typedef struct opengl_tex_converter_t opengl_tex_converter_t;
 struct opengl_tex_converter_t
 {
-    struct vlc_common_members obj;
+    struct vlc_object_t obj;
 
     module_t *p_module;
 
     /* Pointer to object gl, set by the caller */
     vlc_gl_t *gl;
+
+    /* Pointer to decoder device, set by the caller (can be NULL) */
+    vlc_decoder_device *dec_device;
 
     /* libplacebo context, created by the caller (optional) */
     struct pl_context *pl_ctx;

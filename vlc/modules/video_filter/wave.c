@@ -2,7 +2,6 @@
  * wave.c : Wave video effect plugin for vlc
  *****************************************************************************
  * Copyright (C) 2000-2008 VLC authors and VideoLAN
- * $Id: d6f4c32dde86dd896e0be8cafa26e94d9cecfc22 $
  *
  * Authors: Samuel Hocevar <sam@zoy.org>
  *          Antoine Cellerier <dionoea -at- videolan -dot- org>
@@ -56,7 +55,7 @@ vlc_module_begin ()
     set_subcategory( SUBCAT_VIDEO_VFILTER )
 
     add_shortcut( "wave" )
-    set_callbacks( Create, NULL )
+    set_callback( Create )
 vlc_module_end ()
 
 /*****************************************************************************
@@ -177,9 +176,7 @@ static picture_t *Filter( filter_t *p_filter, picture_t *p_pic )
                 {
                     memcpy( p_out, p_in - i_offset,
                                 i_visible_pitch + i_offset );
-                    p_in += p_pic->p[i_index].i_pitch;
-                    p_out += p_outpic->p[i_index].i_pitch;
-                    p_black_out = &p_out[i_offset];
+                    p_black_out = &p_out[i_visible_pitch + i_offset];
                     i_offset = -i_offset;
                 }
                 else
@@ -187,8 +184,6 @@ static picture_t *Filter( filter_t *p_filter, picture_t *p_pic )
                     memcpy( p_out + i_offset, p_in,
                                 i_visible_pitch - i_offset );
                     p_black_out = p_out;
-                    p_in += p_pic->p[i_index].i_pitch;
-                    p_out += p_outpic->p[i_index].i_pitch;
                 }
                 if (black_pixel > 0xFF)
                 {
@@ -202,10 +197,9 @@ static picture_t *Filter( filter_t *p_filter, picture_t *p_pic )
             else
             {
                 memcpy( p_out, p_in, i_visible_pitch );
-                p_in += p_pic->p[i_index].i_pitch;
-                p_out += p_outpic->p[i_index].i_pitch;
             }
-
+            p_in += p_pic->p[i_index].i_pitch;
+            p_out += p_outpic->p[i_index].i_pitch;
         }
     }
 

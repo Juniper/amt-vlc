@@ -347,7 +347,7 @@ function activate()
         return false
   end
 
-  if vlc.input.item() then
+  if vlc.player.item() then
     openSub.getFileInfo()
     openSub.getMovieInfo()
   end
@@ -1215,7 +1215,7 @@ openSub = {
     }
   },
   getInputItem = function()
-    return vlc.item or vlc.input.item()
+    return vlc.item or vlc.player.item()
   end,
   getFileInfo = function()
   -- Get video file path, name, extension from input uri
@@ -1488,6 +1488,22 @@ function download_subtitles()
 
   subfileName = subfileName.."."..item.SubFormat
   local tmp_dir = vlc.config.cachedir()
+  -- create the cache directory if it doesn't already exist
+  local separator = ""
+  local current_dir = ""
+  if package.config:sub(1, 1):match("/") then
+    -- unix based systems
+    separator = "/"
+    current_dir = "/"
+  else
+    -- windows systems
+    separator = "\\"
+  end
+  for dir in tmp_dir:gmatch("[^"..separator.."]+") do
+    current_dir = current_dir..dir..separator
+    local vars = vlc.io.mkdir(current_dir, "0700")
+  end
+
   local file_target_access = true
 
   local tmpFileName = dump_zip(
@@ -1591,9 +1607,9 @@ function dump_zip(url, dir, subfileName)
 end
 
 function add_sub(subPath)
-  if vlc.item or vlc.input.item() then
+  if vlc.item or vlc.player.item() then
     vlc.msg.dbg("[VLsub] Adding subtitle :" .. subPath)
-    return vlc.input.add_subtitle(subPath, true)
+    return vlc.player.add_subtitle(subPath, true)
   end
   return false
 end

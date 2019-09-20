@@ -2,7 +2,6 @@
  * kate.c : a decoder for the kate bitstream format
  *****************************************************************************
  * Copyright (C) 2000-2008 VLC authors and VideoLAN
- * $Id: 44523fec4d0cd7b1c67ac39c4a2a652128e75159 $
  *
  * Authors: Vincent Penquerc'h <ogg.k.ogg.k@googlemail.com>
  *
@@ -30,7 +29,7 @@
 
 #include <vlc_common.h>
 #include <vlc_plugin.h>
-#include <vlc_input.h>
+#include <vlc_input_item.h>
 #include <vlc_codec.h>
 #include "../demux/xiph.h"
 
@@ -533,7 +532,7 @@ static int ProcessHeaders( decoder_t *p_dec )
     kate_packet kp;
 
     unsigned pi_size[XIPH_MAX_HEADER_COUNT];
-    void     *pp_data[XIPH_MAX_HEADER_COUNT];
+    const void *pp_data[XIPH_MAX_HEADER_COUNT];
     unsigned i_count;
     if( xiph_SplitHeaders( pi_size, pp_data, &i_count,
                            p_dec->fmt_in.i_extra, p_dec->fmt_in.p_extra) )
@@ -544,7 +543,7 @@ static int ProcessHeaders( decoder_t *p_dec )
 
     /* Take care of the initial Kate header */
     kp.nbytes = pi_size[0];
-    kp.data   = pp_data[0];
+    kp.data   = (void *)pp_data[0];
     int i_ret = kate_decode_headerin( &p_sys->ki, &p_sys->kc, &kp );
     if( i_ret < 0 )
     {
@@ -561,7 +560,7 @@ static int ProcessHeaders( decoder_t *p_dec )
     for( unsigned i_headeridx = 1; i_headeridx < i_count; i_headeridx++ )
     {
         kp.nbytes = pi_size[i_headeridx];
-        kp.data   = pp_data[i_headeridx];
+        kp.data   = (void *)pp_data[i_headeridx];
         i_ret = kate_decode_headerin( &p_sys->ki, &p_sys->kc, &kp );
         if( i_ret < 0 )
         {
@@ -1080,8 +1079,7 @@ static subpicture_t *DecodePacket( decoder_t *p_dec, kate_packet *p_kp, block_t 
     }
 
     p_spu->i_start = p_block->i_pts;
-    p_spu->i_stop = p_block->i_pts + CLOCK_FREQ *
-        ev->duration * p_sys->ki.gps_denominator / p_sys->ki.gps_numerator;
+    p_spu->i_stop = p_block->i_pts + vlc_tick_from_samples(ev->duration * p_sys->ki.gps_denominator, p_sys->ki.gps_numerator);
     p_spu->b_ephemer = false;
     p_spu->b_absolute = false;
 

@@ -2,7 +2,6 @@
  * description.c: description stream output module (gathers ES info)
  *****************************************************************************
  * Copyright (C) 2003-2004 VLC authors and VideoLAN
- * $Id: 628a918e875fef346b3fa3e424c3d0a6518715dc $
  *
  * Authors: Gildas Bazin <gbazin@videolan.org>
  *
@@ -31,7 +30,6 @@
 
 #include <vlc_common.h>
 #include <vlc_plugin.h>
-#include <vlc_input.h>
 #include <vlc_block.h>
 #include <vlc_sout.h>
 
@@ -86,7 +84,7 @@ static int Open( vlc_object_t *p_this )
         free(p_sys);
         return VLC_EGENERIC;
     }
-    p_sys->i_stream_start = 0;
+    p_sys->i_stream_start = VLC_TICK_INVALID;
 
     return VLC_SUCCESS;
 }
@@ -117,7 +115,7 @@ static void *Add( sout_stream_t *p_stream, const es_format_t *p_fmt )
 
     TAB_APPEND( p_sys->data->i_es, p_sys->data->es, p_fmt_copy );
 
-    if( p_sys->i_stream_start <= 0 )
+    if( p_sys->i_stream_start == VLC_TICK_INVALID )
         p_sys->i_stream_start = vlc_tick_now();
 
     return (void *)p_fmt_copy;

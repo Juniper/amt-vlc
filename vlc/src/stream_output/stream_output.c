@@ -2,7 +2,6 @@
  * stream_output.c : stream output module
  *****************************************************************************
  * Copyright (C) 2002-2007 VLC authors and VideoLAN
- * $Id: 18aabd7227acace4b58b2991f691ece01cf245df $
  *
  * Authors: Christophe Massiot <massiot@via.ecp.fr>
  *          Laurent Aimar <fenrir@via.ecp.fr>
@@ -110,6 +109,7 @@ sout_instance_t *sout_NewInstance( vlc_object_t *p_parent, const char *psz_dest 
     /* *** init descriptor *** */
     p_sout->psz_sout    = strdup( psz_dest );
     p_sout->i_out_pace_nocontrol = 0;
+    p_sout->b_wants_substreams = false;
 
     vlc_mutex_init( &p_sout->lock );
     p_sout->p_stream = NULL;
@@ -120,6 +120,9 @@ sout_instance_t *sout_NewInstance( vlc_object_t *p_parent, const char *psz_dest 
     if( p_sout->p_stream )
     {
         free( psz_chain );
+        sout_StreamControl( p_sout->p_stream,
+                            SOUT_STREAM_WANTS_SUBSTREAMS,
+                            &p_sout->b_wants_substreams );
         return p_sout;
     }
 
@@ -129,7 +132,7 @@ sout_instance_t *sout_NewInstance( vlc_object_t *p_parent, const char *psz_dest 
     FREENULL( p_sout->psz_sout );
 
     vlc_mutex_destroy( &p_sout->lock );
-    vlc_object_release( p_sout );
+    vlc_object_delete(p_sout);
     return NULL;
 }
 
@@ -147,7 +150,7 @@ void sout_DeleteInstance( sout_instance_t * p_sout )
     vlc_mutex_destroy( &p_sout->lock );
 
     /* *** free structure *** */
-    vlc_object_release( p_sout );
+    vlc_object_delete(p_sout);
 }
 
 /*****************************************************************************
@@ -213,6 +216,32 @@ bool sout_InputIsEmpty( sout_packetizer_input_t *p_input )
         b = true;
     vlc_mutex_unlock( &p_sout->lock );
     return b;
+}
+
+static int sout_InputControlVa( sout_packetizer_input_t *p_input, int i_query, va_list args )
+{
+    sout_instance_t *p_sout = p_input->p_sout;
+    if( i_query == SOUT_INPUT_SET_SPU_HIGHLIGHT )
+    {
+        vlc_mutex_lock( &p_sout->lock );
+        int i_ret = sout_StreamControl( p_sout->p_stream,
+                                        SOUT_STREAM_ID_SPU_HIGHLIGHT,
+                                        p_input->id, va_arg(args, void *) );
+        vlc_mutex_unlock( &p_sout->lock );
+        return i_ret;
+    }
+    return VLC_EGENERIC;
+}
+
+int sout_InputControl( sout_packetizer_input_t *p_input, int i_query, ... )
+{
+    va_list args;
+    int     i_result;
+
+    va_start( args, i_query );
+    i_result = sout_InputControlVa( p_input, i_query, args );
+    va_end( args );
+    return i_result;
 }
 
 void sout_InputFlush( sout_packetizer_input_t *p_input )
@@ -281,7 +310,7 @@ sout_access_out_t *sout_AccessOutNew( vlc_object_t *p_sout,
         free( p_access->psz_path );
 error:
         free( p_access->psz_access );
-        vlc_object_release( p_access );
+        vlc_object_delete(p_access);
         return( NULL );
     }
 
@@ -302,7 +331,7 @@ void sout_AccessOutDelete( sout_access_out_t *p_access )
 
     free( p_access->psz_path );
 
-    vlc_object_release( p_access );
+    vlc_object_delete(p_access);
 }
 
 /*****************************************************************************
@@ -388,7 +417,7 @@ sout_mux_t * sout_MuxNew( sout_instance_t *p_sout, const char *psz_mux,
     {
         FREENULL( p_mux->psz_mux );
 
-        vlc_object_release( p_mux );
+        vlc_object_delete(p_mux);
         return NULL;
     }
 
@@ -446,7 +475,7 @@ void sout_MuxDelete( sout_mux_t *p_mux )
 
     config_ChainDestroy( p_mux->p_cfg );
 
-    vlc_object_release( p_mux );
+    vlc_object_delete(p_mux);
 }
 
 /*****************************************************************************
@@ -746,7 +775,7 @@ static void mrl_Clean( mrl_t *p_mrl )
 /* Destroy a "stream_out" module */
 static void sout_StreamDelete( sout_stream_t *p_stream )
 {
-    sout_instance_t *p_sout = (sout_instance_t *)(p_stream->obj.parent);
+    sout_instance_t *p_sout = (sout_instance_t *)vlc_object_parent(p_stream);
 
     msg_Dbg( p_stream, "destroying chain... (name=%s)", p_stream->psz_name );
 
@@ -760,7 +789,7 @@ static void sout_StreamDelete( sout_stream_t *p_stream )
     config_ChainDestroy( p_stream->p_cfg );
 
     msg_Dbg( p_stream, "destroying chain done" );
-    vlc_object_release( p_stream );
+    vlc_object_delete(p_stream);
 }
 
 /* Destroy a "stream_out" modules chain

@@ -2,7 +2,6 @@
  * freetype.c : Put text on the video, using freetype2
  *****************************************************************************
  * Copyright (C) 2002 - 2015 VLC authors and VideoLAN
- * $Id: 92f90c9f0b552bb549e47ebcb370ce857e013307 $
  *
  * Authors: Sigmund Augdal Helberg <dnumgis@videolan.org>
  *          Gildas Bazin <gbazin@videolan.org>
@@ -492,9 +491,9 @@ static int RenderYUVP( filter_t *p_filter, subpicture_region_t *p_region,
             {
                 for( x = 0; x < p_glyph->bitmap.width; x++ )
                 {
-                    if( p_glyph->bitmap.buffer[y * p_glyph->bitmap.width + x] )
+                    if( p_glyph->bitmap.buffer[y * p_glyph->bitmap.pitch + x] )
                         p_dst[(i_glyph_y + y) * i_pitch + (i_glyph_x + x)] =
-                            (p_glyph->bitmap.buffer[y * p_glyph->bitmap.width + x] + 8)/16;
+                            (p_glyph->bitmap.buffer[y * p_glyph->bitmap.pitch + x] + 8)/16;
                 }
             }
         }
@@ -550,6 +549,9 @@ static inline void BlendYUVAPixel( picture_t *p_picture,
                                    int i_a, int i_y, int i_u, int i_v,
                                    int i_alpha )
 {
+    if( i_alpha == 0 )
+        return;
+
     int i_an = i_a * i_alpha / 255;
 
     uint8_t *p_y = &p_picture->p[0].p_pixels[i_picture_y * p_picture->p[0].i_pitch + i_picture_x];
@@ -567,12 +569,14 @@ static inline void BlendYUVAPixel( picture_t *p_picture,
     }
     else
     {
-        *p_a = 255 - (255 - *p_a) * (255 - i_an) / 255;
+        int i_ani = 255 - i_an;
+        int i_aoni = i_ao * i_ani / 255;
+        *p_a = 255 - (255 - *p_a) * i_ani / 255;
         if( *p_a != 0 )
         {
-            *p_y = ( *p_y * i_ao * (255 - i_an) / 255 + i_y * i_an ) / *p_a;
-            *p_u = ( *p_u * i_ao * (255 - i_an) / 255 + i_u * i_an ) / *p_a;
-            *p_v = ( *p_v * i_ao * (255 - i_an) / 255 + i_v * i_an ) / *p_a;
+            *p_y = ( *p_y * i_aoni + i_y * i_an ) / *p_a;
+            *p_u = ( *p_u * i_aoni + i_u * i_an ) / *p_a;
+            *p_v = ( *p_v * i_aoni + i_v * i_an ) / *p_a;
         }
     }
 }
@@ -598,6 +602,9 @@ static inline void BlendRGBAPixel( picture_t *p_picture,
                                    int i_a, int i_r, int i_g, int i_b,
                                    int i_alpha )
 {
+    if( i_alpha == 0 )
+        return;
+
     int i_an = i_a * i_alpha / 255;
 
     uint8_t *p_rgba = &p_picture->p->p_pixels[i_picture_y * p_picture->p->i_pitch + 4 * i_picture_x];
@@ -612,12 +619,14 @@ static inline void BlendRGBAPixel( picture_t *p_picture,
     }
     else
     {
-        p_rgba[3] = 255 - (255 - p_rgba[3]) * (255 - i_an) / 255;
+        int i_ani = 255 - i_an;
+        p_rgba[3] = 255 - (255 - p_rgba[3]) * i_ani / 255;
         if( p_rgba[3] != 0 )
         {
-            p_rgba[0] = ( p_rgba[0] * i_ao * (255 - i_an) / 255 + i_r * i_an ) / p_rgba[3];
-            p_rgba[1] = ( p_rgba[1] * i_ao * (255 - i_an) / 255 + i_g * i_an ) / p_rgba[3];
-            p_rgba[2] = ( p_rgba[2] * i_ao * (255 - i_an) / 255 + i_b * i_an ) / p_rgba[3];
+            int i_aoni = i_ao * i_ani / 255;
+            p_rgba[0] = ( p_rgba[0] * i_aoni + i_r * i_an ) / p_rgba[3];
+            p_rgba[1] = ( p_rgba[1] * i_aoni + i_g * i_an ) / p_rgba[3];
+            p_rgba[2] = ( p_rgba[2] * i_aoni + i_b * i_an ) / p_rgba[3];
         }
     }
 }
@@ -647,6 +656,9 @@ static void FillARGBPicture(picture_t *pic, int a, int r, int g, int b)
 static inline void BlendARGBPixel(picture_t *pic, int pic_x, int pic_y,
                                   int a, int r, int g, int b, int alpha)
 {
+    if (alpha == 0)
+        return;
+
     uint8_t *rgba = &pic->p->p_pixels[pic_y * pic->p->i_pitch + 4 * pic_x];
     int an = a * alpha / 255;
     int ao = rgba[3];
@@ -660,12 +672,14 @@ static inline void BlendARGBPixel(picture_t *pic, int pic_x, int pic_y,
     }
     else
     {
-        rgba[0] = 255 - (255 - rgba[0]) * (255 - an) / 255;
+        int ani = 255 - an;
+        rgba[0] = 255 - (255 - rgba[0]) * ani / 255;
         if (rgba[0] != 0)
         {
-            rgba[1] = (rgba[1] * ao * (255 - an) / 255 + r * an ) / rgba[0];
-            rgba[2] = (rgba[2] * ao * (255 - an) / 255 + g * an ) / rgba[0];
-            rgba[3] = (rgba[3] * ao * (255 - an) / 255 + b * an ) / rgba[0];
+            int aoni = ao * ani / 255;
+            rgba[1] = (rgba[1] * aoni + r * an ) / rgba[0];
+            rgba[2] = (rgba[2] * aoni + g * an ) / rgba[0];
+            rgba[3] = (rgba[3] * aoni + b * an ) / rgba[0];
         }
     }
 }
@@ -682,7 +696,7 @@ static inline void BlendAXYZGlyph( picture_t *p_picture,
         for( unsigned int dx = 0; dx < p_glyph->bitmap.width; dx++ )
             BlendPixel( p_picture, i_picture_x + dx, i_picture_y + dy,
                         i_a, i_x, i_y, i_z,
-                        p_glyph->bitmap.buffer[dy * p_glyph->bitmap.width + dx] );
+                        p_glyph->bitmap.buffer[dy * p_glyph->bitmap.pitch + dx] );
     }
 }
 
@@ -772,11 +786,9 @@ static inline void RenderBackground( subpicture_region_t *p_region,
             if( p_char->p_style->i_style_flags & STYLE_BACKGROUND )
             {
                 uint8_t i_x, i_y, i_z;
-                ExtractComponents( p_char->b_in_karaoke ? p_char->p_style->i_karaoke_background_color :
-                                                          p_char->p_style->i_background_color,
+                ExtractComponents( p_char->p_style->i_background_color,
                                    &i_x, &i_y, &i_z );
-                const uint8_t i_alpha = p_char->b_in_karaoke ? p_char->p_style->i_karaoke_background_alpha:
-                                                               p_char->p_style->i_background_alpha;
+                const uint8_t i_alpha = p_char->p_style->i_background_alpha;
 
                 /* Render the actual background */
                 if( i_alpha != STYLE_ALPHA_TRANSPARENT )
@@ -1347,10 +1359,11 @@ static int Render( filter_t *p_filter, subpicture_region_t *p_region_out,
                                  YUVFromRGB,
                                  FillYUVAPicture,
                                  BlendYUVAPixel );
-            else if( *p_chroma == VLC_CODEC_RGBA )
+            else if( *p_chroma == VLC_CODEC_RGBA
+                  || *p_chroma == VLC_CODEC_BGRA )
                 rv = RenderAXYZ( p_filter, p_region_out, text_block.p_laid,
                                  &regionbbox, &paddedbbox, &bbox,
-                                 VLC_CODEC_RGBA,
+                                 *p_chroma,
                                  &p_region_out->fmt,
                                  RGBFromRGB,
                                  FillRGBAPicture,
@@ -1367,12 +1380,6 @@ static int Render( filter_t *p_filter, subpicture_region_t *p_region_out,
             if( !rv )
                 break;
         }
-
-        /* With karaoke, we're going to have to render the text a number
-         * of times to show the progress marker on the text.
-         */
-        if( text_block.pi_k_durations )
-            var_SetBool( p_filter, "text-rerender", true );
     }
 
     FreeLines( text_block.p_laid );
@@ -1381,7 +1388,6 @@ static int Render( filter_t *p_filter, subpicture_region_t *p_region_out,
     FreeStylesArray( text_block.pp_styles, text_block.i_count );
     if( text_block.pp_ruby )
         FreeRubyBlockArray( text_block.pp_ruby, text_block.i_count );
-    free( text_block.pi_k_durations );
 
     return rv;
 }

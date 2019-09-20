@@ -47,20 +47,19 @@ namespace adaptive
                 size_t                  bpsAvg;
                 size_t                  currentBps;
                 size_t                  usedBps;
-                vlc_object_t *          p_obj;
 
                 MovingAverage<size_t>   average;
 
                 size_t                  dlsize;
                 vlc_tick_t              dllength;
 
-                vlc_mutex_t             lock;
+                mutable vlc_mutex_t     lock;
         };
 
         class FixedRateAdaptationLogic : public AbstractAdaptationLogic
         {
             public:
-                FixedRateAdaptationLogic(size_t);
+                FixedRateAdaptationLogic(vlc_object_t *, size_t);
 
                 BaseRepresentation *getNextRepresentation(BaseAdaptationSet *, BaseRepresentation *);
 

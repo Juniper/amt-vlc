@@ -281,7 +281,7 @@ static const struct name2action
     { "deinterlace", ACTIONID_DEINTERLACE, },
     { "deinterlace-mode", ACTIONID_DEINTERLACE_MODE, },
     { "disc-menu", ACTIONID_DISC_MENU, },
-    { "faster", ACTIONID_FASTER, },
+    { "faster", ACTIONID_RATE_FASTER, },
     { "frame-next", ACTIONID_FRAME_NEXT, },
     { "incr-scalefactor", ACTIONID_SCALE_UP, },
     { "intf-boss", ACTIONID_INTF_BOSS, },
@@ -336,7 +336,7 @@ static const struct name2action
     { "set-bookmark7", ACTIONID_SET_BOOKMARK7, },
     { "set-bookmark8", ACTIONID_SET_BOOKMARK8, },
     { "set-bookmark9", ACTIONID_SET_BOOKMARK9, },
-    { "slower", ACTIONID_SLOWER, },
+    { "slower", ACTIONID_RATE_SLOWER, },
     { "snapshot", ACTIONID_SNAPSHOT, },
     { "stop", ACTIONID_STOP, },
     { "subdelay-down", ACTIONID_SUBDELAY_DOWN, },
@@ -347,6 +347,7 @@ static const struct name2action
     { "subsync-markaudio", ACTIONID_SUBSYNC_MARKAUDIO, },
     { "subsync-marksub", ACTIONID_SUBSYNC_MARKSUB, },
     { "subsync-reset", ACTIONID_SUBSYNC_RESET, },
+    { "subtitle-control-secondary", ACTIONID_SUBTITLE_CONTROL_SECONDARY, },
     { "subtitle-revtrack", ACTIONID_SUBTITLE_REVERSE_TRACK, },
     { "subtitle-text-scale-down", ACTIONID_SUBTITLE_TEXT_SCALE_DOWN, },
     { "subtitle-text-scale-normal", ACTIONID_SUBTITLE_TEXT_SCALE_NORMAL, },
@@ -637,6 +638,6 @@ vlc_actions_get_keycodes(vlc_object_t *p_obj, const char *psz_key_name,
 const char* const*
 vlc_actions_get_key_names(vlc_object_t *p_obj)
 {
-    vlc_actions_t *as = libvlc_priv(p_obj->obj.libvlc)->actions;
+    vlc_actions_t *as = libvlc_priv(vlc_object_instance(p_obj))->actions;
     return as->ppsz_keys;
 }

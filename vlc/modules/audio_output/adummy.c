@@ -2,7 +2,6 @@
  * adummy.c : dummy audio output plugin
  *****************************************************************************
  * Copyright (C) 2002 VLC authors and VideoLAN
- * $Id: fb342fc73243657b75fd475913cc3978c97c85e5 $
  *
  * Authors: Christophe Massiot <massiot@via.ecp.fr>
  *
@@ -36,7 +35,7 @@ vlc_module_begin ()
     set_shortname( N_("Dummy") )
     set_description( N_("Dummy audio output") )
     set_capability( "audio output", 0 )
-    set_callbacks( Open, NULL )
+    set_callback( Open )
     add_shortcut( "dummy" )
 vlc_module_end ()
 
@@ -53,9 +52,9 @@ static void Pause(audio_output_t *aout, bool paused, vlc_tick_t date)
     (void) aout; (void) paused; (void) date;
 }
 
-static void Flush(audio_output_t *aout, bool wait)
+static void Flush(audio_output_t *aout)
 {
-    (void) aout; (void) wait;
+    (void) aout;
 }
 
 static int Start(audio_output_t *aout, audio_sample_format_t *restrict fmt)
@@ -89,6 +88,11 @@ static int Start(audio_output_t *aout, audio_sample_format_t *restrict fmt)
     return VLC_SUCCESS;
 }
 
+static void Stop(audio_output_t *aout)
+{
+    (void) aout;
+}
+
 static int Open(vlc_object_t *obj)
 {
     audio_output_t *aout = (audio_output_t *)obj;
@@ -98,7 +102,7 @@ static int Open(vlc_object_t *obj)
     aout->play = Play;
     aout->pause = Pause;
     aout->flush = Flush;
-    aout->stop = NULL;
+    aout->stop = Stop;
     aout->volume_set = NULL;
     aout->mute_set = NULL;
     return VLC_SUCCESS;

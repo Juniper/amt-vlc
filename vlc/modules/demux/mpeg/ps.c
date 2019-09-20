@@ -2,7 +2,6 @@
  * ps.c: Program Stream demux module for VLC.
  *****************************************************************************
  * Copyright (C) 2004-2009 VLC authors and VideoLAN
- * $Id: 198ef364cc894f471952742a4dd2a7aa8879d964 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *
@@ -87,14 +86,14 @@ typedef struct
     ps_psm_t    psm;
     ps_track_t  tk[PS_TK_COUNT];
 
-    int64_t     i_pack_scr; /* current read pack scr value, temp */
-    int64_t     i_first_scr; /* media offset */
-    int64_t     i_scr; /* committed, current position */
+    vlc_tick_t  i_pack_scr; /* current read pack scr value, temp */
+    vlc_tick_t  i_first_scr; /* media offset */
+    vlc_tick_t  i_scr; /* committed, current position */
     int64_t     i_scr_track_id;
     int         i_mux_rate;
-    int64_t     i_length;
+    vlc_tick_t  i_length;
     int         i_time_track_index;
-    int64_t     i_current_pts;
+    vlc_tick_t  i_current_pts;
     uint64_t    i_start_byte;
     uint64_t    i_lastpack_byte;
 
@@ -137,7 +136,7 @@ static int OpenCommon( vlc_object_t *p_this, bool b_force )
     unsigned i_max_packets = PS_PACKET_PROBE;
     int format = MPEG_PS;
     int i_mux_rate = 0;
-    int i_length = -1;
+    vlc_tick_t i_length = VLC_TICK_INVALID;
 
     i_peek = vlc_stream_Peek( p_demux->s, &p_peek, 16 );
     if( i_peek < 16 )
@@ -157,7 +156,7 @@ static int OpenCommon( vlc_object_t *p_this, bool b_force )
         msg_Info( p_demux, "Detected PSMF-PS header");
         i_mux_rate = GetDWBE( &p_peek[96] );
         if( GetDWBE( &p_peek[86] ) > 0 )
-            i_length = CLOCK_FREQ * GetDWBE( &p_peek[92] ) / GetDWBE( &p_peek[86] );
+            i_length = vlc_tick_from_samples( GetDWBE( &p_peek[92] ), GetDWBE( &p_peek[86] ));
     }
     else if( !memcmp( p_peek, "RIFF", 4 ) && !memcmp( &p_peek[8], "CDXA", 4 ) )
     {
@@ -211,12 +210,12 @@ static int OpenCommon( vlc_object_t *p_this, bool b_force )
 
     /* Init p_sys */
     p_sys->i_mux_rate = i_mux_rate;
-    p_sys->i_pack_scr      = -1;
-    p_sys->i_first_scr = -1;
-    p_sys->i_scr = -1;
+    p_sys->i_pack_scr  = VLC_TICK_INVALID;
+    p_sys->i_first_scr = VLC_TICK_INVALID;
+    p_sys->i_scr = VLC_TICK_INVALID;
     p_sys->i_scr_track_id = 0;
     p_sys->i_length   = i_length;
-    p_sys->i_current_pts = (vlc_tick_t) 0;
+    p_sys->i_current_pts = VLC_TICK_INVALID;
     p_sys->i_time_track_index = -1;
     p_sys->i_aob_mlp_count = 0;
     p_sys->i_start_byte = i_skip;
@@ -248,7 +247,7 @@ static int OpenForce( vlc_object_t *p_this )
 
 static int Open( vlc_object_t *p_this )
 {
-    return OpenCommon( p_this, p_this->obj.force );
+    return OpenCommon( p_this, p_this->force );
 }
 
 /*****************************************************************************
@@ -303,18 +302,18 @@ static int Probe( demux_t *p_demux, bool b_end )
         return VLC_DEMUXER_EOF;
     }
 
-    i_id = ps_pkt_id( p_pkt );
+    i_id = ps_pkt_id( p_pkt->p_buffer, p_pkt->i_buffer );
     if( i_id >= 0xc0 )
     {
         ps_track_t *tk = &p_sys->tk[ps_id_to_tk(i_id)];
         if( !ps_pkt_parse_pes( VLC_OBJECT(p_demux), p_pkt, tk->i_skip ) &&
              p_pkt->i_pts != VLC_TICK_INVALID )
         {
-            if( b_end && p_pkt->i_pts > tk->i_last_pts )
+            if( b_end && (tk->i_last_pts == VLC_TICK_INVALID || p_pkt->i_pts > tk->i_last_pts) )
             {
                 tk->i_last_pts = p_pkt->i_pts;
             }
-            else if ( tk->i_first_pts == -1 )
+            else if ( tk->i_first_pts == VLC_TICK_INVALID )
             {
                 tk->i_first_pts = p_pkt->i_pts;
             }
@@ -322,10 +321,11 @@ static int Probe( demux_t *p_demux, bool b_end )
     }
     else if( i_id == PS_STREAM_ID_PACK_HEADER )
     {
-        int64_t i_scr; int dummy;
-        if( !b_end && !ps_pkt_parse_pack( p_pkt, &i_scr, &dummy ) )
+        vlc_tick_t i_scr; int dummy;
+        if( !b_end && !ps_pkt_parse_pack( p_pkt->p_buffer, p_pkt->i_buffer,
+                                          &i_scr, &dummy ) )
         {
-            if( p_sys->i_first_scr == -1 )
+            if( p_sys->i_first_scr == VLC_TICK_INVALID )
                 p_sys->i_first_scr = i_scr;
         }
         p_sys->b_have_pack = true;
@@ -343,9 +343,9 @@ static bool FindLength( demux_t *p_demux )
     if( !var_CreateGetBool( p_demux, "ps-trust-timestamps" ) )
         return true;
 
-    if( p_sys->i_length == -1 ) /* First time */
+    if( p_sys->i_length == VLC_TICK_INVALID ) /* First time */
     {
-        p_sys->i_length = 0;
+        p_sys->i_length = VLC_TICK_0;
         /* Check beginning */
         int i = 0;
         i_current_pos = vlc_stream_Tell( p_demux->s );
@@ -369,15 +369,15 @@ static bool FindLength( demux_t *p_demux )
     for( int i = 0; i < PS_TK_COUNT; i++ )
     {
         ps_track_t *tk = &p_sys->tk[i];
-        if( tk->i_first_pts >= 0 &&
+        if( tk->i_first_pts != VLC_TICK_INVALID &&
             tk->i_last_pts > tk->i_first_pts )
         {
-            int64_t i_length = (int64_t)tk->i_last_pts - tk->i_first_pts;
+            vlc_tick_t i_length = tk->i_last_pts - tk->i_first_pts;
             if( i_length > p_sys->i_length )
             {
                 p_sys->i_length = i_length;
                 p_sys->i_time_track_index = i;
-                msg_Dbg( p_demux, "we found a length of: %"PRId64 "s", p_sys->i_length / CLOCK_FREQ );
+                msg_Dbg( p_demux, "we found a length of: %"PRId64 "s", SEC_FROM_VLC_TICK(p_sys->i_length) );
             }
         }
     }
@@ -402,7 +402,7 @@ static void NotifyDiscontinuity( ps_track_t *p_tk, es_out_t *out )
 static void CheckPCR( demux_sys_t *p_sys, es_out_t *out, vlc_tick_t i_scr )
 {
     if( p_sys->i_scr != VLC_TICK_INVALID &&
-        llabs( p_sys->i_scr - i_scr ) > CLOCK_FREQ )
+        llabs( p_sys->i_scr - i_scr ) > VLC_TICK_FROM_SEC(1) )
         NotifyDiscontinuity( p_sys->tk, out );
 }
 
@@ -436,7 +436,7 @@ static int Demux( demux_t *p_demux )
     if( p_sys->b_lost_sync ) msg_Warn( p_demux, "found sync code" );
     p_sys->b_lost_sync = false;
 
-    if( p_sys->i_length < 0 && p_sys->b_seekable )
+    if( p_sys->i_length == VLC_TICK_INVALID && p_sys->b_seekable )
     {
         if( !FindLength( p_demux ) )
             return VLC_DEMUXER_EGENERIC;
@@ -461,9 +461,10 @@ static int Demux( demux_t *p_demux )
         break;
 
     case PS_STREAM_ID_PACK_HEADER:
-        if( !ps_pkt_parse_pack( p_pkt, &p_sys->i_pack_scr, &i_mux_rate ) )
+        if( !ps_pkt_parse_pack( p_pkt->p_buffer, p_pkt->i_buffer,
+                                &p_sys->i_pack_scr, &i_mux_rate ) )
         {
-            if( p_sys->i_first_scr == -1 )
+            if( p_sys->i_first_scr == VLC_TICK_INVALID )
                 p_sys->i_first_scr = p_sys->i_pack_scr;
             CheckPCR( p_sys, p_demux->out, p_sys->i_pack_scr );
             p_sys->i_scr = p_sys->i_pack_scr;
@@ -477,7 +478,8 @@ static int Demux( demux_t *p_demux )
         break;
 
     case PS_STREAM_ID_SYSTEM_HEADER:
-        if( !ps_pkt_parse_system( p_pkt, &p_sys->psm, p_sys->tk ) )
+        if( !ps_pkt_parse_system( p_pkt->p_buffer, p_pkt->i_buffer,
+                                  &p_sys->psm, p_sys->tk ) )
         {
             int i;
             for( i = 0; i < PS_TK_COUNT; i++ )
@@ -497,10 +499,12 @@ static int Demux( demux_t *p_demux )
         break;
 
     case PS_STREAM_ID_MAP:
-        if( p_sys->psm.i_version == 0xFFFF )
+        if( p_sys->psm.i_version == 0xFF )
             msg_Dbg( p_demux, "contains a PSM");
 
-        ps_psm_fill( &p_sys->psm, p_pkt, p_sys->tk, p_demux->out );
+        ps_psm_fill( &p_sys->psm,
+                     p_pkt->p_buffer, p_pkt->i_buffer,
+                     p_sys->tk, p_demux->out );
         block_Release( p_pkt );
         break;
 
@@ -515,7 +519,7 @@ static int Demux( demux_t *p_demux )
     case PS_STREAM_ID_PRIVATE_STREAM1:
     case PS_STREAM_ID_EXTENDED:
         {
-            int i_id = ps_pkt_id( p_pkt );
+            int i_id = ps_pkt_id( p_pkt->p_buffer, p_pkt->i_buffer );
             /* Small heuristic to improve MLP detection from AOB */
             if( i_id == 0xa001 &&
                 p_sys->i_aob_mlp_count < 500 )
@@ -534,7 +538,8 @@ static int Demux( demux_t *p_demux )
 
             if( !tk->b_configured )
             {
-                if( !ps_track_fill( tk, &p_sys->psm, i_id, p_pkt, false ) )
+                if( !ps_track_fill( tk, &p_sys->psm, i_id,
+                                    p_pkt->p_buffer, p_pkt->i_buffer, false ) )
                 {
                     /* No PSM and no probing yet */
                     if( p_sys->format == PSMF_PS )
@@ -575,21 +580,21 @@ static int Demux( demux_t *p_demux )
                   tk->fmt.i_codec == VLC_CODEC_CVD ) )
             {
                 p_sys->b_bad_scr = true;
-                p_sys->i_first_scr = -1;
+                p_sys->i_first_scr = VLC_TICK_INVALID;
             }
 
-            if( p_sys->i_pack_scr >= 0 && !p_sys->b_bad_scr )
+            if( p_sys->i_pack_scr != VLC_TICK_INVALID && !p_sys->b_bad_scr )
             {
                 if( (tk->fmt.i_cat == AUDIO_ES || tk->fmt.i_cat == VIDEO_ES) &&
                     tk->i_first_pts != VLC_TICK_INVALID && tk->i_first_pts - p_sys->i_pack_scr > VLC_TICK_FROM_SEC(2))
                 {
                     msg_Warn( p_demux, "Incorrect SCR timing offset by of %"PRId64 "ms, disabling",
-                                       tk->i_first_pts - p_sys->i_pack_scr / 1000 );
+                                       MS_FROM_VLC_TICK(tk->i_first_pts - p_sys->i_pack_scr) );
                     p_sys->b_bad_scr = true; /* Disable Offset SCR */
-                    p_sys->i_first_scr = -1;
+                    p_sys->i_first_scr = VLC_TICK_INVALID;
                 }
                 else
-                    es_out_SetPCR( p_demux->out, VLC_TICK_0 + p_sys->i_pack_scr );
+                    es_out_SetPCR( p_demux->out, p_sys->i_pack_scr );
             }
 
             if( tk->b_configured && tk->es &&
@@ -597,13 +602,13 @@ static int Demux( demux_t *p_demux )
             {
                 if( tk->fmt.i_cat == AUDIO_ES || tk->fmt.i_cat == VIDEO_ES )
                 {
-                    if( !p_sys->b_bad_scr && p_sys->i_pack_scr > 0 && p_pkt->i_pts > 0 &&
+                    if( !p_sys->b_bad_scr && p_sys->i_pack_scr != VLC_TICK_INVALID && p_pkt->i_pts != VLC_TICK_INVALID &&
                         p_sys->i_pack_scr > p_pkt->i_pts + VLC_TICK_FROM_MS(250) )
                     {
                         msg_Warn( p_demux, "Incorrect SCR timing in advance of %" PRId64 "ms, disabling",
-                                           p_sys->i_pack_scr - p_pkt->i_pts / 1000 );
+                                           MS_FROM_VLC_TICK(p_sys->i_pack_scr - p_pkt->i_pts) );
                         p_sys->b_bad_scr = true;
-                        p_sys->i_first_scr = -1;
+                        p_sys->i_first_scr = VLC_TICK_INVALID;
                     }
 
                     if( (p_sys->b_bad_scr || !p_sys->b_have_pack) && !p_sys->i_scr_track_id )
@@ -620,22 +625,22 @@ static int Demux( demux_t *p_demux )
                     msg_Dbg( p_demux, "force SCR: %"PRId64, p_pkt->i_pts );
                     CheckPCR( p_sys, p_demux->out, p_pkt->i_pts );
                     p_sys->i_scr = p_pkt->i_pts;
-                    if( p_sys->i_first_scr == -1 )
+                    if( p_sys->i_first_scr == VLC_TICK_INVALID )
                         p_sys->i_first_scr = p_sys->i_scr;
                     es_out_SetPCR( p_demux->out, p_pkt->i_pts );
                 }
 
                 if( tk->fmt.i_codec == VLC_CODEC_TELETEXT &&
-                    p_pkt->i_pts == VLC_TICK_INVALID && p_sys->i_scr >= 0 )
+                    p_pkt->i_pts == VLC_TICK_INVALID && p_sys->i_scr != VLC_TICK_INVALID )
                 {
                     /* Teletext may have missing PTS (ETSI EN 300 472 Annexe A)
                      * In this case use the last SCR + 40ms */
-                    p_pkt->i_pts = VLC_TICK_0 + p_sys->i_scr + 40000;
+                    p_pkt->i_pts = p_sys->i_scr + VLC_TICK_FROM_MS(40);
                 }
 
-                if( (int64_t)p_pkt->i_pts > p_sys->i_current_pts )
+                if( p_pkt->i_pts > p_sys->i_current_pts )
                 {
-                    p_sys->i_current_pts = (int64_t)p_pkt->i_pts;
+                    p_sys->i_current_pts = p_pkt->i_pts;
                 }
 
                 if( tk->i_next_block_flags )
@@ -657,7 +662,7 @@ static int Demux( demux_t *p_demux )
                 block_Release( p_pkt );
             }
 
-            p_sys->i_pack_scr = -1;
+            p_sys->i_pack_scr = VLC_TICK_INVALID;
         }
         break;
     }
@@ -673,7 +678,7 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
 {
     demux_sys_t *p_sys = p_demux->p_sys;
     double f, *pf;
-    int64_t i64, *pi64;
+    int64_t i64;
     int i_ret;
 
     switch( i_query )
@@ -707,8 +712,8 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
         case DEMUX_SET_POSITION:
             f = va_arg( args, double );
             i64 = stream_Size( p_demux->s ) - p_sys->i_start_byte;
-            p_sys->i_current_pts = 0;
-            p_sys->i_scr = -1;
+            p_sys->i_current_pts = VLC_TICK_INVALID;
+            p_sys->i_scr = VLC_TICK_INVALID;
 
             if( p_sys->format == CDXA_PS )
             {
@@ -729,50 +734,52 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
             break;
 
         case DEMUX_GET_TIME:
-            pi64 = va_arg( args, int64_t * );
-            if( p_sys->i_time_track_index >= 0 && p_sys->i_current_pts > 0 )
+            if( p_sys->i_time_track_index >= 0 && p_sys->i_current_pts != VLC_TICK_INVALID )
             {
-                *pi64 = p_sys->i_current_pts - p_sys->tk[p_sys->i_time_track_index].i_first_pts;
+                *va_arg( args, vlc_tick_t * ) = p_sys->i_current_pts - p_sys->tk[p_sys->i_time_track_index].i_first_pts;
                 return VLC_SUCCESS;
             }
-            if( p_sys->i_first_scr > -1 && p_sys->i_scr > -1 )
+            if( p_sys->i_first_scr != VLC_TICK_INVALID && p_sys->i_scr != VLC_TICK_INVALID )
             {
-                *pi64 = p_sys->i_scr - p_sys->i_first_scr;
+                vlc_tick_t i_time = p_sys->i_scr - p_sys->i_first_scr;
                 /* H.222 2.5.2.2 */
                 if( p_sys->i_mux_rate > 0 && p_sys->b_have_pack )
                 {
                     uint64_t i_offset = vlc_stream_Tell( p_demux->s ) - p_sys->i_lastpack_byte;
-                    *pi64 += CLOCK_FREQ * i_offset / (p_sys->i_mux_rate * 50);
+                    i_time += vlc_tick_from_samples(i_offset, p_sys->i_mux_rate * 50);
                 }
+                *va_arg( args, vlc_tick_t * ) = i_time;
                 return VLC_SUCCESS;
             }
-            *pi64 = 0;
+            *va_arg( args, vlc_tick_t * ) = 0;
             break;
 
         case DEMUX_GET_LENGTH:
-            pi64 = va_arg( args, int64_t * );
-            if( p_sys->i_length > 0 )
+            if( p_sys->i_length > VLC_TICK_0 )
             {
-                *pi64 = p_sys->i_length;
+                *va_arg( args, vlc_tick_t * ) = p_sys->i_length;
                 return VLC_SUCCESS;
             }
             else if( p_sys->i_mux_rate > 0 )
             {
-                *pi64 = CLOCK_FREQ * ( stream_Size( p_demux->s ) - p_sys->i_start_byte / 50 ) /
-                    p_sys->i_mux_rate;
+                *va_arg( args, vlc_tick_t * ) = vlc_tick_from_samples( stream_Size( p_demux->s ) - p_sys->i_start_byte / 50,
+                    p_sys->i_mux_rate );
                 return VLC_SUCCESS;
             }
-            *pi64 = 0;
+            *va_arg( args, vlc_tick_t * ) = 0;
             break;
 
         case DEMUX_SET_TIME:
-            i64 = va_arg( args, int64_t );
-            if( p_sys->i_time_track_index >= 0 && p_sys->i_current_pts > 0 && p_sys->i_length )
+        {
+            if( p_sys->i_time_track_index >= 0 && p_sys->i_current_pts != VLC_TICK_INVALID &&
+                p_sys->i_length > VLC_TICK_0)
             {
-                i64 -= p_sys->tk[p_sys->i_time_track_index].i_first_pts;
-                return demux_Control( p_demux, DEMUX_SET_POSITION, (double) i64 / p_sys->i_length );
+                vlc_tick_t i_time = va_arg( args, vlc_tick_t );
+                i_time -= p_sys->tk[p_sys->i_time_track_index].i_first_pts;
+                return demux_Control( p_demux, DEMUX_SET_POSITION, (double) i_time / p_sys->i_length );
             }
             break;
+        }
 
         case DEMUX_GET_TITLE_INFO:
         {

@@ -2,7 +2,6 @@
  * avcodec.h: decoder and encoder using libavcodec
  *****************************************************************************
  * Copyright (C) 2001-2013 VLC authors and VideoLAN
- * $Id: 8f9c12081cf8524424d4611822a69a3a16cf1f05 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Jean-Baptiste Kempf <jb@videolan.org>
@@ -90,10 +89,6 @@
 #define LIBAVUTIL_VERSION_CHECK( a, b, c, d, e ) \
     ( (LIBAVUTIL_VERSION_MICRO <  100 && LIBAVUTIL_VERSION_INT >= AV_VERSION_INT( a, b, c ) ) || \
       (LIBAVUTIL_VERSION_MICRO >= 100 && LIBAVUTIL_VERSION_INT >= AV_VERSION_INT( a, d, e ) ) )
-
-#if !LIBAVUTIL_VERSION_CHECK( 52, 11, 0, 32, 100 )
-#   define AV_PIX_FMT_FLAG_HWACCEL  PIX_FMT_HWACCEL
-#endif
 
 #endif /* HAVE_LIBAVUTIL_AVUTIL_H */
 

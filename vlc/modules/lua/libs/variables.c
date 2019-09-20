@@ -2,7 +2,6 @@
  * variables.c: Generic lua<->vlc variables interface
  *****************************************************************************
  * Copyright (C) 2007-2010 the VideoLAN team
- * $Id: 6016253466b83f6a26e24b2c10190eac97dbf3dd $
  *
  * Authors: Antoine Cellerier <dionoea at videolan tod org>
  *
@@ -39,7 +38,6 @@
 #include "../vlc.h"
 #include "../libs.h"
 #include "variables.h"
-#include "objects.h"
 
 /*****************************************************************************
  * Variables handling
@@ -261,19 +259,20 @@ static int vlclua_var_get_list( lua_State *L )
 static int vlclua_libvlc_command( lua_State *L )
 {
     vlc_object_t * p_this = vlclua_get_this( L );
+    vlc_object_t *vlc = VLC_OBJECT(vlc_object_instance(p_this));
     vlc_value_t val_arg;
 
     const char *psz_cmd = luaL_checkstring( L, 1 );
     val_arg.psz_string = (char*)luaL_optstring( L, 2, "" );
 
-    int i_type = var_Type( p_this->obj.libvlc, psz_cmd );
+    int i_type = var_Type( vlc, psz_cmd );
     if( ! (i_type & VLC_VAR_ISCOMMAND) )
     {
         return luaL_error( L, "libvlc's \"%s\" is not a command",
                            psz_cmd );
     }
 
-    int i_ret = var_Set( p_this->obj.libvlc, psz_cmd, val_arg );
+    int i_ret = var_Set( vlc, psz_cmd, val_arg );
     lua_pop( L, 2 );
 
     return vlclua_push_ret( L, i_ret );

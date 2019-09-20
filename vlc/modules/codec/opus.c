@@ -30,7 +30,6 @@
 
 #include <vlc_common.h>
 #include <vlc_plugin.h>
-#include <vlc_input.h>
 #include <vlc_codec.h>
 #include <vlc_aout.h>
 #include "../demux/xiph.h"
@@ -243,7 +242,7 @@ static int ProcessHeaders( decoder_t *p_dec )
     ogg_packet oggpacket;
 
     unsigned pi_size[XIPH_MAX_HEADER_COUNT];
-    void     *pp_data[XIPH_MAX_HEADER_COUNT];
+    const void *pp_data[XIPH_MAX_HEADER_COUNT];
     unsigned i_count;
 
     int i_extra = p_dec->fmt_in.i_extra;
@@ -285,7 +284,7 @@ static int ProcessHeaders( decoder_t *p_dec )
     /* Take care of the initial Opus header */
     oggpacket.b_o_s = 1; /* yes this actually is a b_o_s packet :) */
     oggpacket.bytes  = pi_size[0];
-    oggpacket.packet = pp_data[0];
+    oggpacket.packet = (void *)pp_data[0];
     int ret = ProcessInitialHeader( p_dec, &oggpacket );
 
     if (ret != VLC_SUCCESS)
@@ -482,9 +481,9 @@ static block_t *DecodePacket( decoder_t *p_dec, ogg_packet *p_oggpacket,
 
     int i_end_trim = 0;
     if( i_duration > 0 && spp > 0 &&
-        i_duration < i_nb_samples * CLOCK_FREQ / 48000 )
+        i_duration < vlc_tick_from_samples(i_nb_samples, 48000) )
     {
-        i_end_trim = spp - VLC_CLIP(i_duration * 48000 / CLOCK_FREQ, 0, spp);
+        i_end_trim = spp - VLC_CLIP(samples_from_vlc_tick(i_duration, 48000), 0, spp);
     }
 
     if( spp < 0 || i_nb_samples <= 0 || i_end_trim >= i_nb_samples)
@@ -580,8 +579,8 @@ static block_t *Encode(encoder_t *enc, block_t *buf)
         return NULL;
 
     vlc_tick_t i_pts = buf->i_pts -
-                (vlc_tick_t) CLOCK_FREQ * (vlc_tick_t) sys->i_samples_delay /
-                (vlc_tick_t) enc->fmt_in.audio.i_rate;
+                vlc_tick_from_samples( sys->i_samples_delay,
+                             enc->fmt_in.audio.i_rate );
 
     sys->i_samples_delay += buf->i_nb_samples;
 
@@ -626,8 +625,8 @@ static block_t *Encode(encoder_t *enc, block_t *buf)
         }
         else
         {
-            out_block->i_length = (vlc_tick_t) CLOCK_FREQ *
-                (vlc_tick_t) OPUS_FRAME_SIZE / (vlc_tick_t) enc->fmt_in.audio.i_rate;
+            out_block->i_length = vlc_tick_from_samples( OPUS_FRAME_SIZE,
+                                                         enc->fmt_in.audio.i_rate );
 
             out_block->i_dts = out_block->i_pts = i_pts;
 

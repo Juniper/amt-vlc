@@ -1,6 +1,6 @@
 # speexdsp
 
-SPEEXDSP_VERSION := 1.2rc3
+SPEEXDSP_VERSION := 1.2.0
 SPEEXDSP_URL := http://downloads.us.xiph.org/releases/speex/speexdsp-$(SPEEXDSP_VERSION).tar.gz
 
 PKGS += speexdsp
@@ -36,6 +36,6 @@ endif
 	$(RECONF)
 	cd $< && $(HOSTVARS) ./configure $(HOSTCONF) $(SPEEXDSP_CONF)
 	cd $< && $(MAKE)
-	cd $< && ../../../contrib/src/pkg-static.sh speexdsp.pc
+	$(call pkg_static,"speexdsp.pc")
 	cd $< && $(MAKE) install
 	touch $@

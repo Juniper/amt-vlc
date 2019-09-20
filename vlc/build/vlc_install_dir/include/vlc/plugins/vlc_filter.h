@@ -36,8 +36,6 @@
  * Filter modules interface
  */
 
-typedef struct filter_owner_sys_t filter_owner_sys_t;
-
 struct filter_video_callbacks
 {
     picture_t *(*buffer_new)(filter_t *);
@@ -67,7 +65,7 @@ struct vlc_mouse_t;
  */
 struct filter_t
 {
-    struct vlc_common_members obj;
+    struct vlc_object_t obj;
 
     /* Module properties */
     module_t *          p_module;
@@ -141,9 +139,6 @@ struct filter_t
         int (*pf_video_mouse)( filter_t *, struct vlc_mouse_t *,
                                const struct vlc_mouse_t *p_old,
                                const struct vlc_mouse_t *p_new );
-        int (*pf_sub_mouse)( filter_t *, const struct vlc_mouse_t *p_old,
-                             const struct vlc_mouse_t *p_new,
-                             const video_format_t * );
     };
 
     /* Input attachments
@@ -312,13 +307,13 @@ typedef struct filter_chain_t filter_chain_t;
 /**
  * Create new filter chain
  *
- * \param p_object pointer to a vlc object
+ * \param obj pointer to a vlc object
  * \param psz_capability vlc capability of filters in filter chain
  * \return pointer to a filter chain
  */
-filter_chain_t * filter_chain_New( vlc_object_t *, const char *, enum es_format_category_e )
+filter_chain_t * filter_chain_NewSPU( vlc_object_t *obj, const char *psz_capability )
 VLC_USED;
-#define filter_chain_New( a, b, c ) filter_chain_New( VLC_OBJECT( a ), b, c )
+#define filter_chain_NewSPU( a, b ) filter_chain_NewSPU( VLC_OBJECT( a ), b )
 
 /**
  * Creates a new video filter chain.
@@ -410,7 +405,7 @@ VLC_API bool filter_chain_IsEmpty(const filter_chain_t *chain);
  *
  * \param chain filter chain
  */
-VLC_API const es_format_t *filter_chain_GetFmtOut(filter_chain_t *chain);
+VLC_API const es_format_t *filter_chain_GetFmtOut(const filter_chain_t *chain);
 
 /**
  * Apply the filter chain to a video picture.
@@ -456,15 +451,6 @@ VLC_API subpicture_t *filter_chain_SubFilter(filter_chain_t *chain,
  */
 VLC_API int filter_chain_MouseFilter( filter_chain_t *, struct vlc_mouse_t *,
                                       const struct vlc_mouse_t * );
-
-/**
- * Inform the filter chain of mouse state.
- *
- * It makes sense only for a sub source chain.
- */
-VLC_API int filter_chain_MouseEvent( filter_chain_t *,
-                                     const struct vlc_mouse_t *,
-                                     const video_format_t * );
 
 int filter_chain_ForEach( filter_chain_t *chain,
                           int (*cb)( filter_t *, void * ), void *opaque );

@@ -3,7 +3,6 @@
  *****************************************************************************
  * Copyright (C) 1998-2008 VLC authors and VideoLAN
  * Copyright (C) 2008 Laurent Aimar
- * $Id: 2976021ea1b12ec8fc2a4a45259a8df1a8f96ba5 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *
@@ -48,7 +47,6 @@ enum es_out_query_private_e
     ES_OUT_SET_ES_BY_ID,                            /* arg1= int, arg2= bool (forced) */
     ES_OUT_RESTART_ES_BY_ID,
     ES_OUT_SET_ES_DEFAULT_BY_ID,
-    ES_OUT_GET_ES_OBJECTS_BY_ID,                    /* arg1=int id, vlc_object_t **dec, vout_thread_t **, audio_output_t ** res=can fail*/
 
     /* Stop all selected ES and save the stopped state in a context. free the
      * context or call ES_OUT_STOP_ALL_ES */
@@ -58,6 +56,9 @@ enum es_out_query_private_e
 
     /* Get buffering state */
     ES_OUT_GET_BUFFERING,                           /* arg1=bool*               res=cannot fail */
+
+    /* Set delay for an ES identifier */
+    ES_OUT_SET_ES_DELAY,                            /* arg1=es_out_id_t *, res=cannot fail */
 
     /* Set delay for a ES category */
     ES_OUT_SET_DELAY,                               /* arg1=es_category_e,      res=cannot fail */
@@ -69,7 +70,7 @@ enum es_out_query_private_e
     ES_OUT_SET_PAUSE_STATE,                         /* arg1=bool b_source_paused, bool b_paused arg2=vlc_tick_t res=can fail */
 
     /* Set rate */
-    ES_OUT_SET_RATE,                                /* arg1=int i_source_rate arg2=int i_rate                  res=can fail */
+    ES_OUT_SET_RATE,                                /* arg1=double source_rate arg2=double rate res=can fail */
 
     /* Set next frame */
     ES_OUT_SET_FRAME_NEXT,                          /*                          res=can fail */
@@ -85,6 +86,12 @@ enum es_out_query_private_e
 
     /* Set End Of Stream */
     ES_OUT_SET_EOS,                                 /* res=cannot fail */
+
+    /* Set a VBI/Teletext page */
+    ES_OUT_SET_VBI_PAGE,                            /* arg1=unsigned res=can fail */
+
+    /* Set VBI/Teletext menu transparent */
+    ES_OUT_SET_VBI_TRANSPARENCY                     /* arg1=bool res=can fail */
 };
 
 static inline void es_out_SetMode( es_out_t *p_out, int i_mode )
@@ -116,6 +123,11 @@ static inline bool es_out_GetEmpty( es_out_t *p_out )
     assert( !i_ret );
     return b;
 }
+static inline void es_out_SetEsDelay( es_out_t *p_out, es_out_id_t *es, vlc_tick_t i_delay )
+{
+    int i_ret = es_out_Control( p_out, ES_OUT_SET_ES_DELAY, es, i_delay );
+    assert( !i_ret );
+}
 static inline void es_out_SetDelay( es_out_t *p_out, int i_cat, vlc_tick_t i_delay )
 {
     int i_ret = es_out_Control( p_out, ES_OUT_SET_DELAY, i_cat, i_delay );
@@ -129,9 +141,9 @@ static inline int es_out_SetPauseState( es_out_t *p_out, bool b_source_paused, b
 {
     return es_out_Control( p_out, ES_OUT_SET_PAUSE_STATE, b_source_paused, b_paused, i_date );
 }
-static inline int es_out_SetRate( es_out_t *p_out, int i_source_rate, int i_rate )
+static inline int es_out_SetRate( es_out_t *p_out, float source_rate, float rate )
 {
-    return es_out_Control( p_out, ES_OUT_SET_RATE, i_source_rate, i_rate );
+    return es_out_Control( p_out, ES_OUT_SET_RATE, source_rate, rate );
 }
 static inline int es_out_SetFrameNext( es_out_t *p_out )
 {
@@ -149,11 +161,6 @@ static inline void es_out_SetJitter( es_out_t *p_out,
                                 i_pts_delay, i_pts_jitter, i_cr_average );
     assert( !i_ret );
 }
-static inline int es_out_GetEsObjects( es_out_t *p_out, int i_id,
-                                       vlc_object_t **pp_decoder, vout_thread_t **pp_vout, audio_output_t **pp_aout )
-{
-    return es_out_Control( p_out, ES_OUT_GET_ES_OBJECTS_BY_ID, i_id, pp_decoder, pp_vout, pp_aout );
-}
 static inline int es_out_GetGroupForced( es_out_t *p_out )
 {
     int i_group;
@@ -167,6 +174,9 @@ static inline void es_out_Eos( es_out_t *p_out )
     assert( !i_ret );
 }
 
-es_out_t  *input_EsOutNew( input_thread_t *, int i_rate );
+es_out_t  *input_EsOutNew( input_thread_t *, float rate );
+es_out_t  *input_EsOutTimeshiftNew( input_thread_t *, es_out_t *, float i_rate );
+
+es_out_id_t *vlc_es_id_get_out(vlc_es_id_t *id);
 
 #endif

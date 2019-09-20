@@ -103,7 +103,7 @@ int DemuxOpen( vlc_object_t *obj )
         goto error;
     }
 
-    sys->controls = ControlsInit (VLC_OBJECT(demux), fd);
+    sys->controls = ControlsInit(vlc_object_parent(obj), fd);
     sys->start = vlc_tick_now ();
     demux->pf_demux = NULL;
     demux->pf_control = DemuxControl;
@@ -214,9 +214,9 @@ static const vlc_v4l2_fmt_t v4l2_fmts[] =
     //V4L2_PIX_FMT_DV -> use access
 
     /* Grey scale */
-//  { V4L2_PIX_FMT_Y16,       },
-//  { V4L2_PIX_FMT_Y12,       },
-//  { V4L2_PIX_FMT_Y10,       },
+    { V4L2_PIX_FMT_Y16,     VLC_CODEC_GREY_16L, 2, 0, 0, 0 },
+    { V4L2_PIX_FMT_Y12,     VLC_CODEC_GREY_12L, 2, 0, 0, 0 },
+    { V4L2_PIX_FMT_Y10,     VLC_CODEC_GREY_10L, 2, 0, 0, 0 },
 //  { V4L2_PIX_FMT_Y10BPACK,  },
     { V4L2_PIX_FMT_GREY,    VLC_CODEC_GREY, 1, 0, 0, 0 },
 };
@@ -436,7 +436,7 @@ static int InitVideo (demux_t *demux, int fd, uint32_t caps)
             es_fmt.video.primaries = COLOR_PRIMARIES_SRGB;
             es_fmt.video.transfer = TRANSFER_FUNC_SRGB;
             es_fmt.video.space = COLOR_SPACE_BT601;
-            es_fmt.video.b_color_range_full = true;
+            es_fmt.video.color_range = COLOR_RANGE_FULL;
             break;
         case V4L2_COLORSPACE_SRGB:
             es_fmt.video.primaries = COLOR_PRIMARIES_SRGB;
@@ -529,10 +529,10 @@ static int InitVideo (demux_t *demux, int fd, uint32_t caps)
         case V4L2_QUANTIZATION_DEFAULT:
             break;
         case V4L2_QUANTIZATION_FULL_RANGE:
-            es_fmt.video.b_color_range_full = true;
+            es_fmt.video.color_range = COLOR_RANGE_FULL;
             break;
         case V4L2_QUANTIZATION_LIM_RANGE:
-            es_fmt.video.b_color_range_full = false;
+            es_fmt.video.color_range = COLOR_RANGE_LIMITED;
             break;
         default:
             msg_Err (demux, "unknown quantization: %u",
@@ -623,7 +623,7 @@ void DemuxClose( vlc_object_t *obj )
     vlc_join (sys->thread, NULL);
     if (sys->bufv != NULL)
         StopMmap (sys->fd, sys->bufv, sys->bufc);
-    ControlsDeinit( obj, sys->controls );
+    ControlsDeinit(vlc_object_parent(obj), sys->controls);
     v4l2_close (sys->fd);
 
 #ifdef ZVBI_COMPILED
@@ -853,7 +853,7 @@ static int DemuxControl( demux_t *demux, int query, va_list args )
             return VLC_SUCCESS;
 
         case DEMUX_GET_TIME:
-            *va_arg (args, int64_t *) = vlc_tick_now() - sys->start;
+            *va_arg (args, vlc_tick_t *) = vlc_tick_now() - sys->start;
             return VLC_SUCCESS;
 
         /* TODO implement others */

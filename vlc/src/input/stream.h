@@ -3,7 +3,6 @@
  *****************************************************************************
  * Copyright (C) 1998-2008 VLC authors and VideoLAN
  * Copyright (C) 2008 Laurent Aimar
- * $Id: 60f0b0bd1b5c4b1a25904a05dba56ed83ff81225 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *
@@ -27,6 +26,7 @@
 
 #include <vlc_common.h>
 #include <vlc_stream.h>
+#include "input_internal.h"
 
 stream_t *vlc_stream_CustomNew(vlc_object_t *parent,
                                void (*destroy)(stream_t *), size_t extra_size,

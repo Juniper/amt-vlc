@@ -2,7 +2,6 @@
  * vlc_strings.h: String functions
  *****************************************************************************
  * Copyright (C) 2006 VLC authors and VideoLAN
- * $Id: 3f0c169e68646b732c07a355b3a19b560c8fa657 $
  *
  * Authors: Antoine Cellerier <dionoea at videolan dot org>
  *
@@ -31,6 +30,8 @@
  * \file
  * Helper functions for nul-terminated strings
  */
+
+typedef struct vlc_player_t vlc_player_t;
 
 static inline int vlc_ascii_toupper( int c )
 {
@@ -117,10 +118,31 @@ VLC_API void vlc_xml_decode(char *st);
  */
 VLC_API char *vlc_xml_encode(const char *str) VLC_MALLOC;
 
-VLC_API char * vlc_b64_encode_binary( const uint8_t *, size_t );
-VLC_API char * vlc_b64_encode( const char * );
+/**
+ * Base64 encoding.
+ *
+ * Encodes a buffer into base64 as a (nul-terminated) string.
+ *
+ * \param base start address of buffer to encode
+ * \param length length in bytes of buffer to encode
+ * \return a heap-allocated nul-terminated string
+ * (or NULL on allocation error).
+ */
+VLC_API char *vlc_b64_encode_binary(const void *base, size_t length)
+VLC_USED VLC_MALLOC;
 
-VLC_API size_t vlc_b64_decode_binary_to_buffer( uint8_t *p_dst, size_t i_dst_max, const char *psz_src );
+/**
+ * Base64 encoding (string).
+ *
+ * Encodes a nul-terminated string into Base64.
+ *
+ * \param str nul-terminated string to encode
+ * \return a heap-allocated nul-terminated string
+ * (or NULL on allocation error).
+ */
+VLC_API char *vlc_b64_encode(const char *str) VLC_USED VLC_MALLOC;
+
+VLC_API size_t vlc_b64_decode_binary_to_buffer(void *p_dst, size_t i_dst_max, const char *psz_src );
 VLC_API size_t vlc_b64_decode_binary( uint8_t **pp_dst, const char *psz_src );
 VLC_API char * vlc_b64_decode( const char *psz_src );
 
@@ -138,14 +160,22 @@ VLC_API char *vlc_strftime( const char * );
  * Formats input meta-data.
  *
  * Formats input and input item meta-informations into a heap-allocated string.
+ *
+ * @param player a locked player instance or NULL (player and item can't be
+ * both NULL)
+ * @param item a valid item or NULL (player and item can't be both NULL)
+ * @param fmt format string
+ * @return the formated string, or NULL in case of error, the string need to be
+ * freed with ()
  */
-VLC_API char *vlc_strfinput( input_thread_t *, input_item_t *, const char * );
+VLC_API char *vlc_strfplayer( vlc_player_t *player, input_item_t *item,
+                              const char *fmt );
 
-static inline char *str_format( input_thread_t *input, input_item_t *item,
+static inline char *str_format( vlc_player_t *player, input_item_t *item,
                                 const char *fmt )
 {
     char *s1 = vlc_strftime( fmt );
-    char *s2 = vlc_strfinput( input, item, s1 );
+    char *s2 = vlc_strfplayer( player, item, s1 );
     free( s1 );
     return s2;
 }

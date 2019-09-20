@@ -88,7 +88,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-check_PROGRAMS = test_strnstr$(EXEEXT)
+check_PROGRAMS = test_heap$(EXEEXT) test_strnstr$(EXEEXT)
 subdir = compat
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_append_compile_flags.m4 \
@@ -154,6 +154,9 @@ libcompat_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(libcompat_la_LDFLAGS) $(LDFLAGS) -o $@
 am__dirstamp = $(am__leading_dot)dirstamp
+am_test_heap_OBJECTS = test/heap.$(OBJEXT)
+test_heap_OBJECTS = $(am_test_heap_OBJECTS)
+test_heap_DEPENDENCIES = libcompat.la
 am_test_strnstr_OBJECTS = test/strnstr.$(OBJEXT)
 test_strnstr_OBJECTS = $(am_test_strnstr_OBJECTS)
 test_strnstr_DEPENDENCIES = libcompat.la
@@ -183,20 +186,20 @@ am__depfiles_remade = $(DEPDIR)/aligned_alloc.Plo \
 	$(DEPDIR)/lldiv.Plo $(DEPDIR)/localtime_r.Plo \
 	$(DEPDIR)/memrchr.Plo $(DEPDIR)/nrand48.Plo \
 	$(DEPDIR)/pathconf.Plo $(DEPDIR)/poll.Plo \
-	$(DEPDIR)/realpath.Plo $(DEPDIR)/recvmsg.Plo \
-	$(DEPDIR)/rewind.Plo $(DEPDIR)/sendmsg.Plo \
-	$(DEPDIR)/setenv.Plo $(DEPDIR)/sigwait.Plo \
-	$(DEPDIR)/sincos.Plo $(DEPDIR)/strcasecmp.Plo \
-	$(DEPDIR)/strcasestr.Plo $(DEPDIR)/strdup.Plo \
-	$(DEPDIR)/strlcpy.Plo $(DEPDIR)/strndup.Plo \
-	$(DEPDIR)/strnlen.Plo $(DEPDIR)/strnstr.Plo \
-	$(DEPDIR)/strsep.Plo $(DEPDIR)/strtof.Plo \
-	$(DEPDIR)/strtok_r.Plo $(DEPDIR)/strtoll.Plo \
-	$(DEPDIR)/strverscmp.Plo $(DEPDIR)/swab.Plo \
-	$(DEPDIR)/tdestroy.Plo $(DEPDIR)/tfind.Plo \
+	$(DEPDIR)/posix_memalign.Plo $(DEPDIR)/realpath.Plo \
+	$(DEPDIR)/recvmsg.Plo $(DEPDIR)/rewind.Plo \
+	$(DEPDIR)/sendmsg.Plo $(DEPDIR)/setenv.Plo \
+	$(DEPDIR)/sigwait.Plo $(DEPDIR)/sincos.Plo \
+	$(DEPDIR)/strcasecmp.Plo $(DEPDIR)/strcasestr.Plo \
+	$(DEPDIR)/strdup.Plo $(DEPDIR)/strlcpy.Plo \
+	$(DEPDIR)/strndup.Plo $(DEPDIR)/strnlen.Plo \
+	$(DEPDIR)/strnstr.Plo $(DEPDIR)/strsep.Plo \
+	$(DEPDIR)/strtof.Plo $(DEPDIR)/strtok_r.Plo \
+	$(DEPDIR)/strtoll.Plo $(DEPDIR)/strverscmp.Plo \
+	$(DEPDIR)/swab.Plo $(DEPDIR)/tdestroy.Plo $(DEPDIR)/tfind.Plo \
 	$(DEPDIR)/timegm.Plo $(DEPDIR)/timespec_get.Plo \
 	$(DEPDIR)/vasprintf.Plo ./$(DEPDIR)/dummy.Plo \
-	test/$(DEPDIR)/strnstr.Po
+	test/$(DEPDIR)/heap.Po test/$(DEPDIR)/strnstr.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -212,8 +215,10 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(libcompat_la_SOURCES) $(test_strnstr_SOURCES)
-DIST_SOURCES = $(libcompat_la_SOURCES) $(test_strnstr_SOURCES)
+SOURCES = $(libcompat_la_SOURCES) $(test_heap_SOURCES) \
+	$(test_strnstr_SOURCES)
+DIST_SOURCES = $(libcompat_la_SOURCES) $(test_heap_SOURCES) \
+	$(test_strnstr_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -421,11 +426,12 @@ am__DIST_COMMON = $(srcdir)/Makefile.in \
 	atof.c atoll.c dirfd.c fdopendir.c flockfile.c freeaddrinfo.c \
 	fsync.c gai_strerror.c getdelim.c getpid.c gettimeofday.c \
 	gmtime_r.c inet_pton.c lfind.c lldiv.c localtime_r.c memrchr.c \
-	nrand48.c pathconf.c poll.c realpath.c recvmsg.c rewind.c \
-	sendmsg.c setenv.c sigwait.c sincos.c strcasecmp.c \
-	strcasestr.c strdup.c strlcpy.c strndup.c strnlen.c strnstr.c \
-	strsep.c strtof.c strtok_r.c strtoll.c strverscmp.c swab.c \
-	tdestroy.c tfind.c timegm.c timespec_get.c vasprintf.c
+	nrand48.c pathconf.c poll.c posix_memalign.c realpath.c \
+	recvmsg.c rewind.c sendmsg.c setenv.c sigwait.c sincos.c \
+	strcasecmp.c strcasestr.c strdup.c strlcpy.c strndup.c \
+	strnlen.c strnstr.c strsep.c strtof.c strtok_r.c strtoll.c \
+	strverscmp.c swab.c tdestroy.c tfind.c timegm.c timespec_get.c \
+	vasprintf.c
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 ALIASES = @ALIASES@
@@ -958,7 +964,6 @@ LTLIBswscale = @LTLIBswscale@
 LTLIBtaglib = @LTLIBtaglib@
 LTLIBtelx = @LTLIBtelx@
 LTLIBtheora = @LTLIBtheora@
-LTLIBtizen_audio = @LTLIBtizen_audio@
 LTLIBtremor = @LTLIBtremor@
 LTLIBtwolame = @LTLIBtwolame@
 LTLIBudev = @LTLIBudev@
@@ -1266,14 +1271,14 @@ pkglib_LTLIBRARIES = libcompat.la
 libcompat_la_SOURCES = dummy.c
 libcompat_la_LIBADD = $(LTLIBOBJS) $(LIBRT) $(LIBM)
 libcompat_la_LDFLAGS = -no-undefined -static
-BUILT_SOURCES = dummy.c
-CLEANFILES = dummy.c
 AUTOMAKE_OPTIONS = subdir-objects
 TESTS = $(check_PROGRAMS)
+AM_TESTS_ENVIRONMENT = ASAN_OPTIONS="allocator_may_return_null=1"
+test_heap_SOURCES = test/heap.c
+test_heap_LDADD = libcompat.la
 test_strnstr_SOURCES = test/strnstr.c
 test_strnstr_LDADD = libcompat.la
-all: $(BUILT_SOURCES)
-	$(MAKE) $(AM_MAKEFLAGS) all-am
+all: all-am
 
 .SUFFIXES:
 .SUFFIXES: .c .lo .log .o .obj .test .test$(EXEEXT) .trs
@@ -1359,6 +1364,12 @@ test/$(am__dirstamp):
 test/$(DEPDIR)/$(am__dirstamp):
 	@$(MKDIR_P) test/$(DEPDIR)
 	@: > test/$(DEPDIR)/$(am__dirstamp)
+test/heap.$(OBJEXT): test/$(am__dirstamp) \
+	test/$(DEPDIR)/$(am__dirstamp)
+
+test_heap$(EXEEXT): $(test_heap_OBJECTS) $(test_heap_DEPENDENCIES) $(EXTRA_test_heap_DEPENDENCIES) 
+	@rm -f test_heap$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(test_heap_OBJECTS) $(test_heap_LDADD) $(LIBS)
 test/strnstr.$(OBJEXT): test/$(am__dirstamp) \
 	test/$(DEPDIR)/$(am__dirstamp)
 
@@ -1395,6 +1406,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/nrand48.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/pathconf.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/poll.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/posix_memalign.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/realpath.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/recvmsg.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/rewind.Plo@am__quote@ # am--include-marker
@@ -1421,6 +1433,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/timespec_get.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/vasprintf.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dummy.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@test/$(DEPDIR)/heap.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@test/$(DEPDIR)/strnstr.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
@@ -1652,6 +1665,13 @@ recheck: all $(check_PROGRAMS)
 	        am__force_recheck=am--force-recheck \
 	        TEST_LOGS="$$log_list"; \
 	exit $$?
+test_heap.log: test_heap$(EXEEXT)
+	@p='test_heap$(EXEEXT)'; \
+	b='test_heap'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 test_strnstr.log: test_strnstr$(EXEEXT)
 	@p='test_strnstr$(EXEEXT)'; \
 	b='test_strnstr'; \
@@ -1710,15 +1730,13 @@ distdir-am: $(DISTFILES)
 check-am: all-am
 	$(MAKE) $(AM_MAKEFLAGS) $(check_PROGRAMS)
 	$(MAKE) $(AM_MAKEFLAGS) check-TESTS
-check: $(BUILT_SOURCES)
-	$(MAKE) $(AM_MAKEFLAGS) check-am
+check: check-am
 all-am: Makefile $(LTLIBRARIES)
 installdirs:
 	for dir in "$(DESTDIR)$(pkglibdir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
-install: $(BUILT_SOURCES)
-	$(MAKE) $(AM_MAKEFLAGS) install-am
+install: install-am
 install-exec: install-exec-am
 install-data: install-data-am
 uninstall: uninstall-am
@@ -1743,7 +1761,6 @@ mostlyclean-generic:
 	-test -z "$(TEST_SUITE_LOG)" || rm -f $(TEST_SUITE_LOG)
 
 clean-generic:
-	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -1754,7 +1771,6 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-	-test -z "$(BUILT_SOURCES)" || rm -f $(BUILT_SOURCES)
 clean: clean-am
 
 clean-am: clean-checkPROGRAMS clean-generic clean-libtool \
@@ -1783,6 +1799,7 @@ distclean: distclean-am
 	-rm -f $(DEPDIR)/nrand48.Plo
 	-rm -f $(DEPDIR)/pathconf.Plo
 	-rm -f $(DEPDIR)/poll.Plo
+	-rm -f $(DEPDIR)/posix_memalign.Plo
 	-rm -f $(DEPDIR)/realpath.Plo
 	-rm -f $(DEPDIR)/recvmsg.Plo
 	-rm -f $(DEPDIR)/rewind.Plo
@@ -1809,6 +1826,7 @@ distclean: distclean-am
 	-rm -f $(DEPDIR)/timespec_get.Plo
 	-rm -f $(DEPDIR)/vasprintf.Plo
 	-rm -f ./$(DEPDIR)/dummy.Plo
+	-rm -f test/$(DEPDIR)/heap.Po
 	-rm -f test/$(DEPDIR)/strnstr.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
@@ -1877,6 +1895,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f $(DEPDIR)/nrand48.Plo
 	-rm -f $(DEPDIR)/pathconf.Plo
 	-rm -f $(DEPDIR)/poll.Plo
+	-rm -f $(DEPDIR)/posix_memalign.Plo
 	-rm -f $(DEPDIR)/realpath.Plo
 	-rm -f $(DEPDIR)/recvmsg.Plo
 	-rm -f $(DEPDIR)/rewind.Plo
@@ -1903,6 +1922,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f $(DEPDIR)/timespec_get.Plo
 	-rm -f $(DEPDIR)/vasprintf.Plo
 	-rm -f ./$(DEPDIR)/dummy.Plo
+	-rm -f test/$(DEPDIR)/heap.Po
 	-rm -f test/$(DEPDIR)/strnstr.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
@@ -1922,7 +1942,7 @@ ps-am:
 
 uninstall-am: uninstall-pkglibLTLIBRARIES
 
-.MAKE: all check check-am install install-am install-strip
+.MAKE: check-am install-am install-strip
 
 .PHONY: CTAGS GTAGS TAGS all all-am am--depfiles check check-TESTS \
 	check-am clean clean-checkPROGRAMS clean-generic clean-libtool \

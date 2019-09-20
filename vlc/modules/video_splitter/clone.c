@@ -2,7 +2,6 @@
  * clone.c : Clone video plugin for vlc
  *****************************************************************************
  * Copyright (C) 2002-2009 VLC authors and VideoLAN
- * $Id: 0fb649c0fd5e9dae922363d2d99dbbcd8c670773 $
  *
  * Authors: Samuel Hocevar <sam@zoy.org>
  *
@@ -147,14 +146,11 @@ static int Open( vlc_object_t *p_this )
     {
         video_splitter_output_t *p_cfg = &p_splitter->p_output[i];
         video_format_Copy( &p_cfg->fmt, &p_splitter->fmt );
-        p_cfg->window.i_x = 0;
-        p_cfg->window.i_y = 0;
-        p_cfg->window.i_align = 0;
     }
 
     /* */
     p_splitter->pf_filter = Filter;
-    p_splitter->pf_mouse  = NULL;
+    p_splitter->mouse = NULL;
 
     msg_Dbg( p_splitter, "spawning %i clone(s)", p_splitter->i_output );
 

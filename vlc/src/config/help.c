@@ -40,7 +40,7 @@
 
 #if defined( _WIN32 )
 # include <vlc_charset.h>
-# define wcwidth(cp) (cp, 1) /* LOL */
+# define wcwidth(cp) ((void)(cp), 1) /* LOL */
 #else
 # include <unistd.h>
 # include <termios.h>
@@ -90,7 +90,7 @@ static unsigned ConsoleWidth(void)
  * Checks for help command line options such as --help or --version.
  * If one is found, print the corresponding text.
  * \return true if a command line options caused some help message to be
- * printed, false otherwise. 
+ * printed, false otherwise.
  */
 bool config_PrintHelp (vlc_object_t *obj)
 {

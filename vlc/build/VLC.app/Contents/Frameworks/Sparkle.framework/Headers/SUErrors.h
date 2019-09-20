@@ -9,11 +9,7 @@
 #ifndef SUERRORS_H
 #define SUERRORS_H
 
-#if __has_feature(modules)
-@import Foundation;
-#else
 #import <Foundation/Foundation.h>
-#endif
 #import "SUExport.h"
 
 /**
@@ -27,11 +23,10 @@ typedef NS_ENUM(OSStatus, SUError) {
     SUNoUpdateError = 1001,
     SUAppcastError = 1002,
     SURunningFromDiskImageError = 1003,
-
-    // Download phase errors.
+    
+    // Downlaod phase errors.
     SUTemporaryDirectoryError = 2000,
-    SUDownloadError = 2001,
-
+    
     // Extraction phase errors.
     SUUnarchivingError = 3000,
     SUSignatureError = 3001,
@@ -44,7 +39,6 @@ typedef NS_ENUM(OSStatus, SUError) {
     SURelaunchError = 4004,
     SUInstallationError = 4005,
     SUDowngradeError = 4006,
-    SUInstallationCancelledError = 4007,
     
     // System phase errors
     SUSystemPowerOffError = 5000

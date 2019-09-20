@@ -2,7 +2,6 @@
  * chain.c : configuration module chain parsing stuff
  *****************************************************************************
  * Copyright (C) 2002-2007 VLC authors and VideoLAN
- * $Id: f947e40f158705aed88581b8069a10de0a25c8b3 $
  *
  * Authors: Christophe Massiot <massiot@via.ecp.fr>
  *          Laurent Aimar <fenrir@via.ecp.fr>
@@ -269,7 +268,7 @@ void config_ChainDestroy( config_chain_t *p_cfg )
 
 #undef config_ChainParse
 void config_ChainParse( vlc_object_t *p_this, const char *psz_prefix,
-                        const char *const *ppsz_options, config_chain_t *cfg )
+                        const char *const *ppsz_options, const config_chain_t *cfg )
 {
     if( psz_prefix == NULL ) psz_prefix = "";
     size_t plen = 1 + strlen( psz_prefix );

@@ -2,7 +2,6 @@
  * interface_widgets.hpp : Custom widgets for the main interface
  ****************************************************************************
  * Copyright (C) 2006-2008 the VideoLAN team
- * $Id: 232ffe3e912f3f3ef2fe5a1715b19f82b0c33739 $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *          Jean-Baptiste Kempf <jb@videolan.org>
@@ -31,7 +30,7 @@
 #endif
 
 #include "main_interface.hpp" /* Interface integration */
-#include "input_manager.hpp"  /* Speed control */
+#include "components/player_controller.hpp"  /* Speed control */
 
 #include "components/controller.hpp"
 #include "components/controller_widget.hpp"
@@ -60,7 +59,7 @@ public:
     VideoWidget( intf_thread_t *, QWidget* p_parent );
     virtual ~VideoWidget();
 
-    bool request( struct vout_window_t * );
+    void request( struct vout_window_t * );
     void release( void );
     void sync( void );
 
@@ -206,7 +205,7 @@ private:
     intf_thread_t *p_intf;
     bool b_remainingTime;
     float cachedPos;
-    int64_t cachedTime;
+    vlc_tick_t cachedTime;
     int cachedLength;
     TimeLabel::Display displayType;
 
@@ -216,10 +215,8 @@ private:
     void refresh();
 private slots:
     void setRemainingTime( bool );
-    void setDisplayPosition( float pos, int64_t time, int length );
+    void setDisplayPosition( float pos, vlc_tick_t time, int length );
     void setDisplayPosition( float pos );
-signals:
-    void broadcastRemainingTime( bool );
 };
 
 class SpeedLabel : public QLabel
@@ -259,7 +256,7 @@ private:
     int lastValue;
 
 public slots:
-    void activateOnState();
+    void activateOnState(PlayerController::PlayingState state);
 
 private slots:
     void updateRate( int );

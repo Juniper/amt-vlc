@@ -16,14 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA 02110-1301, USA.
 
 export LC_ALL=
-NEEDED=
 FOUND=
-
-if [ ! -f tools.mak ]
-then
-	echo "You must run me in ./extras/tools !"
-	exit 1
-fi
 
 check_version() {
     gotver=$2
@@ -94,9 +87,12 @@ then
     NEEDED="$NEEDED nasm"
 else
     # found, need to check version ?
-    [ -z "$1" ] && return # no
-    gotver=`nasm -v | cut -d ' ' -f 3`
-    check_version nasm $gotver $1
+    if [ -z "$1" ];then
+        FOUND="$FOUND nasm"
+    else
+        gotver=`nasm -v | cut -d ' ' -f 3`
+        check_version nasm $gotver $1
+    fi
 fi
 }
 
@@ -107,9 +103,12 @@ then
     NEEDED="$NEEDED $1"
 else
     # found, need to check version ?
-    [ -z "$2" ] && return # no
-    gotver=`$1 --version | head -1 | sed s/'.* '//`
-    check_version $1 $gotver $2
+    if [ -z "$2" ];then
+        FOUND="$FOUND $1"
+    else
+        gotver=`$1 --version | head -1 | sed s/'.* '//`
+        check_version $1 $gotver $2
+    fi
 fi
 }
 
@@ -120,9 +119,12 @@ then
     NEEDED="$NEEDED $1"
 else
     # found, need to check version ?
-    [ -z "$2" ] && return # no
-    gotver=`$1 --version | head -1 | sed s/'.* '//`
-    check_version_majmin $1 $gotver $2
+    if [ -z "$2" ];then
+        FOUND="$FOUND $1"
+    else
+        gotver=`$1 --version | head -1 | sed s/'.* '//`
+        check_version_majmin $1 $gotver $2
+    fi
 fi
 }
 
@@ -141,15 +143,17 @@ check ant
 check xz
 check bison 3.0.0
 check flex
-check_nasm 2.13.01
+check_nasm 2.13.02
 check gettext
 check help2man
+check meson 0.51.1
+check ninja
 
 DEPS_ONLY="help2man"
 
 CPUS=
 case `uname` in
-    Linux|MINGW32*|MINGW64*)
+    Linux|MINGW32*|MINGW64*|*MSYS*)
         CPUS=`getconf _NPROCESSORS_ONLN 2>&1`
      ;;
     Darwin|FreeBSD|NetBSD)
@@ -166,11 +170,14 @@ case `uname` in
      ;;
 esac
 
+BOOTSTRAP_PATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
 cat > Makefile << EOF
+TOOLS = $BOOTSTRAP_PATH
 MAKEFLAGS += -j$CPUS
 CMAKEFLAGS += --parallel=$CPUS
 PREFIX=\$(abspath ./build)
+PATH=\${PREFIX}/bin:$PATH
 EOF
 
 for t in $FOUND; do
@@ -189,11 +196,11 @@ for t in $NEEDED; do
     esac
 done
 
-[ -n "$PACKAGES" ] && mkdir -p build/ && echo "To-be-built packages: $PACKAGES"
+[ -n "$PACKAGES" ] && mkdir -p build/bin && echo "To-be-built packages: $PACKAGES"
 
 cat >> Makefile << EOF
 all: $TARGETS
 	@echo "You are ready to build VLC and its contribs"
 
-include tools.mak
+include \$(TOOLS)/tools.mak
 EOF

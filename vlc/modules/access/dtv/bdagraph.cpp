@@ -33,8 +33,8 @@
 
 #include <vlc_common.h>
 #include <vlc_block.h>
-#include "dtv/bdagraph.hpp"
-#include "dtv/dtv.h"
+#include "bdagraph.hpp"
+#include "dtv.h"
 #undef DEBUG_MONIKER_NAME
 
 static ModulationType dvb_parse_modulation (const char *mod)
@@ -3000,7 +3000,7 @@ HRESULT BDAGraph::Start()
     hr = p_media_control->Run();
     if( SUCCEEDED( hr ) )
     {
-        msg_Dbg( p_access, "Start: Graph started, hr=0x%lx", hr );
+        msg_Dbg( p_access, "Start: Graph started, hr=0x%lX", hr );
         return S_OK;
     }
 
@@ -3019,7 +3019,7 @@ HRESULT BDAGraph::Start()
     msg_Dbg( p_access, "Start: got state" );
     if( i_state == State_Running )
     {
-        msg_Dbg( p_access, "Graph started after a delay, hr=0x%lx", hr );
+        msg_Dbg( p_access, "Graph started after a delay, hr=0x%lX", hr );
         return S_OK;
     }
 

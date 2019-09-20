@@ -101,9 +101,8 @@ enum vlc_module_properties
     /* list of suggested values
      * (args=size_t, const <type> *, const char *const *) */
 
-    VLC_CONFIG_LIST_CB,
-    /* callback for suggested values
-     * (args=const char *, size_t (*)(vlc_object_t *, <type> **, char ***)) */
+    VLC_CONFIG_LIST_CB_OBSOLETE,
+    /* unused (ignored) */
 
     /* Insert new VLC_CONFIG_* here */
 };
@@ -188,8 +187,7 @@ enum vlc_module_properties
 /**
  * Current plugin ABI version
  */
-# define MODULE_SYMBOL 4_0_3
-# define MODULE_SUFFIX "__4_0_3"
+#define VLC_API_VERSION_STRING "4.0.4"
 
 /*****************************************************************************
  * Add a few defines. You do not want to read this section. Really.
@@ -210,11 +208,11 @@ enum vlc_module_properties
 /* If the module is built-in, then we need to define foo_InitModule instead
  * of InitModule. Same for Activate- and DeactivateModule. */
 #ifdef __PLUGIN__
-# define __VLC_SYMBOL( symbol  ) CONCATENATE( symbol, MODULE_SYMBOL )
+# define VLC_SYMBOL(symbol) symbol
 # define VLC_MODULE_NAME_HIDDEN_SYMBOL \
     const char vlc_module_name[] = MODULE_STRING;
 #else
-# define __VLC_SYMBOL( symbol )  CONCATENATE( symbol, MODULE_NAME )
+# define VLC_SYMBOL(symbol)  CONCATENATE(symbol, MODULE_NAME)
 # define VLC_MODULE_NAME_HIDDEN_SYMBOL
 #endif
 
@@ -245,6 +243,15 @@ EXTERN_SYMBOL typedef int (*vlc_set_cb) (void *, void *, int, ...);
 #define vlc_module_set(...) vlc_set (opaque, module, __VA_ARGS__)
 #define vlc_config_set(...) vlc_set (opaque, config, __VA_ARGS__)
 
+EXTERN_SYMBOL DLL_SYMBOL
+int CDECL_SYMBOL VLC_SYMBOL(vlc_entry)(vlc_set_cb, void *);
+EXTERN_SYMBOL DLL_SYMBOL
+int CDECL_SYMBOL VLC_SYMBOL(vlc_entry_cfg_int_enum)(const char *name,
+    int64_t **values, char ***descs);
+EXTERN_SYMBOL DLL_SYMBOL
+int CDECL_SYMBOL VLC_SYMBOL(vlc_entry_cfg_str_enum)(const char *name,
+    char ***values, char ***descs);
+
 /*
  * InitModule: this function is called once and only once, when the module
  * is looked at for the first time. We get the useful data from it, for
@@ -253,9 +260,7 @@ EXTERN_SYMBOL typedef int (*vlc_set_cb) (void *, void *, int, ...);
  */
 #define vlc_module_begin() \
 EXTERN_SYMBOL DLL_SYMBOL \
-int CDECL_SYMBOL __VLC_SYMBOL(vlc_entry) (vlc_set_cb, void *); \
-EXTERN_SYMBOL DLL_SYMBOL \
-int CDECL_SYMBOL __VLC_SYMBOL(vlc_entry) (vlc_set_cb vlc_set, void *opaque) \
+int CDECL_SYMBOL VLC_SYMBOL(vlc_entry)(vlc_set_cb vlc_set, void *opaque) \
 { \
     module_t *module; \
     module_config_t *config = NULL; \
@@ -302,10 +307,14 @@ VLC_METADATA_EXPORTS
      || vlc_module_set (VLC_MODULE_SCORE, (int)(score))) \
         goto error;
 
+#define set_callback(activate) \
+    if (vlc_module_set(VLC_MODULE_CB_OPEN, #activate, (void *)(activate))) \
+        goto error;
+
 #define set_callbacks( activate, deactivate ) \
-    if (vlc_module_set(VLC_MODULE_CB_OPEN, #activate, (void *)(activate)) \
-     || vlc_module_set(VLC_MODULE_CB_CLOSE, #deactivate, \
-                       (void *)(deactivate))) \
+    set_callback(activate) \
+    if (vlc_module_set(VLC_MODULE_CB_CLOSE, #deactivate, \
+                       (void (*)(vlc_object_t *)){ deactivate })) \
         goto error;
 
 #define cannot_unload_broken_library( ) \
@@ -461,17 +470,11 @@ VLC_METADATA_EXPORTS
                     (const char *const *)(list), \
                     (const char *const *)(list_text));
 
-#define change_string_cb( cb ) \
-    vlc_config_set (VLC_CONFIG_LIST_CB, #cb, (void *)(cb));
-
 #define change_integer_list( list, list_text ) \
     vlc_config_set (VLC_CONFIG_LIST, \
                     (size_t)(sizeof (list) / sizeof (int)), \
                     (const int *)(list), \
                     (const char *const *)(list_text));
-
-#define change_integer_cb( cb ) \
-    vlc_config_set (VLC_CONFIG_LIST_CB, #cb, (cb));
 
 #define change_integer_range( minv, maxv ) \
     vlc_config_set (VLC_CONFIG_RANGE, (int64_t)(minv), (int64_t)(maxv));
@@ -491,15 +494,35 @@ VLC_METADATA_EXPORTS
 #define change_safe() \
     vlc_config_set (VLC_CONFIG_SAFE);
 
+/* Configuration item choice enumerators */
+#define VLC_CONFIG_INTEGER_ENUM(cb) \
+EXTERN_SYMBOL DLL_SYMBOL \
+int CDECL_SYMBOL VLC_SYMBOL(vlc_entry_cfg_int_enum)(const char *name, \
+    int64_t **values, char ***descs) \
+{ \
+    return (cb)(name, values, descs); \
+}
+
+#define VLC_CONFIG_STRING_ENUM(cb) \
+EXTERN_SYMBOL DLL_SYMBOL \
+int CDECL_SYMBOL VLC_SYMBOL(vlc_entry_cfg_str_enum)(const char *name, \
+    char ***values, char ***descs) \
+{ \
+    return (cb)(name, values, descs); \
+}
+
 /* Meta data plugin exports */
 #define VLC_META_EXPORT( name, value ) \
     EXTERN_SYMBOL DLL_SYMBOL const char * CDECL_SYMBOL \
-    __VLC_SYMBOL(vlc_entry_ ## name) (void); \
+    VLC_SYMBOL(vlc_entry_ ## name)(void); \
     EXTERN_SYMBOL DLL_SYMBOL const char * CDECL_SYMBOL \
-    __VLC_SYMBOL(vlc_entry_ ## name) (void) \
+    VLC_SYMBOL(vlc_entry_ ## name)(void) \
     { \
          return value; \
     }
+
+#define VLC_API_VERSION_EXPORT \
+    VLC_META_EXPORT(api_version, VLC_API_VERSION_STRING)
 
 #define VLC_COPYRIGHT_VIDEOLAN \
     "\x43\x6f\x70\x79\x72\x69\x67\x68\x74\x20\x28\x43\x29\x20\x74\x68" \
@@ -538,6 +561,7 @@ VLC_METADATA_EXPORTS
 #endif
 
 #define VLC_METADATA_EXPORTS \
+    VLC_API_VERSION_EXPORT \
     VLC_COPYRIGHT_EXPORT \
     VLC_LICENSE_EXPORT
 

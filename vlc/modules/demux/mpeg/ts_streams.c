@@ -40,7 +40,6 @@
 #include <vlc_demux.h>
 #include <vlc_es.h>
 #include <vlc_es_out.h>
-#include <vlc_input.h>
 
 #include "sections.h"
 #include "ts_pid.h"
@@ -122,16 +121,16 @@ ts_pmt_t *ts_pmt_New( demux_t *p_demux )
     pmt->od.i_version = -1;
     ARRAY_INIT( pmt->od.objects );
 
-    pmt->i_last_dts = -1;
+    pmt->i_last_dts = TS_TICK_UNKNOWN;
     pmt->i_last_dts_byte = 0;
 
     pmt->p_atsc_si_basepid      = NULL;
     pmt->p_si_sdt_pid = NULL;
 
-    pmt->pcr.i_current = -1;
-    pmt->pcr.i_first  = -1;
+    pmt->pcr.i_current = TS_TICK_UNKNOWN;
+    pmt->pcr.i_first  = TS_TICK_UNKNOWN;
     pmt->pcr.b_disable = false;
-    pmt->pcr.i_first_dts = -1;
+    pmt->pcr.i_first_dts = TS_TICK_UNKNOWN;
     pmt->pcr.i_pcroffset = -1;
 
     pmt->pcr.b_fix_done = false;
@@ -294,6 +293,7 @@ ts_stream_t *ts_stream_New( demux_t *p_demux, ts_pmt_t *p_program )
     pes->p_proc = NULL;
     pes->prepcr.p_head = NULL;
     pes->prepcr.pp_last = &pes->prepcr.p_head;
+    pes->i_last_dts = -1;
 
     return pes;
 }

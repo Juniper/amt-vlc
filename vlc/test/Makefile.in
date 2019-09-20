@@ -103,8 +103,7 @@ check_PROGRAMS = test_libvlc_core$(EXEEXT) \
 	test_src_misc_variables$(EXEEXT) \
 	test_src_input_stream$(EXEEXT) \
 	test_src_input_stream_fifo$(EXEEXT) \
-	test_src_input_thumbnail$(EXEEXT) \
-	test_src_input_player$(EXEEXT) \
+	test_src_input_thumbnail$(EXEEXT) test_src_player$(EXEEXT) \
 	test_src_interface_dialog$(EXEEXT) \
 	test_src_media_source$(EXEEXT) test_src_misc_bits$(EXEEXT) \
 	test_src_misc_epg$(EXEEXT) test_src_misc_keystore$(EXEEXT) \
@@ -373,10 +372,6 @@ am_test_src_crypto_update_OBJECTS = src/crypto/update.$(OBJEXT)
 test_src_crypto_update_OBJECTS = $(am_test_src_crypto_update_OBJECTS)
 test_src_crypto_update_DEPENDENCIES = $(am__DEPENDENCIES_3) \
 	$(am__DEPENDENCIES_3)
-am_test_src_input_player_OBJECTS = src/input/player.$(OBJEXT)
-test_src_input_player_OBJECTS = $(am_test_src_input_player_OBJECTS)
-test_src_input_player_DEPENDENCIES = $(am__DEPENDENCIES_3) \
-	$(am__DEPENDENCIES_3) $(am__DEPENDENCIES_3)
 am_test_src_input_stream_OBJECTS = src/input/stream.$(OBJEXT)
 test_src_input_stream_OBJECTS = $(am_test_src_input_stream_OBJECTS)
 test_src_input_stream_DEPENDENCIES = $(am__DEPENDENCIES_3) \
@@ -428,6 +423,10 @@ test_src_misc_variables_OBJECTS =  \
 	$(am_test_src_misc_variables_OBJECTS)
 test_src_misc_variables_DEPENDENCIES = $(am__DEPENDENCIES_3) \
 	$(am__DEPENDENCIES_3)
+am_test_src_player_OBJECTS = src/player/player.$(OBJEXT)
+test_src_player_OBJECTS = $(am_test_src_player_OBJECTS)
+test_src_player_DEPENDENCIES = $(am__DEPENDENCIES_3) \
+	$(am__DEPENDENCIES_3) $(am__DEPENDENCIES_3)
 am_vlc_demux_dec_libfuzzer_OBJECTS = vlc-demux-libfuzzer.$(OBJEXT)
 vlc_demux_dec_libfuzzer_OBJECTS =  \
 	$(am_vlc_demux_dec_libfuzzer_OBJECTS)
@@ -482,14 +481,15 @@ am__depfiles_remade = ./$(DEPDIR)/vlc-demux-libfuzzer.Po \
 	src/input/$(DEPDIR)/libvlc_demux_dec_run_la-demux-run.Plo \
 	src/input/$(DEPDIR)/libvlc_demux_run_la-common.Plo \
 	src/input/$(DEPDIR)/libvlc_demux_run_la-demux-run.Plo \
-	src/input/$(DEPDIR)/player.Po src/input/$(DEPDIR)/stream.Po \
+	src/input/$(DEPDIR)/stream.Po \
 	src/input/$(DEPDIR)/stream_fifo.Po \
 	src/input/$(DEPDIR)/test_src_input_stream_net-stream.Po \
 	src/input/$(DEPDIR)/thumbnail.Po \
 	src/interface/$(DEPDIR)/dialog.Po \
 	src/media_source/$(DEPDIR)/media_source.Po \
 	src/misc/$(DEPDIR)/bits.Po src/misc/$(DEPDIR)/epg.Po \
-	src/misc/$(DEPDIR)/keystore.Po src/misc/$(DEPDIR)/variables.Po
+	src/misc/$(DEPDIR)/keystore.Po src/misc/$(DEPDIR)/variables.Po \
+	src/player/$(DEPDIR)/player.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -535,7 +535,6 @@ SOURCES = $(libvlc_demux_dec_run_la_SOURCES) \
 	$(test_modules_packetizer_hxxx_SOURCES) \
 	$(test_modules_tls_SOURCES) $(test_src_config_chain_SOURCES) \
 	$(test_src_crypto_update_SOURCES) \
-	$(test_src_input_player_SOURCES) \
 	$(test_src_input_stream_SOURCES) \
 	$(test_src_input_stream_fifo_SOURCES) \
 	$(test_src_input_stream_net_SOURCES) \
@@ -543,7 +542,7 @@ SOURCES = $(libvlc_demux_dec_run_la_SOURCES) \
 	$(test_src_interface_dialog_SOURCES) \
 	$(test_src_media_source_SOURCES) $(test_src_misc_bits_SOURCES) \
 	$(test_src_misc_epg_SOURCES) $(test_src_misc_keystore_SOURCES) \
-	$(test_src_misc_variables_SOURCES) \
+	$(test_src_misc_variables_SOURCES) $(test_src_player_SOURCES) \
 	$(vlc_demux_dec_libfuzzer_SOURCES) \
 	$(vlc_demux_dec_run_SOURCES) vlc-demux-libfuzzer.c \
 	vlc-demux-run.c
@@ -563,7 +562,6 @@ DIST_SOURCES = $(libvlc_demux_dec_run_la_SOURCES) \
 	$(test_modules_packetizer_hxxx_SOURCES) \
 	$(test_modules_tls_SOURCES) $(test_src_config_chain_SOURCES) \
 	$(test_src_crypto_update_SOURCES) \
-	$(test_src_input_player_SOURCES) \
 	$(test_src_input_stream_SOURCES) \
 	$(test_src_input_stream_fifo_SOURCES) \
 	$(test_src_input_stream_net_SOURCES) \
@@ -571,7 +569,7 @@ DIST_SOURCES = $(libvlc_demux_dec_run_la_SOURCES) \
 	$(test_src_interface_dialog_SOURCES) \
 	$(test_src_media_source_SOURCES) $(test_src_misc_bits_SOURCES) \
 	$(test_src_misc_epg_SOURCES) $(test_src_misc_keystore_SOURCES) \
-	$(test_src_misc_variables_SOURCES) \
+	$(test_src_misc_variables_SOURCES) $(test_src_player_SOURCES) \
 	$(vlc_demux_dec_libfuzzer_SOURCES) \
 	$(vlc_demux_dec_run_SOURCES) vlc-demux-libfuzzer.c \
 	vlc-demux-run.c
@@ -1338,7 +1336,6 @@ LTLIBswscale = @LTLIBswscale@
 LTLIBtaglib = @LTLIBtaglib@
 LTLIBtelx = @LTLIBtelx@
 LTLIBtheora = @LTLIBtheora@
-LTLIBtizen_audio = @LTLIBtizen_audio@
 LTLIBtremor = @LTLIBtremor@
 LTLIBtwolame = @LTLIBtwolame@
 LTLIBudev = @LTLIBudev@
@@ -1699,8 +1696,6 @@ test_src_crypto_update_SOURCES = src/crypto/update.c
 test_src_crypto_update_LDADD = $(LIBVLCCORE) $(GCRYPT_LIBS)
 test_src_input_stream_SOURCES = src/input/stream.c
 test_src_input_stream_LDADD = $(LIBVLCCORE) $(LIBVLC)
-test_src_input_player_SOURCES = src/input/player.c
-test_src_input_player_LDADD = $(LIBVLCCORE) $(LIBVLC) $(LIBM)
 test_src_input_stream_net_SOURCES = src/input/stream.c
 test_src_input_stream_net_CFLAGS = $(AM_CFLAGS) -DTEST_NET
 test_src_input_stream_net_LDADD = $(LIBVLCCORE) $(LIBVLC)
@@ -1708,6 +1703,8 @@ test_src_input_stream_fifo_SOURCES = src/input/stream_fifo.c
 test_src_input_stream_fifo_LDADD = $(LIBVLCCORE) $(LIBVLC)
 test_src_input_thumbnail_SOURCES = src/input/thumbnail.c
 test_src_input_thumbnail_LDADD = $(LIBVLCCORE) $(LIBVLC)
+test_src_player_SOURCES = src/player/player.c
+test_src_player_LDADD = $(LIBVLCCORE) $(LIBVLC) $(LIBM)
 test_src_misc_bits_SOURCES = src/misc/bits.c
 test_src_misc_bits_LDADD = $(LIBVLC)
 test_src_misc_epg_SOURCES = src/misc/epg.c
@@ -1976,12 +1973,6 @@ src/crypto/update.$(OBJEXT): src/crypto/$(am__dirstamp) \
 test_src_crypto_update$(EXEEXT): $(test_src_crypto_update_OBJECTS) $(test_src_crypto_update_DEPENDENCIES) $(EXTRA_test_src_crypto_update_DEPENDENCIES) 
 	@rm -f test_src_crypto_update$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_src_crypto_update_OBJECTS) $(test_src_crypto_update_LDADD) $(LIBS)
-src/input/player.$(OBJEXT): src/input/$(am__dirstamp) \
-	src/input/$(DEPDIR)/$(am__dirstamp)
-
-test_src_input_player$(EXEEXT): $(test_src_input_player_OBJECTS) $(test_src_input_player_DEPENDENCIES) $(EXTRA_test_src_input_player_DEPENDENCIES) 
-	@rm -f test_src_input_player$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(test_src_input_player_OBJECTS) $(test_src_input_player_LDADD) $(LIBS)
 src/input/stream.$(OBJEXT): src/input/$(am__dirstamp) \
 	src/input/$(DEPDIR)/$(am__dirstamp)
 
@@ -2061,6 +2052,18 @@ src/misc/variables.$(OBJEXT): src/misc/$(am__dirstamp) \
 test_src_misc_variables$(EXEEXT): $(test_src_misc_variables_OBJECTS) $(test_src_misc_variables_DEPENDENCIES) $(EXTRA_test_src_misc_variables_DEPENDENCIES) 
 	@rm -f test_src_misc_variables$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_src_misc_variables_OBJECTS) $(test_src_misc_variables_LDADD) $(LIBS)
+src/player/$(am__dirstamp):
+	@$(MKDIR_P) src/player
+	@: > src/player/$(am__dirstamp)
+src/player/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) src/player/$(DEPDIR)
+	@: > src/player/$(DEPDIR)/$(am__dirstamp)
+src/player/player.$(OBJEXT): src/player/$(am__dirstamp) \
+	src/player/$(DEPDIR)/$(am__dirstamp)
+
+test_src_player$(EXEEXT): $(test_src_player_OBJECTS) $(test_src_player_DEPENDENCIES) $(EXTRA_test_src_player_DEPENDENCIES) 
+	@rm -f test_src_player$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(test_src_player_OBJECTS) $(test_src_player_LDADD) $(LIBS)
 
 vlc-demux-dec-libfuzzer$(EXEEXT): $(vlc_demux_dec_libfuzzer_OBJECTS) $(vlc_demux_dec_libfuzzer_DEPENDENCIES) $(EXTRA_vlc_demux_dec_libfuzzer_DEPENDENCIES) 
 	@rm -f vlc-demux-dec-libfuzzer$(EXEEXT)
@@ -2092,6 +2095,7 @@ mostlyclean-compile:
 	-rm -f src/interface/*.$(OBJEXT)
 	-rm -f src/media_source/*.$(OBJEXT)
 	-rm -f src/misc/*.$(OBJEXT)
+	-rm -f src/player/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
@@ -2120,7 +2124,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@src/input/$(DEPDIR)/libvlc_demux_dec_run_la-demux-run.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/input/$(DEPDIR)/libvlc_demux_run_la-common.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/input/$(DEPDIR)/libvlc_demux_run_la-demux-run.Plo@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@src/input/$(DEPDIR)/player.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/input/$(DEPDIR)/stream.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/input/$(DEPDIR)/stream_fifo.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/input/$(DEPDIR)/test_src_input_stream_net-stream.Po@am__quote@ # am--include-marker
@@ -2131,6 +2134,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@src/misc/$(DEPDIR)/epg.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/misc/$(DEPDIR)/keystore.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/misc/$(DEPDIR)/variables.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@src/player/$(DEPDIR)/player.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
@@ -2526,9 +2530,9 @@ test_src_input_thumbnail.log: test_src_input_thumbnail$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
-test_src_input_player.log: test_src_input_player$(EXEEXT)
-	@p='test_src_input_player$(EXEEXT)'; \
-	b='test_src_input_player'; \
+test_src_player.log: test_src_player$(EXEEXT)
+	@p='test_src_player$(EXEEXT)'; \
+	b='test_src_player'; \
 	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
@@ -2723,6 +2727,8 @@ distclean-generic:
 	-rm -f src/media_source/$(am__dirstamp)
 	-rm -f src/misc/$(DEPDIR)/$(am__dirstamp)
 	-rm -f src/misc/$(am__dirstamp)
+	-rm -f src/player/$(DEPDIR)/$(am__dirstamp)
+	-rm -f src/player/$(am__dirstamp)
 	-test -z "$(DISTCLEANFILES)" || rm -f $(DISTCLEANFILES)
 
 maintainer-clean-generic:
@@ -2758,7 +2764,6 @@ distclean: distclean-am
 	-rm -f src/input/$(DEPDIR)/libvlc_demux_dec_run_la-demux-run.Plo
 	-rm -f src/input/$(DEPDIR)/libvlc_demux_run_la-common.Plo
 	-rm -f src/input/$(DEPDIR)/libvlc_demux_run_la-demux-run.Plo
-	-rm -f src/input/$(DEPDIR)/player.Po
 	-rm -f src/input/$(DEPDIR)/stream.Po
 	-rm -f src/input/$(DEPDIR)/stream_fifo.Po
 	-rm -f src/input/$(DEPDIR)/test_src_input_stream_net-stream.Po
@@ -2769,6 +2774,7 @@ distclean: distclean-am
 	-rm -f src/misc/$(DEPDIR)/epg.Po
 	-rm -f src/misc/$(DEPDIR)/keystore.Po
 	-rm -f src/misc/$(DEPDIR)/variables.Po
+	-rm -f src/player/$(DEPDIR)/player.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -2838,7 +2844,6 @@ maintainer-clean: maintainer-clean-am
 	-rm -f src/input/$(DEPDIR)/libvlc_demux_dec_run_la-demux-run.Plo
 	-rm -f src/input/$(DEPDIR)/libvlc_demux_run_la-common.Plo
 	-rm -f src/input/$(DEPDIR)/libvlc_demux_run_la-demux-run.Plo
-	-rm -f src/input/$(DEPDIR)/player.Po
 	-rm -f src/input/$(DEPDIR)/stream.Po
 	-rm -f src/input/$(DEPDIR)/stream_fifo.Po
 	-rm -f src/input/$(DEPDIR)/test_src_input_stream_net-stream.Po
@@ -2849,6 +2854,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f src/misc/$(DEPDIR)/epg.Po
 	-rm -f src/misc/$(DEPDIR)/keystore.Po
 	-rm -f src/misc/$(DEPDIR)/variables.Po
+	-rm -f src/player/$(DEPDIR)/player.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

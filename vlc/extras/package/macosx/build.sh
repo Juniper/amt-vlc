@@ -11,9 +11,6 @@ info()
 SCRIPTDIR=$(dirname "$0")
 source "$SCRIPTDIR/env.build.sh" "none"
 
-
-ARCH="x86_64"
-MINIMAL_OSX_VERSION="10.10"
 SDKROOT=$(xcrun --show-sdk-path)
 VLCBUILDDIR=""
 
@@ -148,15 +145,19 @@ vlcSetContribEnvironment "$MINIMAL_OSX_VERSION"
 
 info "Building contribs"
 spushd "${vlcroot}/contrib"
+
+if [ "$REBUILD" = "yes" ]; then
+    rm -rf contrib-$TRIPLET
+    rm -rf $TRIPLET
+fi
 mkdir -p contrib-$TRIPLET && cd contrib-$TRIPLET
 ../bootstrap --build=$TRIPLET --host=$TRIPLET > $out
-if [ "$REBUILD" = "yes" ]; then
-    make clean
-fi
+
 if [ "$CONTRIBFROMSOURCE" = "yes" ]; then
+    make list
     make fetch
     make -j$JOBS .gettext
-    make -j$JOBS
+    make -j$JOBS -k || make -j1
 
     if [ "$PACKAGE" = "yes" ]; then
         make package

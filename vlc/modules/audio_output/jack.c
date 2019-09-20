@@ -2,7 +2,6 @@
  * jack.c : JACK audio output module
  *****************************************************************************
  * Copyright (C) 2006 VLC authors and VideoLAN
- * $Id: eabb847cabd5274fe4f60577a71656caa7698355 $
  *
  * Authors: Cyril Deguet <asmax _at_ videolan.org>
  *          Jon Griffiths <jon_p_griffiths _At_ yahoo _DOT_ com>
@@ -72,7 +71,7 @@ static int  Open         ( vlc_object_t * );
 static void Close        ( vlc_object_t * );
 static void Play         ( audio_output_t * p_aout, block_t *, vlc_tick_t );
 static void Pause        ( audio_output_t *aout, bool paused, vlc_tick_t date );
-static void Flush        ( audio_output_t *p_aout, bool wait );
+static void Flush        ( audio_output_t *p_aout );
 static int  TimeGet      ( audio_output_t *, vlc_tick_t * );
 static int  Process      ( jack_nframes_t i_frames, void *p_arg );
 static int  GraphChange  ( void *p_arg );
@@ -180,8 +179,8 @@ static int Start( audio_output_t *p_aout, audio_sample_format_t *restrict fmt )
         goto error_out;
     }
 
-    const size_t buf_sz = AOUT_MAX_ADVANCE_TIME * fmt->i_rate *
-        fmt->i_bytes_per_frame / CLOCK_FREQ;
+    const size_t buf_sz =
+        samples_from_vlc_tick(AOUT_MAX_ADVANCE_TIME, fmt->i_rate * fmt->i_bytes_per_frame);
     p_sys->p_jack_ringbuffer = jack_ringbuffer_create( buf_sz );
 
     if( p_sys->p_jack_ringbuffer == NULL )
@@ -329,18 +328,10 @@ static void Pause(audio_output_t *aout, bool paused, vlc_tick_t date)
     }
 }
 
-static void Flush(audio_output_t *p_aout, bool wait)
+static void Flush(audio_output_t *p_aout)
 {
     aout_sys_t * p_sys = p_aout->sys;
     jack_ringbuffer_t *rb = p_sys->p_jack_ringbuffer;
-
-    /* Sleep if wait was requested */
-    if( wait )
-    {
-        vlc_tick_t delay;
-        if (!TimeGet(p_aout, &delay))
-            vlc_tick_sleep(delay);
-    }
 
     /* reset ringbuffer read and write pointers */
     jack_ringbuffer_reset(rb);
@@ -352,9 +343,9 @@ static int TimeGet(audio_output_t *p_aout, vlc_tick_t *delay)
     jack_ringbuffer_t *rb = p_sys->p_jack_ringbuffer;
     const size_t bytes_per_frame = p_sys->i_channels * sizeof(jack_sample_t);
 
-    *delay = (p_sys->latency +
-            (jack_ringbuffer_read_space(rb) / bytes_per_frame)) *
-        CLOCK_FREQ / p_sys->i_rate;
+    *delay = p_sys->latency +
+            vlc_tick_from_samples(jack_ringbuffer_read_space(rb) / bytes_per_frame,
+                                  p_sys->i_rate);
 
     return 0;
 }

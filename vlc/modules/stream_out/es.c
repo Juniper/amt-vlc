@@ -2,7 +2,6 @@
  * es.c: Elementary stream output module
  *****************************************************************************
  * Copyright (C) 2003-2004 VLC authors and VideoLAN
- * $Id: 221ce47d0518873033e5ce8ab01d5ebf183adf22 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *
@@ -31,7 +30,6 @@
 
 #include <vlc_common.h>
 #include <vlc_plugin.h>
-#include <vlc_input.h>
 #include <vlc_sout.h>
 #include <vlc_dialog.h>
 #include <vlc_memstream.h>

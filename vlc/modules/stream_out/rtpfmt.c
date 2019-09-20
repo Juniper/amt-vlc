@@ -3,7 +3,6 @@
  *****************************************************************************
  * Copyright (C) 2003-2004 VLC authors and VideoLAN
  * Copyright © 2007 Rémi Denis-Courmont
- * $Id: 2ee46607a8ae2d2b072d57cc4ed606e03744bb96 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  * RFC 4175 support based on gstrtpvrawpay.c (LGPL 2) by:
@@ -73,8 +72,9 @@ static int rtp_xiph_pack_headers(size_t room, void *p_extra, size_t i_extra,
                                  uint8_t *theora_pixel_fmt)
 {
     unsigned packet_size[XIPH_MAX_HEADER_COUNT];
-    void *packet[XIPH_MAX_HEADER_COUNT];
+    const void *packet[XIPH_MAX_HEADER_COUNT];
     unsigned packet_count;
+
     if (xiph_SplitHeaders(packet_size, packet, &packet_count,
                                 i_extra, p_extra))
         return VLC_EGENERIC;;
@@ -85,7 +85,7 @@ static int rtp_xiph_pack_headers(size_t room, void *p_extra, size_t i_extra,
     {
         if (packet_size[0] < 42)
             return VLC_EGENERIC;
-        *theora_pixel_fmt = (((uint8_t *)packet[0])[41] >> 3) & 0x03;
+        *theora_pixel_fmt = (((const uint8_t *)packet[0])[41] >> 3) & 0x03;
     }
 
     unsigned length_size[2] = { 0, 0 };
@@ -1830,7 +1830,7 @@ static int rtp_packetize_jpeg( sout_stream_id_sys_t *id, block_t *in )
     const uint8_t *qtables = NULL;
     int nb_qtables = 0;
     int off = 0; // fragment offset in frame
-    int y_sampling_factor;
+    int y_sampling_factor = 0;
     // type is set by pixel format (determined by y_sampling_factor):
     // 0 for yuvj422p
     // 1 for yuvj420p
@@ -1838,7 +1838,7 @@ static int rtp_packetize_jpeg( sout_stream_id_sys_t *id, block_t *in )
     int type;
     int w = 0; // Width in multiples of 8
     int h = 0; // Height in multiples of 8
-    int restart_interval;
+    int restart_interval = 0;
     int dri_found = 0;
 
     // Skip SOI

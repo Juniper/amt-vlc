@@ -2,7 +2,6 @@
  * mkv.hpp : matroska demuxer
  *****************************************************************************
  * Copyright (C) 2003-2005, 2008 VLC authors and VideoLAN
- * $Id: 3e0ae211b9c8cd8e3fe7671033c47c2159fb6f6b $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Steve Lhomme <steve.lhomme@free.fr>
@@ -199,7 +198,7 @@ class mkv_track_t
         bool         b_pts_only;
 
         bool         b_no_duration;
-        uint64_t     i_default_duration;
+        vlc_tick_t   i_default_duration;
         float        f_timecodescale;
         vlc_tick_t   i_last_dts;
         uint64_t     i_skip_until_fpos; /*< any block before this fpos should be ignored */

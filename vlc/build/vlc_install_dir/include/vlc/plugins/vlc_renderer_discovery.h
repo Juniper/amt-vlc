@@ -114,7 +114,6 @@ vlc_renderer_item_flags(const vlc_renderer_item_t *p_item);
  * @{
  */
 
-typedef struct vlc_renderer_discovery_sys vlc_renderer_discovery_sys;
 struct vlc_renderer_discovery_owner;
 
 /**
@@ -164,7 +163,7 @@ struct vlc_renderer_discovery_owner
 
 struct vlc_renderer_discovery_t
 {
-    struct vlc_common_members obj;
+    struct vlc_object_t obj;
     module_t *          p_module;
 
     struct vlc_renderer_discovery_owner owner;
@@ -172,7 +171,7 @@ struct vlc_renderer_discovery_t
     char *              psz_name;
     config_chain_t *    p_cfg;
 
-    vlc_renderer_discovery_sys *p_sys;
+    void *p_sys;
 };
 
 /**
@@ -213,7 +212,7 @@ static int vlc_rd_probe_open(vlc_object_t *obj) \
 #define VLC_RD_PROBE_SUBMODULE \
     add_submodule() \
         set_capability("renderer probe", 100) \
-        set_callbacks(vlc_rd_probe_open, NULL)
+        set_callback(vlc_rd_probe_open)
 
 /** @} @} */
 

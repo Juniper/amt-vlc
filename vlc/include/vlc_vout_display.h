@@ -66,7 +66,7 @@ typedef struct vlc_video_align {
  */
 typedef struct vout_display_cfg {
     struct vout_window_t *window; /**< Window */
-#if defined(_WIN32) || defined(__OS2__)
+#if defined(__OS2__)
     bool is_fullscreen VLC_DEPRECATED;  /* Is the display fullscreen */
 #endif
 
@@ -105,7 +105,6 @@ typedef struct vout_display_cfg {
  *
  */
 typedef struct {
-    bool is_slow;                           /* The picture memory has slow read/write */
     bool has_pictures_invalid;              /* Can handle VOUT_DISPLAY_RESET_PICTURES */
     bool can_scale_spu;                     /* Handles subpictures with a non default zoom factor */
     const vlc_fourcc_t *subpicture_chromas; /* List of supported chromas for subpicture rendering. */
@@ -189,7 +188,7 @@ struct vout_display_owner_t {
      * Be careful, it does not ensure correct serialization if it is used
      * from multiple threads.
      */
-    void            (*event)(vout_display_t *, int, va_list);
+    void (*viewpoint_moved)(void *sys, const vlc_viewpoint_t *vp);
 };
 
 /**
@@ -208,18 +207,17 @@ typedef int (*vout_display_open_cb)(vout_display_t *vd,
                                     video_format_t *fmtp,
                                     vlc_video_context *context);
 
-/**
- * "vout display" close callback
- *
- * @param vd vout display context
- */
-typedef int (*vout_display_close_cb)(vout_display_t *vd);
+#define set_callback_display(activate, priority) \
+    { \
+        vout_display_open_cb open__ = activate; \
+        (void) open__; \
+        set_callback(activate) \
+    } \
+    set_capability( "vout display", priority )
+
 
 struct vout_display_t {
     struct vlc_object_t obj;
-
-    /* Module */
-    module_t *module;
 
     /* Initial and current configuration.
      * You cannot modify it directly, you must use the appropriate events.
@@ -253,7 +251,7 @@ struct vout_display_t {
      */
     vout_display_info_t info;
 
-    /* Return a pointer over the current picture_pool_t* (mandatory).
+    /* Return a pointer over the current picture_pool_t* (optional).
      *
      * For performance reasons, it is best to provide at least count
      * pictures but it is not mandatory.
@@ -286,6 +284,11 @@ struct vout_display_t {
 
     /* Control on the module (mandatory) */
     int        (*control)(vout_display_t *, int, va_list);
+
+    /**
+     * Destroys the display.
+     */
+    void (*close)(vout_display_t *);
 
     /* Private place holder for the vout_display_t module (optional)
      *
@@ -362,14 +365,6 @@ static inline int vout_display_Control(vout_display_t *vd, int query, ...)
     return ret;
 }
 
-static inline void vout_display_SendEvent(vout_display_t *vd, int query, ...)
-{
-    va_list args;
-    va_start(args, query);
-    vd->owner.event(vd, query, args);
-    va_end(args);
-}
-
 VLC_API void vout_display_SendEventPicturesInvalid(vout_display_t *vd);
 
 static inline void vout_display_SendEventMousePressed(vout_display_t *vd, int button)
@@ -387,7 +382,8 @@ static inline void vout_display_SendEventMouseDoubleClick(vout_display_t *vd)
 static inline void vout_display_SendEventViewpointMoved(vout_display_t *vd,
                                                         const vlc_viewpoint_t *vp)
 {
-    vout_display_SendEvent(vd, VOUT_DISPLAY_EVENT_VIEWPOINT_MOVED, vp);
+    if (vd->owner.viewpoint_moved)
+        vd->owner.viewpoint_moved(vd->owner.sys, vp);
 }
 
 /**

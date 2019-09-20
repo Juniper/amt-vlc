@@ -235,13 +235,15 @@ static es_out_t *test_es_out_create(vlc_object_t *parent)
     out->cbs = &es_out_cbs;
 #ifdef HAVE_DECODERS
     ctx->parent = parent;
+#else
+    (void) parent;
 #endif
     return out;
 }
 
 static unsigned demux_test_and_clear_flags(demux_t *demux, unsigned flags)
 {
-    unsigned update;
+    unsigned update = flags;
     if (demux_Control(demux, DEMUX_TEST_AND_CLEAR_FLAGS, &update))
         return 0;
     return update;

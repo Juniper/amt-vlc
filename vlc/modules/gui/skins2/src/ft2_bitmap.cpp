@@ -2,7 +2,6 @@
  * ft2_bitmap.cpp
  *****************************************************************************
  * Copyright (C) 2003 the VideoLAN team
- * $Id: 10a3e1106cc3dc7bbee4a26b4a03bdc7ec0a7b2d $
  *
  * Authors: Cyril Deguet     <asmax@via.ecp.fr>
  *          Olivier Teulière <ipkiss@via.ecp.fr>

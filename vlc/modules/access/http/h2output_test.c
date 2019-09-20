@@ -36,14 +36,17 @@
 
 #undef vlc_tick_sleep
 
+const char vlc_module_name[] = "test_h2output";
+
 static unsigned char counter = 0;
 static bool send_failure = false;
 static bool expect_hello = true;
 static vlc_sem_t rx;
 
-static int fd_callback(vlc_tls_t *tls)
+static int fd_callback(vlc_tls_t *tls, short *restrict events)
 {
     (void) tls;
+    (void) events;
     return fileno(stderr); /* should be writable (at least most of the time) */
 }
 
@@ -51,7 +54,7 @@ static ssize_t send_callback(vlc_tls_t *tls, const struct iovec *iov,
                              unsigned count)
 {
     assert(count == 1);
-    assert(tls->writev == send_callback);
+    assert(tls->ops->writev == send_callback);
 
     const uint8_t *p = iov->iov_base;
     size_t len = iov->iov_len;
@@ -83,10 +86,15 @@ static ssize_t send_callback(vlc_tls_t *tls, const struct iovec *iov,
     return send_failure ? -1 : (ssize_t)len;
 }
 
-static vlc_tls_t fake_tls =
+static const struct vlc_tls_operations fake_ops =
 {
     .get_fd = fd_callback,
     .writev = send_callback,
+};
+
+static vlc_tls_t fake_tls =
+{
+    .ops = &fake_ops,
 };
 
 static struct vlc_h2_frame *frame(unsigned char c)

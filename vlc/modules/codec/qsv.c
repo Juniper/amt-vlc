@@ -2,7 +2,6 @@
  * qsv.c: mpeg4-part10/mpeg2 video encoder using Intel Media SDK
  *****************************************************************************
  * Copyright (C) 2013 VideoLabs
- * $Id: f8fb2e7e59a143549c5f688cca854684297fa71c $
  *
  * Authors: Julien 'Lta' BALLET <contact@lta.io>
  *
@@ -34,9 +33,10 @@
 #include <vlc_codec.h>
 #include <vlc_picture_pool.h>
 
-#include <vlc_fifo_helper.h>
+#include "vlc_fifo_helper.h"
 
 #include <mfx/mfxvideo.h>
+#include "../demux/mpeg/timestamps.h"
 
 #define SOUT_CFG_PREFIX     "sout-qsv-"
 
@@ -301,16 +301,6 @@ typedef struct
 
 static block_t *Encode(encoder_t *, picture_t *);
 
-
-static inline vlc_tick_t qsv_timestamp_to_mtime(int64_t mfx_ts)
-{
-    return mfx_ts / INT64_C(9) * INT64_C(100);
-}
-
-static inline uint64_t qsv_mtime_to_timestamp(vlc_tick_t vlc_ts)
-{
-    return vlc_ts / UINT64_C(100) * UINT64_C(9);
-}
 
 static void clear_unused_frames(encoder_sys_t *sys)
 {
@@ -685,8 +675,8 @@ static void qsv_set_block_flags(block_t *block, uint16_t frame_type)
  */
 static void qsv_set_block_ts(encoder_t *enc, encoder_sys_t *sys, block_t *block, mfxBitstream *bs)
 {
-    block->i_pts = qsv_timestamp_to_mtime(bs->TimeStamp) + sys->offset_pts;
-    block->i_dts = qsv_timestamp_to_mtime(bs->DecodeTimeStamp) + sys->offset_pts;
+    block->i_pts = FROM_SCALE_NZ(bs->TimeStamp) + sys->offset_pts;
+    block->i_dts = FROM_SCALE_NZ(bs->DecodeTimeStamp) + sys->offset_pts;
 
     /* HW encoder (with old driver versions) and some parameters
        combinations doesn't set the DecodeTimeStamp field so we warn
@@ -729,9 +719,8 @@ static block_t *qsv_synchronize_block(encoder_t *enc, async_task_t *task)
     /*         task->bs.FrameType, task->bs.TimeStamp, block->i_pts, task->bs.DecodeTimeStamp, *task->syncp); */
 
     /* Copied from x264.c: This isn't really valid for streams with B-frames */
-    block->i_length = CLOCK_FREQ *
-        enc->fmt_in.video.i_frame_rate_base /
-        enc->fmt_in.video.i_frame_rate;
+    block->i_length = vlc_tick_from_samples( enc->fmt_in.video.i_frame_rate_base,
+                                             enc->fmt_in.video.i_frame_rate );
 
     // Buggy DTS (value comes from experiments)
     if (task->bs.DecodeTimeStamp < -10000)
@@ -779,7 +768,7 @@ static int submit_frame(encoder_t *enc, picture_t *pic, QSVFrame **new_frame)
     qf->surface.Data.Y         = qf->pic->p[0].p_pixels;
     qf->surface.Data.UV        = qf->pic->p[1].p_pixels;
 
-    qf->surface.Data.TimeStamp = qsv_mtime_to_timestamp(pic->date - sys->offset_pts);
+    qf->surface.Data.TimeStamp = TO_SCALE_NZ(pic->date - sys->offset_pts);
 
     *new_frame = qf;
 
@@ -885,7 +874,7 @@ static block_t *Encode(encoder_t *this, picture_t *pic)
          (!pic && async_task_t_fifo_GetCount(&sys->packets)))
     {
         assert(async_task_t_fifo_Show(&sys->packets)->syncp != 0);
-        async_task_t *task = async_task_t_fifo_Get(&sys->packets);
+        task = async_task_t_fifo_Get(&sys->packets);
         block = qsv_synchronize_block( enc, task );
         free(task->syncp);
         free(task);

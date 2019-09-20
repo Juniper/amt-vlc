@@ -2,7 +2,6 @@
  * stream.c
  *****************************************************************************
  * Copyright © 2004-2016 Rémi Denis-Courmont
- * $Id: 90744ac0f0105bba71ee3d826bfec4edee99f719 $
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published by
@@ -56,8 +55,8 @@ ssize_t vlc_tls_Read(vlc_tls_t *session, void *buf, size_t len, bool waitall)
     struct pollfd ufd;
     struct iovec iov;
 
-    ufd.fd = vlc_tls_GetFD(session);
     ufd.events = POLLIN;
+    ufd.fd = vlc_tls_GetPollFD(session, &ufd.events);
     iov.iov_base = buf;
     iov.iov_len = len;
 
@@ -69,7 +68,7 @@ ssize_t vlc_tls_Read(vlc_tls_t *session, void *buf, size_t len, bool waitall)
             return -1;
         }
 
-        ssize_t val = session->readv(session, &iov, 1);
+        ssize_t val = session->ops->readv(session, &iov, 1);
         if (val > 0)
         {
             if (!waitall)
@@ -97,8 +96,8 @@ ssize_t vlc_tls_Write(vlc_tls_t *session, const void *buf, size_t len)
     struct pollfd ufd;
     struct iovec iov;
 
-    ufd.fd = vlc_tls_GetFD(session);
     ufd.events = POLLOUT;
+    ufd.fd = vlc_tls_GetPollFD(session, &ufd.events);
     iov.iov_base = (void *)buf;
     iov.iov_len = len;
 
@@ -110,7 +109,7 @@ ssize_t vlc_tls_Write(vlc_tls_t *session, const void *buf, size_t len)
             return -1;
         }
 
-        ssize_t val = session->writev(session, &iov, 1);
+        ssize_t val = session->ops->writev(session, &iov, 1);
         if (val > 0)
         {
             iov.iov_base = ((char *)iov.iov_base) + val;
@@ -170,47 +169,63 @@ typedef struct vlc_tls_socket
     struct sockaddr peer[];
 } vlc_tls_socket_t;
 
-static int vlc_tls_SocketGetFD(vlc_tls_t *tls)
+static int vlc_tls_SocketGetFD(vlc_tls_t *tls, short *restrict events)
 {
     vlc_tls_socket_t *sock = (struct vlc_tls_socket *)tls;
 
+    (void) events;
     return sock->fd;
 }
 
 static ssize_t vlc_tls_SocketRead(vlc_tls_t *tls, struct iovec *iov,
                                   unsigned count)
 {
+    vlc_tls_socket_t *sock = (struct vlc_tls_socket *)tls;
     struct msghdr msg =
     {
         .msg_iov = iov,
         .msg_iovlen = count,
     };
 
-    return recvmsg(vlc_tls_SocketGetFD(tls), &msg, 0);
+    return recvmsg(sock->fd, &msg, 0);
 }
 
 static ssize_t vlc_tls_SocketWrite(vlc_tls_t *tls, const struct iovec *iov,
                                    unsigned count)
 {
+    vlc_tls_socket_t *sock = (struct vlc_tls_socket *)tls;
     const struct msghdr msg =
     {
         .msg_iov = (struct iovec *)iov,
         .msg_iovlen = count,
     };
 
-    return sendmsg(vlc_tls_SocketGetFD(tls), &msg, MSG_NOSIGNAL);
+    return sendmsg(sock->fd, &msg, MSG_NOSIGNAL);
 }
 
 static int vlc_tls_SocketShutdown(vlc_tls_t *tls, bool duplex)
 {
-    return shutdown(vlc_tls_SocketGetFD(tls), duplex ? SHUT_RDWR : SHUT_WR);
+    vlc_tls_socket_t *sock = (struct vlc_tls_socket *)tls;
+
+    return shutdown(sock->fd, duplex ? SHUT_RDWR : SHUT_WR);
 }
 
 static void vlc_tls_SocketClose(vlc_tls_t *tls)
 {
-    net_Close(vlc_tls_SocketGetFD(tls));
+    vlc_tls_socket_t *sock = (struct vlc_tls_socket *)tls;
+
+    net_Close(sock->fd);
     free(tls);
 }
+
+static const struct vlc_tls_operations vlc_tls_socket_ops =
+{
+    vlc_tls_SocketGetFD,
+    vlc_tls_SocketRead,
+    vlc_tls_SocketWrite,
+    vlc_tls_SocketShutdown,
+    vlc_tls_SocketClose,
+};
 
 static vlc_tls_t *vlc_tls_SocketAlloc(int fd,
                                       const struct sockaddr *restrict peer,
@@ -222,11 +237,7 @@ static vlc_tls_t *vlc_tls_SocketAlloc(int fd,
 
     vlc_tls_t *tls = &sock->tls;
 
-    tls->get_fd = vlc_tls_SocketGetFD;
-    tls->readv = vlc_tls_SocketRead;
-    tls->writev = vlc_tls_SocketWrite;
-    tls->shutdown = vlc_tls_SocketShutdown;
-    tls->close = vlc_tls_SocketClose;
+    tls->ops = &vlc_tls_socket_ops;
     tls->p = NULL;
 
     sock->fd = fd;
@@ -346,6 +357,9 @@ static ssize_t vlc_tls_Connect(vlc_tls_t *tls)
 static ssize_t vlc_tls_ConnectWrite(vlc_tls_t *tls,
                                     const struct iovec *iov,unsigned count)
 {
+    /* Next time, write directly. Do not retry to connect. */
+    tls->ops = &vlc_tls_socket_ops;
+
 #ifdef MSG_FASTOPEN
     vlc_tls_socket_t *sock = (vlc_tls_socket_t *)tls;
     const struct msghdr msg =
@@ -357,10 +371,7 @@ static ssize_t vlc_tls_ConnectWrite(vlc_tls_t *tls,
     };
     ssize_t ret;
 
-    /* Next time, write directly. Do not retry to connect. */
-    tls->writev = vlc_tls_SocketWrite;
-
-    ret = sendmsg(vlc_tls_SocketGetFD(tls), &msg, MSG_NOSIGNAL|MSG_FASTOPEN);
+    ret = sendmsg(sock->fd, &msg, MSG_NOSIGNAL|MSG_FASTOPEN);
     if (ret >= 0)
     {   /* Fast open in progress */
         return ret;
@@ -375,8 +386,6 @@ static ssize_t vlc_tls_ConnectWrite(vlc_tls_t *tls,
     if (errno != EOPNOTSUPP)
         return -1;
     /* Fast open not supported or disabled... fallback to normal mode */
-#else
-    tls->writev = vlc_tls_SocketWrite;
 #endif
 
     if (vlc_tls_Connect(tls))
@@ -384,6 +393,15 @@ static ssize_t vlc_tls_ConnectWrite(vlc_tls_t *tls,
 
     return vlc_tls_SocketWrite(tls, iov, count);
 }
+
+static const struct vlc_tls_operations vlc_tls_socket_fastopen_ops =
+{
+    vlc_tls_SocketGetFD,
+    vlc_tls_SocketRead,
+    vlc_tls_ConnectWrite,
+    vlc_tls_SocketShutdown,
+    vlc_tls_SocketClose,
+};
 
 vlc_tls_t *vlc_tls_SocketOpenAddrInfo(const struct addrinfo *restrict info,
                                       bool defer_connect)
@@ -395,7 +413,7 @@ vlc_tls_t *vlc_tls_SocketOpenAddrInfo(const struct addrinfo *restrict info,
     if (defer_connect)
     {   /* The socket is not connected yet.
          * The connection will be triggered on the first send. */
-        sock->writev = vlc_tls_ConnectWrite;
+        sock->ops = &vlc_tls_socket_fastopen_ops;
     }
     else
     {

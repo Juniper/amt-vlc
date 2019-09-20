@@ -97,11 +97,8 @@ struct module_config_t
     {
         const char **psz; /**< Table of possible string choices */
         const int  *i; /**< Table of possible integer choices */
-        vlc_string_list_cb psz_cb; /**< Callback to enumerate string choices */
-        vlc_integer_list_cb i_cb; /**< Callback to enumerate integer choices */
     } list; /**< Possible choices */
     const char **list_text; /**< Human-readable names for list values */
-    const char *list_cb_name; /**< Symbol name of the enumeration callback */
     void *owner; /**< Origin run-time linker module handle */
 };
 
@@ -345,7 +342,7 @@ struct config_chain_t
  *
  * The option names will be created by adding the psz_prefix prefix.
  */
-VLC_API void config_ChainParse( vlc_object_t *, const char *psz_prefix, const char *const *ppsz_options, config_chain_t * );
+VLC_API void config_ChainParse( vlc_object_t *, const char *psz_prefix, const char *const *ppsz_options, const config_chain_t * );
 #define config_ChainParse( a, b, c, d ) config_ChainParse( VLC_OBJECT(a), b, c, d )
 
 /**

@@ -3,7 +3,6 @@
  * access_sys_t definition
  *****************************************************************************
  * Copyright (C) 2002, 2004, 2010-2011 VLC authors and VideoLAN
- * $Id: 789e6dd6354b5f3f10ce3fdc4bdc83c2e85949a5 $
  *
  * Author: Gildas Bazin <gbazin@videolan.org>
  *

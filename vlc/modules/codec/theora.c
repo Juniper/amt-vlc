@@ -2,7 +2,6 @@
  * theora.c: theora decoder module making use of libtheora.
  *****************************************************************************
  * Copyright (C) 1999-2012 VLC authors and VideoLAN
- * $Id: da2d38fe3eaa5bcba6f2b95ae7163ef4563e2807 $
  *
  * Authors: Gildas Bazin <gbazin@videolan.org>
  *
@@ -32,7 +31,7 @@
 #include <vlc_plugin.h>
 #include <vlc_codec.h>
 #include <vlc_sout.h>
-#include <vlc_input.h>
+#include <vlc_input_item.h>
 #include "../demux/xiph.h"
 
 #include <ogg/ogg.h>
@@ -258,7 +257,7 @@ static int ProcessHeaders( decoder_t *p_dec )
     int i_max_pp, i_pp;
 
     unsigned pi_size[XIPH_MAX_HEADER_COUNT];
-    void     *pp_data[XIPH_MAX_HEADER_COUNT];
+    const void *pp_data[XIPH_MAX_HEADER_COUNT];
     unsigned i_count;
     if( xiph_SplitHeaders( pi_size, pp_data, &i_count,
                            p_dec->fmt_in.i_extra, p_dec->fmt_in.p_extra) )
@@ -273,7 +272,7 @@ static int ProcessHeaders( decoder_t *p_dec )
     /* Take care of the initial Vorbis header */
     oggpacket.b_o_s  = 1; /* yes this actually is a b_o_s packet :) */
     oggpacket.bytes  = pi_size[0];
-    oggpacket.packet = pp_data[0];
+    oggpacket.packet = (void *)pp_data[0];
     if( th_decode_headerin( &p_sys->ti, &p_sys->tc, &ts, &oggpacket ) < 0 )
     {
         msg_Err( p_dec, "this bitstream does not contain Theora video data" );
@@ -361,7 +360,7 @@ static int ProcessHeaders( decoder_t *p_dec )
     /* The next packet in order is the comments header */
     oggpacket.b_o_s  = 0;
     oggpacket.bytes  = pi_size[1];
-    oggpacket.packet = pp_data[1];
+    oggpacket.packet = (void *)pp_data[1];
 
     if( th_decode_headerin( &p_sys->ti, &p_sys->tc, &ts, &oggpacket ) < 0 )
     {
@@ -376,7 +375,7 @@ static int ProcessHeaders( decoder_t *p_dec )
      * missing or corrupted header is fatal. */
     oggpacket.b_o_s  = 0;
     oggpacket.bytes  = pi_size[2];
-    oggpacket.packet = pp_data[2];
+    oggpacket.packet = (void *)pp_data[2];
     if( th_decode_headerin( &p_sys->ti, &p_sys->tc, &ts, &oggpacket ) < 0 )
     {
         msg_Err( p_dec, "3rd Theora header is corrupted" );
@@ -487,7 +486,7 @@ static void *ProcessPacket( decoder_t *p_dec, ogg_packet *p_oggpacket,
     }
 
     /* Date management */
-    p_sys->i_pts += ( CLOCK_FREQ * p_sys->ti.fps_denominator /
+    p_sys->i_pts += vlc_tick_from_samples( p_sys->ti.fps_denominator,
                       p_sys->ti.fps_numerator ); /* 1 frame per packet */
 
     return p_buf;

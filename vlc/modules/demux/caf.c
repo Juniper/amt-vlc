@@ -2,7 +2,6 @@
  * caf.c: Core Audio File Format demuxer
  *****************************************************************************
  * Copyright (C) 2013 VLC authors and VideoLAN
- * $Id: 441763896a9557f00226d1288deba61787823232 $
  *
  * Authors: Matthias Keiser <matthias@tristan-inc.com>
  *
@@ -335,7 +334,7 @@ static inline vlc_tick_t FrameSpanGetTime( frame_span_t *span, uint32_t i_sample
     if( !i_sample_rate )
         return VLC_TICK_INVALID;
 
-    return ( span->i_samples * CLOCK_FREQ ) / i_sample_rate + VLC_TICK_0;
+    return vlc_tick_from_samples( span->i_samples, i_sample_rate) + VLC_TICK_0;
 }
 
 /* SetSpanWithSample returns the span from the beginning of the file up to and
@@ -506,6 +505,11 @@ static int ReadDescChunk( demux_t *p_demux )
         return VLC_EGENERIC;
 
     p_sys->fmt.audio.i_rate = (unsigned int)lround( d_rate );
+    if( !p_sys->fmt.audio.i_rate )
+    {
+        msg_Err( p_demux, "Sample rate must be non-zero" );
+        return VLC_EGENERIC;
+    }
     p_sys->fmt.audio.i_channels = i_channels_per_frame;
     p_sys->fmt.audio.i_bytes_per_frame = i_bytes_per_packet; /* "mBytesPerPacket" in Apple parlance */
     p_sys->fmt.audio.i_frame_length = i_frames_per_packet; /* "mFramesPerPacket" in Apple parlance */
@@ -691,14 +695,13 @@ static int ReadKukiChunk( demux_t *p_demux, uint64_t i_size )
     demux_sys_t *p_sys = p_demux->p_sys;
     const uint8_t *p_peek;
 
-    /* vlc_stream_Peek can't handle sizes bigger than INT32_MAX, and also p_sys->fmt.i_extra is of type 'int'*/
-    if( i_size > INT32_MAX )
+    if( i_size > SSIZE_MAX )
     {
         msg_Err( p_demux, "Magic Cookie chunk too big" );
         return VLC_EGENERIC;
     }
 
-    if( (unsigned int)vlc_stream_Peek( p_demux->s, &p_peek, (int)i_size ) < i_size )
+    if( vlc_stream_Peek( p_demux->s, &p_peek, i_size ) < (ssize_t)i_size )
     {
         msg_Err( p_demux, "Couldn't peek extra data" );
         return VLC_EGENERIC;
@@ -886,7 +889,7 @@ static int Open( vlc_object_t *p_this )
         i_idx++;
     }
 
-    if ( !p_sys->i_data_offset || p_sys->fmt.i_cat != AUDIO_ES ||
+    if ( !p_sys->i_data_offset || p_sys->fmt.i_cat != AUDIO_ES || !p_sys->fmt.audio.i_rate ||
         ( NeedsPacketTable( p_sys ) && !p_sys->packet_table.i_descriptions_start ))
     {
         msg_Err( p_demux, "Did not find all necessary chunks." );
@@ -1002,7 +1005,7 @@ static int Demux( demux_t *p_demux )
  *****************************************************************************/
 static int Control( demux_t *p_demux, int i_query, va_list args )
 {
-    int64_t i64, *pi64, i_sample;
+    int64_t i_sample;
     double f, *pf;
     frame_span_t position;
 
@@ -1016,13 +1019,13 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
             return VLC_SUCCESS;
 
         case DEMUX_GET_LENGTH:
-            pi64 = va_arg( args, int64_t * );
-            *pi64 = CLOCK_FREQ * ( i_num_samples / p_sys->fmt.audio.i_rate );
+            *va_arg( args, vlc_tick_t * ) =
+                vlc_tick_from_samples( i_num_samples, p_sys->fmt.audio.i_rate );
             return VLC_SUCCESS;
 
         case DEMUX_GET_TIME:
-            pi64 = va_arg( args, int64_t * );
-            *pi64 = CLOCK_FREQ * ( p_sys->position.i_samples / p_sys->fmt.audio.i_rate );
+            *va_arg( args, vlc_tick_t * ) =
+                vlc_tick_from_samples( p_sys->position.i_samples, p_sys->fmt.audio.i_rate );
             return VLC_SUCCESS;
 
         case DEMUX_GET_POSITION:
@@ -1039,8 +1042,8 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
             return VLC_SUCCESS;
 
         case DEMUX_SET_TIME:
-            i64 = va_arg( args, int64_t );
-            i_sample = i64 * p_sys->fmt.audio.i_rate / CLOCK_FREQ;
+            i_sample =
+                samples_from_vlc_tick( va_arg( args, vlc_tick_t ), p_sys->fmt.audio.i_rate );
             if( SetSpanWithSample( p_demux, &position, i_sample ))
                 return VLC_EGENERIC;
             p_sys->position = position;

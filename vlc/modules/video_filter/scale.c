@@ -3,7 +3,6 @@
  *  Uses the low quality "nearest neighbour" algorithm.
  *****************************************************************************
  * Copyright (C) 2003-2007 VLC authors and VideoLAN
- * $Id: 003369effe64f373ea17623d3f4f3934bf993794 $
  *
  * Authors: Gildas Bazin <gbazin@videolan.org>
  *          Antoine Cellerier <dionoea @t videolan dot org>
@@ -47,7 +46,7 @@ static picture_t *Filter( filter_t *, picture_t * );
 vlc_module_begin ()
     set_description( N_("Video scaling filter") )
     set_capability( "video converter", 10 )
-    set_callbacks( OpenFilter, NULL )
+    set_callback( OpenFilter )
 vlc_module_end ()
 
 /*****************************************************************************
@@ -63,7 +62,8 @@ static int OpenFilter( vlc_object_t *p_this )
           p_filter->fmt_in.video.i_chroma != VLC_CODEC_YV12 &&
           p_filter->fmt_in.video.i_chroma != VLC_CODEC_RGB32 &&
           p_filter->fmt_in.video.i_chroma != VLC_CODEC_RGBA &&
-          p_filter->fmt_in.video.i_chroma != VLC_CODEC_ARGB ) ||
+          p_filter->fmt_in.video.i_chroma != VLC_CODEC_ARGB &&
+          p_filter->fmt_in.video.i_chroma != VLC_CODEC_BGRA ) ||
         p_filter->fmt_in.video.i_chroma != p_filter->fmt_out.video.i_chroma )
     {
         return VLC_EGENERIC;
@@ -105,6 +105,7 @@ static picture_t *Filter( filter_t *p_filter, picture_t *p_pic )
 
     if( p_filter->fmt_in.video.i_chroma != VLC_CODEC_RGBA &&
         p_filter->fmt_in.video.i_chroma != VLC_CODEC_ARGB &&
+        p_filter->fmt_in.video.i_chroma != VLC_CODEC_BGRA &&
         p_filter->fmt_in.video.i_chroma != VLC_CODEC_RGB32 )
     {
         for( int i_plane = 0; i_plane < p_pic_dst->i_planes; i_plane++ )

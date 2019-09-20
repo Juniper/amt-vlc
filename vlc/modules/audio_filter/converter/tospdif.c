@@ -2,7 +2,6 @@
  * tospdif.c : encapsulates A/52 and DTS frames into S/PDIF packets
  *****************************************************************************
  * Copyright (C) 2002, 2006-2016 VLC authors and VideoLAN
- * $Id: 21ffb1c2ac2e244493276ff7cfef16479094cf57 $
  *
  * Authors: Christophe Massiot <massiot@via.ecp.fr>
  *          Stéphane Borel <stef@via.ecp.fr>
@@ -37,8 +36,8 @@
 #include <vlc_aout.h>
 #include <vlc_filter.h>
 
-#include "../packetizer/a52.h"
-#include "../packetizer/dts_header.h"
+#include "../../packetizer/a52.h"
+#include "../../packetizer/dts_header.h"
 
 static int  Open( vlc_object_t * );
 static void Close( vlc_object_t * );
@@ -280,7 +279,7 @@ static int write_buffer_eac3( filter_t *p_filter, block_t *p_in_buf )
 
         if( vlc_a52_header_Parse( &a52_dep, dep_buf, dep_size ) != VLC_SUCCESS
          || a52_dep.i_size > dep_size
-         || !a52_dep.b_eac3 || a52_dep.eac3.strmtyp != EAC3_STRMTYP_DEPENDENT
+         || !a52_dep.b_eac3 || a52_dep.bs.eac3.strmtyp != EAC3_STRMTYP_DEPENDENT
          || p_in_buf->i_buffer > a52.i_size + a52_dep.i_size )
             return SPDIF_ERROR;
     }
@@ -415,7 +414,8 @@ static int write_buffer_dts( filter_t *p_filter, block_t *p_in_buf )
         return SPDIF_ERROR;
     }
 
-    if( core.b_14b )
+    if( core.syncword == DTS_SYNC_CORE_14BITS_BE ||
+        core.syncword == DTS_SYNC_CORE_14BITS_LE )
     {
         if( p_in_buf->i_buffer > p_in_buf->i_nb_samples * 4 )
             return SPDIF_ERROR;

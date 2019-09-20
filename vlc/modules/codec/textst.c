@@ -32,6 +32,8 @@
 #include <vlc_plugin.h>
 #include <vlc_codec.h>
 
+#include "../demux/mpeg/timestamps.h"
+
 #include "substext.h"
 
 /*****************************************************************************
@@ -72,6 +74,8 @@ static size_t textst_FillRegion(decoder_t *p_dec, const uint8_t *p_data, size_t 
      /*   continous_present_flag b1 */
      /*   forced_on_flag b1 */
      /*   ? b6 */
+
+     assert( i_data >= 4 );
 
      //uint8_t region_style_id_ref = p_data[1];
      uint16_t i_data_length = GetWBE(&p_data[2]);
@@ -209,7 +213,7 @@ static void textst_FillRegions(decoder_t *p_dec, const uint8_t *p_data, size_t i
         uint8_t i_region_count = p_data[0];
         p_data++; i_data--;
 
-        for(uint8_t i=0; i<i_region_count && i_data > 0; i++)
+        for(uint8_t i=0; i<i_region_count && i_data > 4; i++)
         {
             if(*pp_last == NULL)
             {
@@ -235,10 +239,8 @@ static int Decode(decoder_t *p_dec, block_t *p_block)
         (p_block->i_flags & BLOCK_FLAG_CORRUPTED) == 0 &&
         (p_sub = decoder_NewSubpictureText(p_dec)))
     {
-        p_sub->i_start = ((int64_t) (p_block->p_buffer[3] & 0x01) << 32) | GetDWBE(&p_block->p_buffer[4]);
-        p_sub->i_stop = ((int64_t) (p_block->p_buffer[8] & 0x01) << 32) | GetDWBE(&p_block->p_buffer[9]);
-        p_sub->i_start = VLC_TICK_0 + p_sub->i_start * 100 / 9;
-        p_sub->i_stop = VLC_TICK_0 + p_sub->i_stop * 100 / 9;
+        p_sub->i_start = FROM_SCALE(((int64_t)(p_block->p_buffer[3] & 0x01) << 32) | GetDWBE(&p_block->p_buffer[4]));
+        p_sub->i_stop = FROM_SCALE(((int64_t)(p_block->p_buffer[8] & 0x01) << 32) | GetDWBE(&p_block->p_buffer[9]));
         if (p_sub->i_start < p_block->i_dts)
         {
             p_sub->i_stop += p_block->i_dts - p_sub->i_start;

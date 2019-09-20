@@ -2,7 +2,6 @@
  * vlc_stream.h: Stream (between access and demux) descriptor and methods
  *****************************************************************************
  * Copyright (C) 1999-2004 VLC authors and VideoLAN
- * $Id: 7e2b568e5ac279ec76f67134919386c5d6f7cf49 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *
@@ -45,7 +44,7 @@ extern "C" {
 
 struct stream_t
 {
-    struct vlc_common_members obj;
+    struct vlc_object_t obj;
 
     char        *psz_name;
     char        *psz_url; /**< Full URL or MRL (can be NULL) */
@@ -435,6 +434,8 @@ VLC_USED;
   @{
  */
 
+typedef struct vlc_stream_fifo vlc_stream_fifo_t;
+
 /**
  * Creates a FIFO stream.
  *
@@ -450,9 +451,11 @@ VLC_USED;
  * vlc_stream_fifo_Close() respectively.
  *
  * \param parent parent VLC object for the stream
- * \return a stream object or NULL on memory error.
+ * \param reader location to store read side stream pointer [OUT]
+ * \return a FIFO stream object or NULL on memory error.
  */
-VLC_API stream_t *vlc_stream_fifo_New(vlc_object_t *parent);
+VLC_API vlc_stream_fifo_t *vlc_stream_fifo_New(vlc_object_t *parent,
+                                               stream_t **reader);
 
 /**
  * Writes a block to a FIFO stream.
@@ -465,7 +468,7 @@ VLC_API stream_t *vlc_stream_fifo_New(vlc_object_t *parent);
  * \bug No congestion control is performed. If the reader end is not keeping
  * up with the writer end, buffers will accumulate in memory.
  */
-VLC_API int vlc_stream_fifo_Queue(stream_t *s, block_t *block);
+VLC_API int vlc_stream_fifo_Queue(vlc_stream_fifo_t *s, block_t *block);
 
 /**
  * Writes data to a FIFO stream.
@@ -476,7 +479,7 @@ VLC_API int vlc_stream_fifo_Queue(stream_t *s, block_t *block);
  * \param len length of data to write in bytes
  * \return len on success, or -1 on error (errno is set accordingly)
  */
-VLC_API ssize_t vlc_stream_fifo_Write(stream_t *s, const void *buf,
+VLC_API ssize_t vlc_stream_fifo_Write(vlc_stream_fifo_t *s, const void *buf,
                                       size_t len);
 
 /**
@@ -485,7 +488,7 @@ VLC_API ssize_t vlc_stream_fifo_Write(stream_t *s, const void *buf,
  * Marks the end of the FIFO stream and releases any underlying resources.
  * \param s FIFO stream created by vlc_stream_fifo_New()
  */
-VLC_API void vlc_stream_fifo_Close(stream_t *s);
+VLC_API void vlc_stream_fifo_Close(vlc_stream_fifo_t *s);
 
 /**
  * @}

@@ -54,7 +54,7 @@ void transcode_encoder_delete( transcode_encoder_t *p_enc )
         }
         es_format_Clean( &p_enc->p_encoder->fmt_in );
         es_format_Clean( &p_enc->p_encoder->fmt_out );
-        vlc_object_release( p_enc->p_encoder );
+        vlc_object_delete(p_enc->p_encoder);
     }
     free( p_enc );
 }
@@ -101,7 +101,7 @@ transcode_encoder_t * transcode_encoder_new( vlc_object_t *p_obj,
             {
                 es_format_Clean( &p_enc->p_encoder->fmt_in );
                 es_format_Clean( &p_enc->p_encoder->fmt_out );
-                vlc_object_release( p_enc->p_encoder );
+                vlc_object_delete(p_enc->p_encoder);
                 free( p_enc );
                 return NULL;
             }
@@ -196,6 +196,24 @@ int transcode_encoder_open( transcode_encoder_t *p_enc,
             return transcode_encoder_audio_open( p_enc, p_cfg );
         case VIDEO_ES:
             return transcode_encoder_video_open( p_enc, p_cfg );
+        default:
+            return VLC_EGENERIC;
+    }
+}
+
+int transcode_encoder_drain( transcode_encoder_t *p_enc, block_t **out )
+{
+    if( !transcode_encoder_opened( p_enc ) )
+        return VLC_EGENERIC;
+
+    switch( p_enc->p_encoder->fmt_in.i_cat )
+    {
+        case VIDEO_ES:
+            return transcode_encoder_video_drain( p_enc, out );
+        case AUDIO_ES:
+            return transcode_encoder_audio_drain( p_enc, out );
+        case SPU_ES:
+            return VLC_SUCCESS;
         default:
             return VLC_EGENERIC;
     }

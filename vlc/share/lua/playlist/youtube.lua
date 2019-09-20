@@ -107,8 +107,11 @@ function js_descramble( sig, js_url )
     end
 
     -- Look for the descrambler function's name
-    -- k.s&&f.set(k.sp||"signature",DK(k.s));
-    local descrambler = js_extract( js, "%.set%([^,]-\"signature\",([^)]-)%(" )
+    -- k.s&&f.set(k.sp,encodeURIComponent(DK(decodeURIComponent(k.s))));
+    -- k.s (from stream map field "s") holds the input scrambled signature
+    -- k.sp (from stream map field "sp") holds a parameter name (normally
+    -- "signature" or "sig") to set with the output, descrambled signature
+    local descrambler = js_extract( js, "%.set%([^,]-%.sp,[^;]-%((..)%(" )
     if not descrambler then
         vlc.msg.dbg( "Couldn't extract youtube video URL signature descrambling function name" )
         return sig
@@ -198,25 +201,26 @@ function pick_url( url_map, fmt, js_url )
             if url then
                 url = vlc.strings.decode_uri( url )
 
-                local sig = string.match( stream, "sig=([^&,]+)" )
-                if not sig then
-                    -- Scrambled signature
-                    sig = string.match( stream, "s=([^&,]+)" )
-                    if sig then
-                        vlc.msg.dbg( "Found "..string.len( sig ).."-character scrambled signature for youtube video URL, attempting to descramble... " )
-                        if js_url then
-                            sig = js_descramble( sig, js_url )
-                        else
-                            vlc.msg.err( "Couldn't process youtube video URL, please check for updates to this script" )
-                        end
+                -- Descramble any scrambled signature and append it to URL
+                local s = string.match( stream, "s=([^&,]+)" )
+                if s then
+                    s = vlc.strings.decode_uri( s )
+                    vlc.msg.dbg( "Found "..string.len( s ).."-character scrambled signature for youtube video URL, attempting to descramble... " )
+                    if js_url then
+                        s = js_descramble( s, js_url )
+                    else
+                        vlc.msg.err( "Couldn't process youtube video URL, please check for updates to this script" )
                     end
-                end
-                local signature = ""
-                if sig then
-                    signature = "&signature="..sig
+
+                    local sp = string.match( stream, "sp=([^&,]+)" )
+                    if not sp then
+                        vlc.msg.warn( "Couldn't extract signature parameters for youtube video URL, guessing" )
+                        sp = "signature"
+                    end
+                    url = url.."&"..sp.."="..vlc.strings.encode_uri_component( s )
                 end
 
-                path = url..signature
+                path = url
                 break
             end
         end
@@ -313,7 +317,7 @@ function parse()
                 if not path then
                     -- If this is a live stream, the URL map will be empty
                     -- and we get the URL from this field instead
-                    local hlsvp = string.match( line, "\"hlsvp\": *\"(.-)\"" )
+                    local hlsvp = string.match( line, '\\"hlsManifestUrl\\": *\\"(.-)\\"' )
                     if hlsvp then
                         hlsvp = string.gsub( hlsvp, "\\/", "/" )
                         path = hlsvp
@@ -369,7 +373,7 @@ function parse()
         if not path then
             -- If this is a live stream, the URL map will be empty
             -- and we get the URL from this field instead
-            local hlsvp = string.match( line, "&hlsvp=([^&]*)" )
+            local hlsvp = string.match( line, "%%22hlsManifestUrl%%22%%3A%%22(.-)%%22" )
             if hlsvp then
                 hlsvp = vlc.strings.decode_uri( hlsvp )
                 path = hlsvp

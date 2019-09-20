@@ -2,7 +2,6 @@
  * param_eq.c:
  *****************************************************************************
  * Copyright © 2006 VLC authors and VideoLAN
- * $Id: c01cabf3b030996ce4a74a1f5ff721f9d1d3ec90 $
  *
  * Authors: Antti Huovilainen
  *          Sigmund A. Helberg <dnumgis@videolan.org>

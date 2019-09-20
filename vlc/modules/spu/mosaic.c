@@ -2,7 +2,6 @@
  * mosaic.c : Mosaic video plugin for vlc
  *****************************************************************************
  * Copyright (C) 2004-2008 VLC authors and VideoLAN
- * $Id: e08ae7794fe323177ed764872fe6111c63b5ca2a $
  *
  * Authors: Antoine Cellerier <dionoea at videolan dot org>
  *          Christophe Massiot <massiot@via.ecp.fr>
@@ -317,9 +316,10 @@ static int CreateFilter( vlc_object_t *p_this )
     GET_VAR( cols, 1, INT_MAX );
     GET_VAR( alpha, 0, 255 );
     GET_VAR( position, 0, 2 );
-    GET_VAR( delay, 100, INT_MAX );
 #undef GET_VAR
-    p_sys->i_delay *= 1000;
+    i_command = var_CreateGetIntegerCommand( p_filter, CFG_PREFIX "delay" );
+    p_sys->i_delay = VLC_TICK_FROM_MS(VLC_CLIP( i_command, 0, INT_MAX ));
+    var_AddCallback( p_filter, CFG_PREFIX "delay", MosaicCallback, p_sys );
 
     p_sys->b_ar = var_CreateGetBoolCommand( p_filter,
                                             CFG_PREFIX "keep-aspect-ratio" );

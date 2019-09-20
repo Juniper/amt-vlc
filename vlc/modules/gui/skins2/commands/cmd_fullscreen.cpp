@@ -2,7 +2,6 @@
  * cmd_fullscreen.cpp
  *****************************************************************************
  * Copyright (C) 2003-2009 the VideoLAN team
- * $Id: 7dcfe7923c70ab72edb8f9154802109a71137350 $
  *
  * Authors: Cyril Deguet     <asmax@via.ecp.fr>
  *          Olivier Teulière <ipkiss@via.ecp.fr>
@@ -23,29 +22,9 @@
  *****************************************************************************/
 
 #include "cmd_fullscreen.hpp"
-#include <vlc_input.h>
-#include <vlc_vout.h>
-#include <vlc_playlist.h>
-
 
 void CmdFullscreen::execute()
 {
-    bool fs;
-    bool hasVout = false;
-    if( getIntf()->p_sys->p_input != NULL )
-    {
-        vout_thread_t *pVout = input_GetVout( getIntf()->p_sys->p_input );
-        if( pVout )
-        {
-            // Toggle fullscreen
-            fs = var_ToggleBool( pVout, "fullscreen" );
-            vlc_object_release( pVout );
-            hasVout = true;
-        }
-    }
-
-    if( hasVout )
-        var_SetBool( pl_Get( getIntf() ), "fullscreen", fs );
-    else
-        var_ToggleBool( pl_Get( getIntf() ), "fullscreen" );
+    vlc_player_t *player = vlc_playlist_GetPlayer( getPL() );
+    vlc_player_vout_SetFullscreen( player, true );
 }

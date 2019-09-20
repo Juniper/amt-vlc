@@ -37,6 +37,7 @@
 #include <vlc_common.h>
 #include <vlc_plugin.h>
 #include <vlc_codec.h>
+#include <vlc_timestamp_helper.h>
 
 #include <schroedinger/schro.h>
 
@@ -603,7 +604,7 @@ static void SetVideoFormat( decoder_t *p_dec )
     p_sys->p_format = schro_decoder_get_video_format(p_sys->p_schro);
     if( p_sys->p_format == NULL ) return;
 
-    p_sys->i_frame_pts_delta = CLOCK_FREQ
+    p_sys->i_frame_pts_delta = VLC_TICK_FROM_SEC(1)
                             * p_sys->p_format->frame_rate_denominator
                             / p_sys->p_format->frame_rate_numerator;
 
@@ -902,13 +903,13 @@ typedef struct
     bool b_auto_field_coding;
 
     uint32_t i_input_picnum;
-    block_fifo_t *p_dts_fifo;
+    timestamp_fifo_t *p_dts_fifo;
 
     block_t *p_chain;
 
     struct picture_pts_t pts_tlb[SCHRO_PTS_TLB_SIZE];
-    unsigned i_pts_offset;
-    unsigned i_field_duration;
+    vlc_tick_t i_pts_offset;
+    vlc_tick_t i_field_duration;
 
     bool b_eos_signalled;
     bool b_eos_pulled;
@@ -994,10 +995,10 @@ static vlc_tick_t GetPicturePTS( encoder_t *p_enc, uint32_t u_pnum )
     }
 
     msg_Err( p_enc, "Could not retrieve PTS for picture %u", u_pnum );
-    return 0;
+    return VLC_TICK_INVALID;
 }
 
-static inline bool SchroSetEnum( const encoder_t *p_enc, int i_list_size, const char *list[],
+static inline bool SchroSetEnum( encoder_t *p_enc, int i_list_size, const char *list[],
                   const char *psz_name,  const char *psz_name_text,  const char *psz_value)
 {
     encoder_sys_t *p_sys = p_enc->p_sys;
@@ -1096,7 +1097,7 @@ static int OpenEncoder( vlc_object_t *p_this )
     p_enc->fmt_out.i_codec = VLC_CODEC_DIRAC;
     p_enc->fmt_out.i_cat = VIDEO_ES;
 
-    if( ( p_sys->p_dts_fifo = block_FifoNew() ) == NULL )
+    if( ( p_sys->p_dts_fifo = timestamp_FifoNew(32) ) == NULL )
     {
         CloseEncoder( p_this );
         return VLC_ENOMEM;
@@ -1493,12 +1494,7 @@ static block_t *Encode( encoder_t *p_enc, picture_t *p_pic )
 
         /* store dts in a queue, so that they appear in order in
          * coded order */
-        p_block = block_Alloc( 1 );
-        if( !p_block )
-            return NULL;
-        p_block->i_dts = p_pic->date - p_sys->i_pts_offset;
-        block_FifoPut( p_sys->p_dts_fifo, p_block );
-        p_block = NULL;
+        timestamp_FifoPut( p_sys->p_dts_fifo, p_pic->date - p_sys->i_pts_offset );
 
         /* for field coding mode, insert an extra value into both the
          * pts lookaside buffer and dts queue, offset to correspond
@@ -1507,12 +1503,7 @@ static block_t *Encode( encoder_t *p_enc, picture_t *p_pic )
             StorePicturePTS( p_enc, p_sys->i_input_picnum, p_pic->date + p_sys->i_field_duration );
             p_sys->i_input_picnum++;
 
-            p_block = block_Alloc( 1 );
-            if( !p_block )
-                return NULL;
-            p_block->i_dts = p_pic->date - p_sys->i_pts_offset + p_sys->i_field_duration;
-            block_FifoPut( p_sys->p_dts_fifo, p_block );
-            p_block = NULL;
+            timestamp_FifoPut( p_sys->p_dts_fifo, p_pic->date - p_sys->i_pts_offset + p_sys->i_field_duration );
         }
     }
 
@@ -1573,10 +1564,8 @@ static block_t *Encode( encoder_t *p_enc, picture_t *p_pic )
             }
 
             if( ReadDiracPictureNumber( &u_pic_num, p_block ) ) {
-                block_t *p_dts_block = block_FifoGet( p_sys->p_dts_fifo );
-                p_block->i_dts = p_dts_block->i_dts;
-                   p_block->i_pts = GetPicturePTS( p_enc, u_pic_num );
-                block_Release( p_dts_block );
+                p_block->i_dts = timestamp_FifoGet( p_sys->p_dts_fifo );
+                p_block->i_pts = GetPicturePTS( p_enc, u_pic_num );
                 block_ChainAppend( &p_output_chain, p_block );
             } else {
                 /* End of sequence */
@@ -1607,7 +1596,7 @@ static void CloseEncoder( vlc_object_t *p_this )
     free( p_sys->p_format );
 
     if( p_sys->p_dts_fifo )
-        block_FifoRelease( p_sys->p_dts_fifo );
+        timestamp_FifoRelease( p_sys->p_dts_fifo );
 
     block_ChainRelease( p_sys->p_chain );
 

@@ -29,35 +29,134 @@
 
 enum hevc_general_profile_idc_e
 {
-    HEVC_PROFILE_NONE               = 0,
-    HEVC_PROFILE_MAIN               = 1,
-    HEVC_PROFILE_MAIN_10            = 2,
-    HEVC_PROFILE_MAIN_STILL_PICTURE = 3,
-    HEVC_PROFILE_REXT               = 4, /* range extensions */
+    HEVC_PROFILE_IDC_NONE               = 0,
+    HEVC_PROFILE_IDC_MAIN               = 1,
+    HEVC_PROFILE_IDC_MAIN_10            = 2,
+    HEVC_PROFILE_IDC_MAIN_STILL_PICTURE = 3,
+    HEVC_PROFILE_IDC_REXT               = 4, /* range extensions */
+    HEVC_PROFILE_IDC_HIGH_THROUGHPUT    = 5,
+    HEVC_PROFILE_IDC_MULTIVIEW_MAIN     = 6,
+    HEVC_PROFILE_IDC_SCALABLE_MAIN      = 7,
+    HEVC_PROFILE_IDC_3D_MAIN            = 8,
+    HEVC_PROFILE_IDC_SCREEN_EXTENDED    = 9,
+    HEVC_PROFILE_IDC_SCALABLE_REXT      = 10,
 };
 
+enum hevc_level_idc_e
+{
+    HEVC_LEVEL_IDC_1   = 30, /* stored as 30 times the level number */
+    HEVC_LEVEL_IDC_2   = 60,
+    HEVC_LEVEL_IDC_2_1 = 63,
+    HEVC_LEVEL_IDC_3   = 90,
+    HEVC_LEVEL_IDC_3_1 = 93,
+    HEVC_LEVEL_IDC_4   = 120,
+    HEVC_LEVEL_IDC_4_1 = 123,
+    HEVC_LEVEL_IDC_5   = 150,
+    HEVC_LEVEL_IDC_5_1 = 153,
+    HEVC_LEVEL_IDC_5_2 = 156,
+    HEVC_LEVEL_IDC_6   = 180,
+    HEVC_LEVEL_IDC_6_1 = 183,
+    HEVC_LEVEL_IDC_6_2 = 186,
+    HEVC_LEVEL_IDC_8_5 = 255,
+};
 
 /* Values built from 9 bits mapping of the A-2 bitstream indications for conformance */
-#define HEVC_EXT_PROFILE_MONOCHROME                 0x1F9
-#define HEVC_EXT_PROFILE_MONOCHROME_12              0x139
-#define HEVC_EXT_PROFILE_MONOCHROME_16              0x039
-#define HEVC_EXT_PROFILE_MAIN_12                    0x131
-#define HEVC_EXT_PROFILE_MAIN_422_10                0x1A1
-#define HEVC_EXT_PROFILE_MAIN_422_12                0x121
-#define HEVC_EXT_PROFILE_MAIN_444                   0x1C1
-#define HEVC_EXT_PROFILE_MAIN_444_10                0x181
-#define HEVC_EXT_PROFILE_MAIN_444_12                0x101
-#define HEVC_EXT_PROFILE_MAIN_INTRA                 0x1F4 /* From this one, lowest bit is insignifiant */
-#define HEVC_EXT_PROFILE_MAIN_10_INTRA              0x1B4
-#define HEVC_EXT_PROFILE_MAIN_12_INTRA              0x134
-#define HEVC_EXT_PROFILE_MAIN_422_10_INTRA          0x1A4
-#define HEVC_EXT_PROFILE_MAIN_422_12_INTRA          0x124
-#define HEVC_EXT_PROFILE_MAIN_444_INTRA             0x1C4
-#define HEVC_EXT_PROFILE_MAIN_444_10_INTRA          0x184
-#define HEVC_EXT_PROFILE_MAIN_444_12_INTRA          0x104
-#define HEVC_EXT_PROFILE_MAIN_444_16_INTRA          0x004
-#define HEVC_EXT_PROFILE_MAIN_444_STILL_PICTURE     0x1C6
-#define HEVC_EXT_PROFILE_MAIN_444_16_STILL_PICTURE  0x006
+enum hevc_rext_indication_e
+{
+    HEVC_REXT_INDICATION_MONOCHROME                = 0x1F9,
+    HEVC_REXT_INDICATION_MONOCHROME_10             = 0x1B9,
+    HEVC_REXT_INDICATION_MONOCHROME_12             = 0x139,
+    HEVC_REXT_INDICATION_MONOCHROME_16             = 0x039,
+    HEVC_REXT_INDICATION_MAIN_12                   = 0x131,
+    HEVC_REXT_INDICATION_MAIN_422_10               = 0x1A1,
+    HEVC_REXT_INDICATION_MAIN_422_12               = 0x121,
+    HEVC_REXT_INDICATION_MAIN_444                  = 0x1C1,
+    HEVC_REXT_INDICATION_MAIN_444_10               = 0x181,
+    HEVC_REXT_INDICATION_MAIN_444_12               = 0x101,
+    HEVC_REXT_INDICATION_MAIN_INTRA                = 0x1F4, /* From this one, lowest bit is insignifiant */
+    HEVC_REXT_INDICATION_MAIN_10_INTRA             = 0x1B4,
+    HEVC_REXT_INDICATION_MAIN_12_INTRA             = 0x134,
+    HEVC_REXT_INDICATION_MAIN_422_10_INTRA         = 0x1A4,
+    HEVC_REXT_INDICATION_MAIN_422_12_INTRA         = 0x124,
+    HEVC_REXT_INDICATION_MAIN_444_INTRA            = 0x1C4,
+    HEVC_REXT_INDICATION_MAIN_444_10_INTRA         = 0x184,
+    HEVC_REXT_INDICATION_MAIN_444_12_INTRA         = 0x104,
+    HEVC_REXT_INDICATION_MAIN_444_16_INTRA         = 0x004,
+    HEVC_REXT_INDICATION_MAIN_444_STILL_PICTURE    = 0x1C6,
+    HEVC_REXT_INDICATION_MAIN_444_16_STILL_PICTURE = 0x006,
+};
+
+enum hevc_high_throughput_indication_e
+{
+    HEVC_HIGH_THROUGHPUT_INDICATION_444            = 0x3C1,
+    HEVC_HIGH_THROUGHPUT_INDICATION_444_10         = 0x381,
+    HEVC_HIGH_THROUGHPUT_INDICATION_444_14         = 0x201,
+    HEVC_HIGH_THROUGHPUT_INDICATION_444_16_INTRA   = 0x002, /* lowest bit is insignifiant */
+};
+
+enum hevc_screen_extended_indication_e
+{
+    HEVC_SCREEN_EXTENDED_INDICATION_MAIN                    = 0x3F1,
+    HEVC_SCREEN_EXTENDED_INDICATION_MAIN_10                 = 0x3B1,
+    HEVC_SCREEN_EXTENDED_INDICATION_MAIN_444                = 0x3C1,
+    HEVC_SCREEN_EXTENDED_INDICATION_MAIN_444_10             = 0x381,
+    /* skip HP 444 profiles which are the same */
+    HEVC_SCREEN_EXTENDED_INDICATION_HIGH_THROUGHPUT_444_14  = 0x201,
+};
+
+/* VLC only specific profiles for features testing and special cases.
+   These are not to be stored. */
+#define HEVC_INDICATION_SHIFT 8
+#define MKPROF(a, b) ((HEVC_##a##_INDICATION_##b << HEVC_INDICATION_SHIFT) | HEVC_PROFILE_IDC_##a)
+enum vlc_hevc_profile_e
+{
+    VLC_HEVC_PROFILE_NONE               = HEVC_PROFILE_IDC_NONE,
+    VLC_HEVC_PROFILE_MAIN               = HEVC_PROFILE_IDC_MAIN,
+    VLC_HEVC_PROFILE_MAIN_10            = HEVC_PROFILE_IDC_MAIN_10,
+    VLC_HEVC_PROFILE_MAIN_STILL_PICTURE = HEVC_PROFILE_IDC_MAIN_STILL_PICTURE,
+    /* range extensions */
+    VLC_HEVC_PROFILE_MONOCHROME         = MKPROF(REXT,MONOCHROME),
+    VLC_HEVC_PROFILE_MONOCHROME_10      = MKPROF(REXT,MONOCHROME_10),
+    VLC_HEVC_PROFILE_MONOCHROME_12      = MKPROF(REXT,MONOCHROME_12),
+    VLC_HEVC_PROFILE_MONOCHROME_16      = MKPROF(REXT,MONOCHROME_16),
+    VLC_HEVC_PROFILE_MAIN_12            = MKPROF(REXT,MAIN_12),
+    VLC_HEVC_PROFILE_MAIN_422_10        = MKPROF(REXT,MAIN_422_10),
+    VLC_HEVC_PROFILE_MAIN_422_12        = MKPROF(REXT,MAIN_422_12),
+    VLC_HEVC_PROFILE_MAIN_444           = MKPROF(REXT,MAIN_444),
+    VLC_HEVC_PROFILE_MAIN_444_10        = MKPROF(REXT,MAIN_444_10),
+    VLC_HEVC_PROFILE_MAIN_444_12        = MKPROF(REXT,MAIN_444_12),
+    VLC_HEVC_PROFILE_MAIN_INTRA         = MKPROF(REXT,MAIN_INTRA),
+    VLC_HEVC_PROFILE_MAIN_10_INTRA      = MKPROF(REXT,MAIN_10_INTRA),
+    VLC_HEVC_PROFILE_MAIN_12_INTRA      = MKPROF(REXT,MAIN_12_INTRA),
+    VLC_HEVC_PROFILE_MAIN_422_10_INTRA  = MKPROF(REXT,MAIN_422_10_INTRA),
+    VLC_HEVC_PROFILE_MAIN_422_12_INTRA  = MKPROF(REXT,MAIN_422_12_INTRA),
+    VLC_HEVC_PROFILE_MAIN_444_INTRA     = MKPROF(REXT,MAIN_444_INTRA),
+    VLC_HEVC_PROFILE_MAIN_444_10_INTRA  = MKPROF(REXT,MAIN_444_10_INTRA),
+    VLC_HEVC_PROFILE_MAIN_444_12_INTRA  = MKPROF(REXT,MAIN_444_12_INTRA),
+    VLC_HEVC_PROFILE_MAIN_444_16_INTRA  = MKPROF(REXT,MAIN_444_16_INTRA),
+    VLC_HEVC_PROFILE_MAIN_444_STILL_PICTURE = MKPROF(REXT,MAIN_444_STILL_PICTURE),
+    VLC_HEVC_PROFILE_MAIN_444_16_STILL_PICTURE = MKPROF(REXT,MAIN_444_16_STILL_PICTURE),
+    /* high thoughput */
+    VLC_HEVC_PROFILE_HIGH_THROUGHPUT_444 = MKPROF(HIGH_THROUGHPUT,444),
+    VLC_HEVC_PROFILE_HIGH_THROUGHPUT_444_10 = MKPROF(HIGH_THROUGHPUT,444_10),
+    VLC_HEVC_PROFILE_HIGH_THROUGHPUT_444_14 = MKPROF(HIGH_THROUGHPUT,444_14),
+    VLC_HEVC_PROFILE_HIGH_THROUGHPUT_444_16_INTRA = MKPROF(HIGH_THROUGHPUT,444_16_INTRA),
+    /**/
+    VLC_HEVC_PROFILE_MULTIVIEW_MAIN     = HEVC_PROFILE_IDC_MULTIVIEW_MAIN,
+    VLC_HEVC_PROFILE_SCALABLE_MAIN      = HEVC_PROFILE_IDC_SCALABLE_MAIN,
+    VLC_HEVC_PROFILE_3D_MAIN            = HEVC_PROFILE_IDC_3D_MAIN,
+    /* screen extended */
+    VLC_HEVC_PROFILE_SCREEN_EXTENDED_MAIN                   = MKPROF(SCREEN_EXTENDED,MAIN),
+    VLC_HEVC_PROFILE_SCREEN_EXTENDED_MAIN_10                = MKPROF(SCREEN_EXTENDED,MAIN_10),
+    VLC_HEVC_PROFILE_SCREEN_EXTENDED_MAIN_444               = MKPROF(SCREEN_EXTENDED,MAIN_444),
+    VLC_HEVC_PROFILE_SCREEN_EXTENDED_MAIN_444_10            = MKPROF(SCREEN_EXTENDED,MAIN_444_10),
+    VLC_HEVC_PROFILE_SCREEN_EXTENDED_HIGH_THROUGHPUT_444_14 = MKPROF(SCREEN_EXTENDED,HIGH_THROUGHPUT_444_14),
+    /* scalable rext */
+    VLC_HEVC_PROFILE_SCALABLE_REXT      = 10,
+};
+#undef MKPROF
+/* vlc_hevc_profile helpers */
+#define vlc_hevc_profile_is_Intra(p) (p && (1 << (2+HEVC_INDICATION_SHIFT)))
 
 /* NAL types from https://www.itu.int/rec/T-REC-H.265-201504-I */
 enum hevc_nal_unit_type_e
@@ -178,6 +277,8 @@ uint8_t hevc_get_slice_pps_id( const hevc_slice_segment_header_t * );
 bool hevc_get_xps_id(const uint8_t *p_nalbuf, size_t i_nalbuf, uint8_t *pi_id);
 bool hevc_get_sps_profile_tier_level( const hevc_sequence_parameter_set_t *,
                                       uint8_t *pi_profile, uint8_t *pi_level );
+enum vlc_hevc_profile_e
+     hevc_get_vlc_profile( const hevc_sequence_parameter_set_t * );
 bool hevc_get_picture_size( const hevc_sequence_parameter_set_t *, unsigned *p_w, unsigned *p_h,
                             unsigned *p_vw, unsigned *p_vh );
 bool hevc_get_frame_rate( const hevc_sequence_parameter_set_t *,
@@ -191,7 +292,7 @@ bool hevc_get_colorimetry( const hevc_sequence_parameter_set_t *p_sps,
                            video_color_primaries_t *p_primaries,
                            video_transfer_func_t *p_transfer,
                            video_color_space_t *p_colorspace,
-                           bool *p_full_range );
+                           video_color_range_t *p_full_range );
 uint8_t hevc_get_max_num_reorder( const hevc_video_parameter_set_t *p_vps );
 bool hevc_get_slice_type( const hevc_slice_segment_header_t *, enum hevc_slice_type_e * );
 

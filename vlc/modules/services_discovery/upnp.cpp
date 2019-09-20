@@ -3,11 +3,12 @@
  *****************************************************************************
  * Copyright (C) 2004-2018 VLC authors and VideoLAN
  *
- * Authors: Rémi Denis-Courmont <rem # videolan.org> (original plugin)
+ * Authors: Rémi Denis-Courmont (original plugin)
  *          Christian Henz <henz # c-lab.de>
  *          Mirsal Ennaime <mirsal dot ennaime at gmail dot com>
  *          Hugo Beauzée-Luyssen <hugo@beauzee.fr>
  *          Shaleen Jain <shaleen@jain.sh>
+ *          William Ung <william1.ung@epitech.eu>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published by
@@ -28,14 +29,13 @@
 # include "config.h"
 #endif
 
-#include <vlc_common.h>
-
 #include "upnp.hpp"
 
 #include <vlc_access.h>
 #include <vlc_plugin.h>
 #include <vlc_interrupt.h>
 #include <vlc_services_discovery.h>
+#include <vlc_renderer_discovery.h>
 
 #include <assert.h>
 #include <limits.h>
@@ -47,16 +47,35 @@
  * Constants
 */
 const char* MEDIA_SERVER_DEVICE_TYPE = "urn:schemas-upnp-org:device:MediaServer:1";
+const char* MEDIA_RENDERER_DEVICE_TYPE = "urn:schemas-upnp-org:device:MediaRenderer:1";
 const char* CONTENT_DIRECTORY_SERVICE_TYPE = "urn:schemas-upnp-org:service:ContentDirectory:1";
 const char* SATIP_SERVER_DEVICE_TYPE = "urn:ses-com:device:SatIPServer:1";
 
+#define UPNP_SEARCH_TIMEOUT_SECONDS 15
 #define SATIP_CHANNEL_LIST N_("SAT>IP channel list")
 #define SATIP_CHANNEL_LIST_URL N_("Custom SAT>IP channel list URL")
+
+#define HTTP_PORT         7070
+
+#define HTTP_PORT_TEXT N_("HTTP port")
+#define HTTP_PORT_LONGTEXT N_("This sets the HTTP port of the local server used to stream the media to the UPnP Renderer.")
+#define HAS_VIDEO_TEXT N_("Video")
+#define HAS_VIDEO_LONGTEXT N_("The UPnP Renderer can receive video.")
+
+#define IP_ADDR_TEXT N_("IP Address")
+#define IP_ADDR_LONGTEXT N_("IP Address of the UPnP Renderer.")
+#define PORT_TEXT N_("UPnP Renderer port")
+#define PORT_LONGTEXT N_("The port used to talk to the UPnP Renderer.")
+#define BASE_URL_TEXT N_("base URL")
+#define BASE_URL_LONGTEXT N_("The base Url relative to which all other UPnP operations must be called")
+#define URL_TEXT N_("description URL")
+#define URL_LONGTEXT N_("The Url used to get the xml descriptor of the UPnP Renderer")
+
 static const char *const ppsz_satip_channel_lists[] = {
-    "ASTRA_19_2E", "ASTRA_28_2E", "ASTRA_23_5E", "MasterList", "ServerList", "CustomList"
+    "Auto", "ASTRA_19_2E", "ASTRA_28_2E", "ASTRA_23_5E", "MasterList", "ServerList", "CustomList"
 };
 static const char *const ppsz_readible_satip_channel_lists[] = {
-    "Astra 19.2°E", "Astra 28.2°E", "Astra 23.5°E", N_("Master List"), N_("Server List"), N_("Custom List")
+    N_("Auto"), "Astra 19.2°E", "Astra 28.2°E", "Astra 23.5°E", N_("SAT>IP Main List"), N_("Device List"), N_("Custom List")
 };
 
 namespace {
@@ -69,6 +88,14 @@ struct services_discovery_sys_t
     UpnpInstanceWrapper* p_upnp;
     std::shared_ptr<SD::MediaServerList> p_server_list;
     vlc_thread_t         thread;
+};
+
+
+struct renderer_discovery_sys_t
+{
+    UpnpInstanceWrapper* p_upnp;
+    std::shared_ptr<RD::MediaRendererList> p_renderer_list;
+    vlc_thread_t thread;
 };
 
 struct access_sys_t
@@ -93,7 +120,14 @@ namespace Access
     static void CloseAccess( vlc_object_t* );
 }
 
+namespace RD
+{
+    static int OpenRD( vlc_object_t*);
+    static void CloseRD( vlc_object_t* );
+}
+
 VLC_SD_PROBE_HELPER( "upnp", N_("Universal Plug'n'Play"), SD_CAT_LAN )
+VLC_RD_PROBE_HELPER( "upnp_renderer", N_("UPnP Renderer Discovery") )
 
 /*
  * Module descriptor
@@ -106,7 +140,7 @@ vlc_module_begin()
     set_capability( "services_discovery", 0 );
     set_callbacks( SD::OpenSD, SD::CloseSD );
 
-    add_string( "satip-channelist", "ASTRA_19_2E", SATIP_CHANNEL_LIST,
+    add_string( "satip-channelist", "auto", SATIP_CHANNEL_LIST,
                 SATIP_CHANNEL_LIST, false )
     change_string_list( ppsz_satip_channel_lists, ppsz_readible_satip_channel_lists )
     add_string( "satip-channellist-url", NULL, SATIP_CHANNEL_LIST_URL,
@@ -119,6 +153,33 @@ vlc_module_begin()
         set_capability( "access", 0 )
 
     VLC_SD_PROBE_SUBMODULE
+
+    add_submodule()
+        set_description( N_( "UPnP Renderer Discovery" ) )
+        set_category( CAT_SOUT )
+        set_subcategory( SUBCAT_SOUT_RENDERER )
+        set_callbacks( RD::OpenRD, RD::CloseRD )
+        set_capability( "renderer_discovery", 0 )
+        add_shortcut( "upnp_renderer" )
+
+    VLC_RD_PROBE_SUBMODULE
+
+    add_submodule()
+        set_shortname("dlna")
+        set_description(N_("UPnP/DLNA stream output"))
+        set_capability("sout stream", 0)
+        add_shortcut("dlna")
+        set_category(CAT_SOUT)
+        set_subcategory(SUBCAT_SOUT_STREAM)
+        set_callbacks(DLNA::OpenSout, DLNA::CloseSout)
+
+        add_string(SOUT_CFG_PREFIX "ip", NULL, IP_ADDR_TEXT, IP_ADDR_LONGTEXT, false)
+        add_integer(SOUT_CFG_PREFIX "port", NULL, PORT_TEXT, PORT_LONGTEXT, false)
+        add_integer(SOUT_CFG_PREFIX "http-port", HTTP_PORT, HTTP_PORT_TEXT, HTTP_PORT_LONGTEXT, false)
+        add_bool(SOUT_CFG_PREFIX "video", true, HAS_VIDEO_TEXT, HAS_VIDEO_LONGTEXT, false)
+        add_string(SOUT_CFG_PREFIX "base_url", NULL, BASE_URL_TEXT, BASE_URL_LONGTEXT, false)
+        add_string(SOUT_CFG_PREFIX "url", NULL, URL_TEXT, URL_LONGTEXT, false)
+        add_renderer_opts(SOUT_CFG_PREFIX)
 vlc_module_end()
 
 /*
@@ -172,6 +233,32 @@ IXML_Document* parseBrowseResult( IXML_Document* p_doc )
     ixmlNodeList_free( p_elems );
 
     return (IXML_Document*)p_node;
+}
+
+/**
+ * Reads the base URL from an XML device list
+ *
+ * \param services_discovery_t* p_sd This SD instance
+ * \param IXML_Document* p_desc an XML device list document
+ *
+ * \return const char* The base URL
+ */
+static const char *parseBaseUrl( IXML_Document *p_desc )
+{
+    const char    *psz_base_url = nullptr;
+    IXML_NodeList *p_url_list = nullptr;
+
+    if( ( p_url_list = ixmlDocument_getElementsByTagName( p_desc, "URLBase" ) ) )
+    {
+        if ( IXML_Node* p_url_node = ixmlNodeList_item( p_url_list, 0 ) )
+        {
+            IXML_Node* p_text_node = ixmlNode_getFirstChild( p_url_node );
+            if ( p_text_node )
+                psz_base_url = ixmlNode_getNodeValue( p_text_node );
+        }
+        ixmlNodeList_free( p_url_list );
+    }
+    return psz_base_url;
 }
 
 namespace SD
@@ -445,102 +532,9 @@ void MediaServerList::parseNewServer( IXML_Document *doc, const std::string &loc
 
         // We now have basic info, we need to get the content browsing url
         // so the access module can browse without fetching the manifest again
-
         if ( !strncmp( SATIP_SERVER_DEVICE_TYPE, psz_device_type,
-                strlen( SATIP_SERVER_DEVICE_TYPE ) - 1 ) )
-        {
-            SD::MediaServerDesc* p_server = NULL;
-
-            vlc_url_t url;
-            vlc_UrlParse( &url, psz_base_url );
-
-            char *psz_satip_channellist = config_GetPsz("satip-channelist");
-            if( !psz_satip_channellist ) {
-                break;
-            }
-
-            /* a user may have provided a custom playlist url */
-            if (strncmp(psz_satip_channellist, "CustomList", 10) == 0) {
-                char *psz_satip_playlist_url = config_GetPsz( "satip-channellist-url" );
-                if ( psz_satip_playlist_url ) {
-                    p_server = new(std::nothrow) SD::MediaServerDesc( psz_udn, psz_friendly_name, psz_satip_playlist_url, iconUrl );
-
-                    if( likely( p_server ) ) {
-                        p_server->satIpHost = url.psz_host;
-                        p_server->isSatIp = true;
-                        if( !addServer( p_server ) ) {
-                            delete p_server;
-                        }
-                    }
-
-                    /* to comply with the SAT>IP specification, we don't fall back on another channel list if this path failed */
-                    free( psz_satip_playlist_url );
-                    vlc_UrlClean( &url );
-                    continue;
-                }
-            }
-
-            /* If requested by the user, check for a SAT>IP m3u list, which may be provided by some rare devices */
-            if (strncmp(psz_satip_channellist, "ServerList", 10) == 0) {
-                const char* psz_m3u_url = xml_getChildElementValue( p_device_element, "satip:X_SATIPM3U" );
-                if ( psz_m3u_url ) {
-                    if ( strncmp( "http", psz_m3u_url, 4) )
-                    {
-                        char* psz_url = NULL;
-                        if ( UpnpResolveURL2( psz_base_url, psz_m3u_url, &psz_url ) == UPNP_E_SUCCESS )
-                        {
-                            p_server = new(std::nothrow) SD::MediaServerDesc( psz_udn, psz_friendly_name, psz_url, iconUrl );
-                            free(psz_url);
-                        }
-                    } else {
-                        p_server = new(std::nothrow) SD::MediaServerDesc( psz_udn, psz_friendly_name, psz_m3u_url, iconUrl );
-                    }
-
-                    if ( unlikely( !p_server ) )
-                    {
-                        free( psz_satip_channellist );
-                        break;
-                    }
-
-                    p_server->satIpHost = url.psz_host;
-                    p_server->isSatIp = true;
-                    if ( !addServer( p_server ) )
-                        delete p_server;
-                } else {
-                    msg_Warn( m_sd, "SAT>IP server '%s' did not provide a playlist", url.psz_host);
-                }
-
-                /* to comply with the SAT>IP specifications, we don't fallback on another channel list if this path failed */
-                free(psz_satip_channellist);
-                vlc_UrlClean( &url );
-                continue;
-            }
-
-            /* Normally, fetch a playlist from the web,
-             * which will be processed by a lua script a bit later */
-            char *psz_url;
-            if (asprintf( &psz_url, "http://www.satip.info/Playlists/%s.m3u",
-                         psz_satip_channellist ) < 0 ) {
-                vlc_UrlClean( &url );
-                free( psz_satip_channellist );
-                continue;
-            }
-
-            p_server = new(std::nothrow) SD::MediaServerDesc( psz_udn,
-                                                             psz_friendly_name, psz_url, iconUrl );
-
-            if( likely( p_server ) ) {
-                p_server->satIpHost = url.psz_host;
-                p_server->isSatIp = true;
-                if( !addServer( p_server ) ) {
-                    delete p_server;
-                }
-            }
-            free( psz_url );
-            free( psz_satip_channellist );
-            vlc_UrlClean( &url );
-
-            continue;
+                strlen( SATIP_SERVER_DEVICE_TYPE ) - 1 ) ) {
+            parseSatipServer( p_device_element, psz_base_url, psz_udn, psz_friendly_name, iconUrl );
         }
 
         /* Check for ContentDirectory service. */
@@ -572,25 +566,20 @@ void MediaServerList::parseNewServer( IXML_Document *doc, const std::string &loc
             }
 
             /* Try to browse content directory. */
-            char* psz_url = ( char* ) malloc( strlen( psz_base_url ) + strlen( psz_control_url ) + 1 );
-            if ( psz_url )
+            char* psz_url = NULL;
+            if ( UpnpResolveURL2( psz_base_url, psz_control_url, &psz_url ) == UPNP_E_SUCCESS )
             {
-                if ( UpnpResolveURL( psz_base_url, psz_control_url, psz_url ) == UPNP_E_SUCCESS )
-                {
-                    SD::MediaServerDesc* p_server = new(std::nothrow) SD::MediaServerDesc( psz_udn,
-                            psz_friendly_name, psz_url, iconUrl );
-                    free( psz_url );
-                    if ( unlikely( !p_server ) )
-                        break;
+                SD::MediaServerDesc* p_server = new(std::nothrow) SD::MediaServerDesc( psz_udn,
+                    psz_friendly_name, psz_url, iconUrl );
+                free( psz_url );
+                if ( unlikely( !p_server ) )
+                    break;
 
-                    if ( !addServer( p_server ) )
-                    {
-                        delete p_server;
-                        continue;
-                    }
+                if ( !addServer( p_server ) )
+                {
+                    delete p_server;
+                    continue;
                 }
-                else
-                    free( psz_url );
             }
         }
         ixmlNodeList_free( p_service_list );
@@ -650,6 +639,120 @@ std::string MediaServerList::getIconURL( IXML_Element* p_device_elem, const char
         vlc_UrlClean( &url );
     }
     return res;
+}
+
+void
+MediaServerList::parseSatipServer( IXML_Element* p_device_element, const char *psz_base_url, const char *psz_udn, const char *psz_friendly_name, std::string iconUrl )
+{
+    SD::MediaServerDesc* p_server = NULL;
+
+    char *psz_satip_channellist = config_GetPsz("satip-channelist");
+    if( !psz_satip_channellist ) {
+        psz_satip_channellist = strdup("Auto");
+    }
+
+    if( unlikely( !psz_satip_channellist ) )
+        return;
+
+    vlc_url_t url;
+    vlc_UrlParse( &url, psz_base_url );
+
+    /* Part 1: a user may have provided a custom playlist url */
+    if (strncmp(psz_satip_channellist, "CustomList", 10) == 0) {
+        char *psz_satip_playlist_url = config_GetPsz( "satip-channellist-url" );
+        if ( psz_satip_playlist_url ) {
+            p_server = new(std::nothrow) SD::MediaServerDesc( psz_udn, psz_friendly_name, psz_satip_playlist_url, iconUrl );
+
+            if( likely( p_server ) ) {
+                p_server->satIpHost = url.psz_host;
+                p_server->isSatIp = true;
+                if( !addServer( p_server ) ) {
+                    delete p_server;
+                }
+            }
+
+            /* to comply with the SAT>IP specification, we don't fall back on another channel list if this path failed */
+            free( psz_satip_channellist );
+            free( psz_satip_playlist_url );
+            vlc_UrlClean( &url );
+            return;
+        }
+    }
+
+    /* Part 2: device playlist
+     * In Automatic mode, or if requested by the user, check for a SAT>IP m3u list on the device */
+    if (strncmp(psz_satip_channellist, "ServerList", 10) == 0 ||
+        strncmp(psz_satip_channellist, "Auto", strlen ("Auto")) == 0 ) {
+        const char* psz_m3u_url = xml_getChildElementValue( p_device_element, "satip:X_SATIPM3U" );
+        if ( psz_m3u_url ) {
+            if ( strncmp( "http", psz_m3u_url, 4) )
+            {
+                char* psz_url = NULL;
+                if ( UpnpResolveURL2( psz_base_url, psz_m3u_url, &psz_url ) == UPNP_E_SUCCESS )
+                {
+                    p_server = new(std::nothrow) SD::MediaServerDesc( psz_udn, psz_friendly_name, psz_url, iconUrl );
+                    free(psz_url);
+                }
+            } else {
+                p_server = new(std::nothrow) SD::MediaServerDesc( psz_udn, psz_friendly_name, psz_m3u_url, iconUrl );
+            }
+
+            if ( unlikely( !p_server ) )
+            {
+                free( psz_satip_channellist );
+                vlc_UrlClean( &url );
+                return;
+            }
+
+            p_server->satIpHost = url.psz_host;
+            p_server->isSatIp = true;
+            if ( !addServer( p_server ) )
+                delete p_server;
+        } else {
+            msg_Dbg( m_sd, "SAT>IP server '%s' did not provide a playlist", url.psz_host);
+        }
+
+        if(strncmp(psz_satip_channellist, "ServerList", 10) == 0) {
+            /* to comply with the SAT>IP specifications, we don't fallback on another channel list if this path failed,
+             * but in Automatic mode, we continue */
+            free(psz_satip_channellist);
+            vlc_UrlClean( &url );
+            return;
+        }
+    }
+
+    /* Part 3: satip.info playlist
+     * In the normal case, fetch a playlist from the satip website,
+     * which will be processed by a lua script a bit later, to make it work sanely
+     * MasterList is a list of usual Satellites */
+
+    /* In Auto mode, default to MasterList list from satip.info */
+    if( strncmp(psz_satip_channellist, "Auto", strlen ("Auto")) == 0 ) {
+        free(psz_satip_channellist);
+        psz_satip_channellist = strdup( "MasterList" );
+    }
+
+    char *psz_url;
+    if (asprintf( &psz_url, "http://www.satip.info/Playlists/%s.m3u",
+                psz_satip_channellist ) < 0 ) {
+        vlc_UrlClean( &url );
+        free( psz_satip_channellist );
+        return;
+    }
+
+    p_server = new(std::nothrow) SD::MediaServerDesc( psz_udn,
+            psz_friendly_name, psz_url, iconUrl );
+
+    if( likely( p_server ) ) {
+        p_server->satIpHost = url.psz_host;
+        p_server->isSatIp = true;
+        if( !addServer( p_server ) ) {
+            delete p_server;
+        }
+    }
+    free( psz_url );
+    free( psz_satip_channellist );
+    vlc_UrlClean( &url );
 }
 
 void MediaServerList::removeServer( const std::string& udn )
@@ -864,7 +967,7 @@ namespace
 
         input_item_t *createNewItem(IXML_Element *p_resource)
         {
-            vlc_tick_t i_duration = INPUT_DURATION_UNKNOWN;
+            vlc_tick_t i_duration = INPUT_DURATION_INDEFINITE;
             const char* psz_resource_url = xml_getChildElementValue( p_resource, "res" );
             if( !psz_resource_url )
                 return NULL;
@@ -902,51 +1005,43 @@ Upnp_i11e_cb::Upnp_i11e_cb( Upnp_FunPtr callback, void *cookie )
     , m_cookie( cookie )
 
 {
-    vlc_mutex_init( &m_lock );
-    vlc_sem_init( &m_sem, 0 );
-}
-
-Upnp_i11e_cb::~Upnp_i11e_cb()
-{
-    vlc_mutex_destroy( &m_lock );
-    vlc_sem_destroy( &m_sem );
 }
 
 void Upnp_i11e_cb::waitAndRelease( void )
 {
-    vlc_sem_wait_i11e( &m_sem );
+    m_sem.wait_i11e();
 
-    vlc_mutex_lock( &m_lock );
-    if ( --m_refCount == 0 )
+    int refCount;
+    {
+        vlc::threads::mutex_locker lock( m_lock );
+        refCount = --m_refCount;
+    }
+    if ( refCount == 0 )
     {
         /* The run callback is processed, we can destroy this object */
-        vlc_mutex_unlock( &m_lock );
         delete this;
-    } else
-    {
-        /* Interrupted, let the run callback destroy this object */
-        vlc_mutex_unlock( &m_lock );
     }
+    /* Otherwise interrupted, let the run callback destroy this object */
 }
 
 int Upnp_i11e_cb::run( Upnp_EventType eventType, UpnpEventPtr p_event, void *p_cookie )
 {
     Upnp_i11e_cb *self = static_cast<Upnp_i11e_cb*>( p_cookie );
 
-    vlc_mutex_lock( &self->m_lock );
+    self->m_lock.lock();
     if ( --self->m_refCount == 0 )
     {
         /* Interrupted, we can destroy self */
-        vlc_mutex_unlock( &self->m_lock );
+        self->m_lock.unlock();
         delete self;
         return 0;
     }
     /* Process the user callback_ */
     self->m_callback( eventType, p_event, self->m_cookie);
-    vlc_mutex_unlock( &self->m_lock );
+    self->m_lock.unlock();
 
     /* Signal that the callback is processed */
-    vlc_sem_post( &self->m_sem );
+    self->m_sem.post();
     return 0;
 }
 
@@ -1202,9 +1297,8 @@ bool MediaServer::fetchContents()
         return false;
     }
 
-#ifndef NDEBUG
-    msg_Dbg( m_access, "Got DIDL document: %s", ixmlPrintDocument( p_result ) );
-#endif
+    if( var_InheritInteger(m_access, "verbose") >= 4 )
+        msg_Dbg( m_access, "Got DIDL document: %s", ixmlPrintDocument( p_result ) );
 
     IXML_NodeList* containerNodeList =
                 ixmlDocument_getElementsByTagName( p_result, "container" );
@@ -1268,4 +1362,291 @@ static void CloseAccess( vlc_object_t* p_this )
     delete sys;
 }
 
+} // namespace Access
+
+namespace RD
+{
+
+/**
+ * Crafts an MRL with the 'dlna' stream out
+ * containing the host and port.
+ *
+ * \param psz_location URL to the MediaRenderer device description doc
+ */
+const char *getUrl(const char *psz_location)
+{
+    char *psz_res;
+    vlc_url_t url;
+
+    vlc_UrlParse(&url, psz_location);
+    if (asprintf(&psz_res, "dlna://%s:%d", url.psz_host, url.i_port) < 0)
+    {
+        vlc_UrlClean(&url);
+        return NULL;
+    }
+    vlc_UrlClean(&url);
+    return psz_res;
 }
+
+MediaRendererDesc::MediaRendererDesc( const std::string& udn,
+                                      const std::string& fName,
+                                      const std::string& base,
+                                      const std::string& loc )
+    : UDN( udn )
+    , friendlyName( fName )
+    , base_url( base )
+    , location( loc )
+    , inputItem( NULL )
+{
+}
+
+MediaRendererDesc::~MediaRendererDesc()
+{
+    if (inputItem)
+        vlc_renderer_item_release(inputItem);
+}
+
+MediaRendererList::MediaRendererList(vlc_renderer_discovery_t *p_rd)
+    : m_rd( p_rd )
+{
+}
+
+MediaRendererList::~MediaRendererList()
+{
+    vlc_delete_all(m_list);
+}
+
+bool MediaRendererList::addRenderer(MediaRendererDesc *desc)
+{
+    const char* psz_url = getUrl(desc->location.c_str());
+
+    char *extra_sout;
+
+    if (asprintf(&extra_sout, "base_url=%s,url=%s", desc->base_url.c_str(),
+                        desc->location.c_str()) < 0)
+        return false;
+    desc->inputItem = vlc_renderer_item_new("stream_out_dlna",
+                                            desc->friendlyName.c_str(),
+                                            psz_url,
+                                            extra_sout,
+                                            NULL, "", 3);
+    free(extra_sout);
+    if ( !desc->inputItem )
+        return false;
+    msg_Dbg( m_rd, "Adding renderer '%s' with uuid %s",
+                        desc->friendlyName.c_str(),
+                        desc->UDN.c_str() );
+    vlc_rd_add_item(m_rd, desc->inputItem);
+    m_list.push_back(desc);
+    return true;
+}
+
+MediaRendererDesc* MediaRendererList::getRenderer( const std::string& udn )
+{
+    std::vector<MediaRendererDesc*>::const_iterator it = m_list.begin();
+    std::vector<MediaRendererDesc*>::const_iterator ite = m_list.end();
+
+    for ( ; it != ite; ++it )
+    {
+        if( udn == (*it)->UDN )
+            return *it;
+    }
+    return NULL;
+}
+
+void MediaRendererList::removeRenderer( const std::string& udn )
+{
+    MediaRendererDesc* p_renderer = getRenderer( udn );
+    if ( !p_renderer )
+        return;
+
+    assert( p_renderer->inputItem );
+
+    std::vector<MediaRendererDesc*>::iterator it =
+                        std::find( m_list.begin(),
+                                   m_list.end(),
+                                   p_renderer );
+    if( it != m_list.end() )
+    {
+        msg_Dbg( m_rd, "Removing renderer '%s' with uuid %s",
+                            p_renderer->friendlyName.c_str(),
+                            p_renderer->UDN.c_str() );
+        m_list.erase( it );
+    }
+    delete p_renderer;
+}
+
+void MediaRendererList::parseNewRenderer( IXML_Document* doc,
+                                          const std::string& location)
+{
+    assert(!location.empty());
+    if( var_InheritInteger(m_rd, "verbose") >= 4 )
+        msg_Dbg( m_rd , "Got device desc doc:\n%s", ixmlPrintDocument( doc ));
+
+    const char* psz_base_url = nullptr;
+    IXML_NodeList* p_device_nodes = nullptr;
+
+    /* Fallback to the Device description URL basename
+    * if no base URL is advertised */
+    psz_base_url = parseBaseUrl( doc );
+    if( !psz_base_url && !location.empty() )
+    {
+        psz_base_url = location.c_str();
+    }
+
+    p_device_nodes = ixmlDocument_getElementsByTagName( doc, "device" );
+    if ( !p_device_nodes )
+        return;
+
+    for ( unsigned int i = 0; i < ixmlNodeList_length( p_device_nodes ); i++ )
+    {
+        IXML_Element* p_device_element = ( IXML_Element* ) ixmlNodeList_item( p_device_nodes, i );
+        const char* psz_device_name = nullptr;
+        const char* psz_udn = nullptr;
+
+        if( !p_device_element )
+            continue;
+
+        psz_device_name = xml_getChildElementValue( p_device_element, "friendlyName");
+        if (psz_device_name == nullptr)
+            msg_Dbg( m_rd, "No friendlyName!" );
+
+        psz_udn = xml_getChildElementValue( p_device_element, "UDN");
+        if (psz_udn == nullptr)
+        {
+            msg_Err( m_rd, "No UDN" );
+            continue;
+        }
+
+        /* Check if renderer is already added */
+        if (getRenderer( psz_udn ))
+        {
+            msg_Warn( m_rd, "Renderer with UDN '%s' already exists.", psz_udn );
+            continue;
+        }
+
+        MediaRendererDesc *p_renderer = new MediaRendererDesc(psz_udn,
+                                                psz_device_name,
+                                                psz_base_url,
+                                                location);
+        if (!addRenderer( p_renderer ))
+            delete p_renderer;
+    }
+    ixmlNodeList_free( p_device_nodes );
+}
+
+int MediaRendererList::onEvent( Upnp_EventType event_type,
+                                UpnpEventPtr Event,
+                                void *p_user_data )
+{
+    if (p_user_data != MEDIA_RENDERER_DEVICE_TYPE)
+        return 0;
+
+    switch (event_type)
+    {
+        case UPNP_DISCOVERY_SEARCH_RESULT:
+        {
+            const UpnpDiscovery *p_discovery = (const UpnpDiscovery*)Event;
+            IXML_Document *p_doc = NULL;
+            int i_res;
+
+            i_res = UpnpDownloadXmlDoc( UpnpDiscovery_get_Location_cstr( p_discovery ), &p_doc);
+            if (i_res != UPNP_E_SUCCESS)
+            {
+                fprintf(stderr, "%s\n", UpnpDiscovery_get_Location_cstr( p_discovery ));
+                return i_res;
+            }
+            parseNewRenderer(p_doc, UpnpDiscovery_get_Location_cstr( p_discovery ) );
+            ixmlDocument_free(p_doc);
+        }
+        break;
+
+        case UPNP_DISCOVERY_ADVERTISEMENT_BYEBYE:
+        {
+            const UpnpDiscovery* p_discovery = ( const UpnpDiscovery* )Event;
+
+            removeRenderer( UpnpDiscovery_get_DeviceID_cstr ( p_discovery ) );
+        }
+        break;
+
+        case UPNP_DISCOVERY_SEARCH_TIMEOUT:
+        {
+                msg_Warn( m_rd, "search timeout" );
+        }
+        break;
+
+        default:
+        break;
+    }
+    return UPNP_E_SUCCESS;
+}
+
+void *SearchThread(void *data)
+{
+    vlc_renderer_discovery_t *p_rd = (vlc_renderer_discovery_t*)data;
+    renderer_discovery_sys_t *p_sys = (renderer_discovery_sys_t*)p_rd->p_sys;
+    int i_res;
+
+    i_res = UpnpSearchAsync(p_sys->p_upnp->handle(), UPNP_SEARCH_TIMEOUT_SECONDS,
+            MEDIA_RENDERER_DEVICE_TYPE, MEDIA_RENDERER_DEVICE_TYPE);
+    if( i_res != UPNP_E_SUCCESS )
+    {
+        msg_Err( p_rd, "Error sending search request: %s", UpnpGetErrorMessage( i_res ) );
+        return NULL;
+    }
+    return data;
+}
+
+static int OpenRD( vlc_object_t *p_this )
+{
+    vlc_renderer_discovery_t *p_rd = ( vlc_renderer_discovery_t* )p_this;
+    renderer_discovery_sys_t *p_sys  = new(std::nothrow) renderer_discovery_sys_t;
+
+    if ( !p_sys )
+        return VLC_ENOMEM;
+    p_rd->p_sys = p_sys;
+    p_sys->p_upnp = UpnpInstanceWrapper::get( p_this );
+
+    if ( !p_sys->p_upnp )
+    {
+        delete p_sys;
+        return VLC_EGENERIC;
+    }
+
+    try
+    {
+        p_sys->p_renderer_list = std::make_shared<RD::MediaRendererList>( p_rd );
+    }
+    catch ( const std::bad_alloc& )
+    {
+        msg_Err( p_rd, "Failed to create a MediaRendererList");
+        p_sys->p_upnp->release();
+        free(p_sys);
+        return VLC_EGENERIC;
+    }
+    p_sys->p_upnp->addListener( p_sys->p_renderer_list );
+
+    if( vlc_clone( &p_sys->thread, SearchThread, (void*)p_rd,
+                    VLC_THREAD_PRIORITY_LOW ) )
+        {
+            msg_Err( p_rd, "Can't run the lookup thread" );
+            p_sys->p_upnp->removeListener( p_sys->p_renderer_list );
+            p_sys->p_upnp->release();
+            delete p_sys;
+            return VLC_EGENERIC;
+        }
+    return VLC_SUCCESS;
+}
+
+static void CloseRD( vlc_object_t *p_this )
+{
+    vlc_renderer_discovery_t *p_rd = ( vlc_renderer_discovery_t* )p_this;
+    renderer_discovery_sys_t *p_sys = (renderer_discovery_sys_t*)p_rd->p_sys;
+
+    vlc_join(p_sys->thread, NULL);
+    p_sys->p_upnp->removeListener( p_sys->p_renderer_list );
+    p_sys->p_upnp->release();
+    delete p_sys;
+}
+
+} // namespace RD

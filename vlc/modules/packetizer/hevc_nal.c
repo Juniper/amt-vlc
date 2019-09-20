@@ -23,6 +23,8 @@
 
 #include "hevc_nal.h"
 #include "hxxx_nal.h"
+#include "hxxx_ep3b.h"
+#include "iso_color_tables.h"
 
 #include <vlc_common.h>
 #include <vlc_bits.h>
@@ -63,6 +65,7 @@ typedef struct
         nal_u1_t intra_constraint_flag;
         nal_u1_t one_picture_only_constraint_flag;
         nal_u1_t lower_bit_rate_constraint_flag;
+        nal_u1_t max_14bit_constraint_flag;
     } idc4to7;
     struct
     {
@@ -472,9 +475,9 @@ static bool hevc_parse_vui_parameters_rbsp( bs_t *p_bs, hevc_vui_parameters_t *p
         }
         else
         {
-            p_vui->vs.colour.colour_primaries = HXXX_PRIMARIES_UNSPECIFIED;
-            p_vui->vs.colour.transfer_characteristics = HXXX_TRANSFER_UNSPECIFIED;
-            p_vui->vs.colour.matrix_coeffs = HXXX_MATRIX_UNSPECIFIED;
+            p_vui->vs.colour.colour_primaries = ISO_23001_8_CP_UNSPECIFIED;
+            p_vui->vs.colour.transfer_characteristics = ISO_23001_8_TC_UNSPECIFIED;
+            p_vui->vs.colour.matrix_coeffs = ISO_23001_8_MC_UNSPECIFIED;
         }
     }
 
@@ -559,8 +562,8 @@ static bool hevc_parse_inner_profile_tier_level_rbsp( bs_t *p_bs,
     p_in->non_packed_constraint_flag = bs_read1( p_bs );
     p_in->frame_only_constraint_flag = bs_read1( p_bs );
 
-    if( ( p_in->profile_idc >= 4 && p_in->profile_idc <= 7 ) ||
-        ( p_in->profile_compatibility_flag & 0x0F000000 ) )
+    if( ( p_in->profile_idc >= 4 && p_in->profile_idc <= 10 ) ||
+        ( p_in->profile_compatibility_flag & 0x0F700000 ) )
     {
         p_in->idc4to7.max_12bit_constraint_flag = bs_read1( p_bs );
         p_in->idc4to7.max_10bit_constraint_flag = bs_read1( p_bs );
@@ -571,19 +574,34 @@ static bool hevc_parse_inner_profile_tier_level_rbsp( bs_t *p_bs,
         p_in->idc4to7.intra_constraint_flag = bs_read1( p_bs );
         p_in->idc4to7.one_picture_only_constraint_flag = bs_read1( p_bs );
         p_in->idc4to7.lower_bit_rate_constraint_flag = bs_read1( p_bs );
-        (void) bs_read( p_bs, 2 );
+        if( p_in->profile_idc == 5 ||
+            p_in->profile_idc == 9 ||
+            p_in->profile_idc == 10 ||
+           (p_in->profile_compatibility_flag & 0x08600000) )
+        {
+            p_in->idc4to7.max_14bit_constraint_flag = bs_read1( p_bs );
+            bs_skip( p_bs, 33 );
+        }
+        else bs_skip( p_bs, 34 );
+    }
+    else if( p_in->profile_idc == 2 ||
+            (p_in->profile_compatibility_flag & 0x20000000) )
+    {
+        bs_skip( p_bs, 7 );
+        p_in->idc4to7.one_picture_only_constraint_flag = bs_read1( p_bs );
+        bs_skip( p_bs, 35 );
     }
     else
     {
-        (void) bs_read( p_bs, 11 );
+        bs_read( p_bs, 43 );
     }
-    (void) bs_read( p_bs, 32 );
 
     if( ( p_in->profile_idc >= 1 && p_in->profile_idc <= 5 ) ||
-        ( p_in->profile_compatibility_flag & 0x7C000000 ) )
+         p_in->profile_idc == 9 ||
+        ( p_in->profile_compatibility_flag & 0x7C400000 ) )
         p_in->idc1to5.inbld_flag = bs_read1( p_bs );
     else
-        (void) bs_read1( p_bs );
+        bs_skip( p_bs, 1 );
 
     return true;
 }
@@ -699,14 +717,13 @@ void hevc_rbsp_release_vps( hevc_video_parameter_set_t *p_vps )
         if(likely(p_hevctype)) \
         { \
             bs_t bs; \
-            bs_init( &bs, p_buf, i_buf ); \
-            unsigned i_bitflow = 0; \
+            struct hxxx_bsfw_ep3b_ctx_s bsctx; \
             if( b_escaped ) \
             { \
-                bs.p_fwpriv = &i_bitflow; \
-                bs.pf_forward = hxxx_bsfw_ep3b_to_rbsp;  /* Does the emulated 3bytes conversion to rbsp */ \
+                hxxx_bsfw_ep3b_ctx_init( &bsctx ); \
+                bs_init_custom( &bs, p_buf, i_buf, &hxxx_bsfw_ep3b_callbacks, &bsctx );\
             } \
-            else (void) i_bitflow;\
+            else bs_init( &bs, p_buf, i_buf ); \
             bs_skip( &bs, 7 ); /* nal_unit_header */ \
             uint8_t i_nuh_layer_id = bs_read( &bs, 6 ); \
             bs_skip( &bs, 3 ); /* !nal_unit_header */ \
@@ -761,7 +778,7 @@ static bool hevc_parse_st_ref_pic_set( bs_t *p_bs, unsigned stRpsIdx,
     {
         nal_ue_t num_negative_pics = bs_read_ue( p_bs );
         nal_ue_t num_positive_pics = bs_read_ue( p_bs );
-        if( bs_remain( p_bs ) < ((int64_t)num_negative_pics + num_positive_pics) * 2 )
+        if( bs_remain( p_bs ) < (num_negative_pics + num_positive_pics) * 2 )
             return false;
         for(unsigned int i=0; i<num_negative_pics; i++)
         {
@@ -976,8 +993,8 @@ static bool hevc_parse_pic_parameter_set_rbsp( bs_t *p_bs,
         p_pps->uniform_spacing_flag = bs_read1( p_bs );
         if( !p_pps->uniform_spacing_flag )
         {
-            if( bs_remain( p_bs ) < (int64_t) p_pps->num_tile_columns_minus1 +
-                                               p_pps->num_tile_rows_minus1 + 1 )
+            if( bs_remain( p_bs ) < p_pps->num_tile_columns_minus1 +
+                                    p_pps->num_tile_rows_minus1 + 1 )
                 return false;
             for( unsigned i=0; i< p_pps->num_tile_columns_minus1; i++ )
                 (void) bs_read_ue( p_bs );
@@ -1067,8 +1084,26 @@ bool hevc_get_picture_size( const hevc_sequence_parameter_set_t *p_sps,
     *p_h = *p_vh = p_sps->pic_height_in_luma_samples;
     if( p_sps->conformance_window_flag )
     {
-        *p_vh -= p_sps->conf_win.bottom_offset + p_sps->conf_win.top_offset;
-        *p_vh -= p_sps->conf_win.left_offset +  p_sps->conf_win.right_offset;
+        unsigned sub_width_c, sub_height_c;
+
+        if( p_sps->chroma_format_idc == 1 )
+        {
+            sub_width_c = 2;
+            sub_height_c = 2;
+        }
+        else if( p_sps->chroma_format_idc == 2 )
+        {
+            sub_width_c = 2;
+            sub_height_c = 1;
+        }
+        else
+        {
+            sub_width_c = 1;
+            sub_height_c = 1;
+        }
+
+        *p_vh -= (p_sps->conf_win.bottom_offset + p_sps->conf_win.top_offset) * sub_height_c;
+        *p_vw -= (p_sps->conf_win.left_offset +  p_sps->conf_win.right_offset) * sub_width_c;
     }
     return true;
 }
@@ -1174,17 +1209,17 @@ bool hevc_get_colorimetry( const hevc_sequence_parameter_set_t *p_sps,
                            video_color_primaries_t *p_primaries,
                            video_transfer_func_t *p_transfer,
                            video_color_space_t *p_colorspace,
-                           bool *p_full_range )
+                           video_color_range_t *p_full_range )
 {
     if( !p_sps->vui_parameters_present_flag )
         return false;
     *p_primaries =
-        hxxx_colour_primaries_to_vlc( p_sps->vui.vs.colour.colour_primaries );
+        iso_23001_8_cp_to_vlc_primaries( p_sps->vui.vs.colour.colour_primaries );
     *p_transfer =
-        hxxx_transfer_characteristics_to_vlc( p_sps->vui.vs.colour.transfer_characteristics );
+        iso_23001_8_tc_to_vlc_xfer( p_sps->vui.vs.colour.transfer_characteristics );
     *p_colorspace =
-        hxxx_matrix_coeffs_to_vlc( p_sps->vui.vs.colour.matrix_coeffs );
-    *p_full_range = p_sps->vui.vs.video_full_range_flag;
+        iso_23001_8_mc_to_vlc_coeffs( p_sps->vui.vs.colour.matrix_coeffs );
+    *p_full_range = p_sps->vui.vs.video_full_range_flag ? COLOR_RANGE_FULL : COLOR_RANGE_LIMITED;
     return true;
 }
 
@@ -1277,14 +1312,13 @@ hevc_slice_segment_header_t * hevc_decode_slice_header( const uint8_t *p_buf, si
     if(likely(p_sh))
     {
         bs_t bs;
-        bs_init( &bs, p_buf, i_buf );
-        unsigned i_bitflow = 0;
+        struct hxxx_bsfw_ep3b_ctx_s bsctx;
         if( b_escaped )
         {
-            bs.p_fwpriv = &i_bitflow;
-            bs.pf_forward = hxxx_bsfw_ep3b_to_rbsp;  /* Does the emulated 3bytes conversion to rbsp */
+            hxxx_bsfw_ep3b_ctx_init( &bsctx );
+            bs_init_custom( &bs, p_buf, i_buf, &hxxx_bsfw_ep3b_callbacks, &bsctx );
         }
-        else (void) i_bitflow;
+        else bs_init( &bs, p_buf, i_buf );
         bs_skip( &bs, 1 );
         p_sh->nal_type = bs_read( &bs, 6 );
         p_sh->nuh_layer_id = bs_read( &bs, 6 );
@@ -1329,6 +1363,54 @@ bool hevc_get_profile_level(const es_format_t *p_fmt, uint8_t *pi_profile,
     return true;
 }
 
+static unsigned hevc_make_indication( const hevc_inner_profile_tier_level_t *p )
+{
+    uint8_t flags[] =
+    {
+        p->idc4to7.max_14bit_constraint_flag,
+        p->idc4to7.max_12bit_constraint_flag,
+        p->idc4to7.max_10bit_constraint_flag,
+        p->idc4to7.max_8bit_constraint_flag,
+        p->idc4to7.max_422chroma_constraint_flag,
+        p->idc4to7.max_420chroma_constraint_flag,
+        p->idc4to7.max_monochrome_constraint_flag,
+        p->idc4to7.intra_constraint_flag,
+        p->idc4to7.one_picture_only_constraint_flag,
+        p->idc4to7.lower_bit_rate_constraint_flag,
+    };
+    unsigned indication = 0;
+    for( size_t i=0; i<ARRAY_SIZE(flags); i++ )
+    {
+        if( flags[i] )
+            indication |= (1 << (ARRAY_SIZE(flags) - 1 - i));
+    }
+    return indication;
+}
+
+enum vlc_hevc_profile_e hevc_get_vlc_profile( const hevc_sequence_parameter_set_t *p_sps )
+{
+    unsigned indication = 0;
+    enum hevc_general_profile_idc_e profile = p_sps->profile_tier_level.general.profile_idc;
+    switch( profile )
+    {
+        case HEVC_PROFILE_IDC_REXT:
+            indication = hevc_make_indication( &p_sps->profile_tier_level.general ) & 0x1FF;
+            break;
+        case HEVC_PROFILE_IDC_HIGH_THROUGHPUT:
+        case HEVC_PROFILE_IDC_SCREEN_EXTENDED:
+            indication = hevc_make_indication( &p_sps->profile_tier_level.general );
+            break;
+        default:
+            break;
+    }
+
+    /* all intras have insignifiant lowest bit */
+    if( p_sps->profile_tier_level.general.idc4to7.intra_constraint_flag )
+        indication &= ~1;
+
+    return (indication << HEVC_INDICATION_SHIFT) | profile;
+}
+
 /*
  * HEVCDecoderConfigurationRecord operations
  */
@@ -1340,10 +1422,9 @@ static void hevc_dcr_params_from_vps( const uint8_t * p_buffer, size_t i_buffer,
         return;
 
     bs_t bs;
-    bs_init( &bs, p_buffer, i_buffer );
-    unsigned i_bitflow = 0;
-    bs.p_fwpriv = &i_bitflow;
-    bs.pf_forward = hxxx_bsfw_ep3b_to_rbsp;  /* Does the emulated 3bytes conversion to rbsp */
+    struct hxxx_bsfw_ep3b_ctx_s bsctx;
+    hxxx_bsfw_ep3b_ctx_init( &bsctx );
+    bs_init_custom( &bs, p_buffer, i_buffer, &hxxx_bsfw_ep3b_callbacks, &bsctx );
 
     /* first two bytes are the NAL header, 3rd and 4th are:
         vps_video_parameter_set_id(4)

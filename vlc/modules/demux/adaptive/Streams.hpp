@@ -66,10 +66,9 @@ namespace adaptive
         vlc_tick_t getFirstDTS() const;
         int esCount() const;
         bool isSelected() const;
-        bool canActivate() const;
         virtual bool reactivate(vlc_tick_t);
-        void setDisabled(bool);
         bool isDisabled() const;
+        bool isValid() const;
         typedef enum {
             status_eof = 0, /* prioritized */
             status_discontinuity,
@@ -89,7 +88,8 @@ namespace adaptive
         status dequeue(vlc_tick_t, vlc_tick_t *);
         bool decodersDrained();
         virtual bool setPosition(vlc_tick_t, bool);
-        vlc_tick_t getPlaybackTime() const;
+        bool getMediaPlaybackTimes(vlc_tick_t *, vlc_tick_t *, vlc_tick_t *,
+                                   vlc_tick_t *, vlc_tick_t *) const;
         void runUpdates();
 
         /* Used by demuxers fake streams */
@@ -102,10 +102,10 @@ namespace adaptive
 
     protected:
         bool seekAble() const;
-        virtual void setTimeOffset(vlc_tick_t);
+        void setDisabled(bool);
         virtual block_t *checkBlock(block_t *, bool) = 0;
         AbstractDemuxer * createDemux(const StreamFormat &);
-        virtual AbstractDemuxer * newDemux(demux_t *, const StreamFormat &,
+        virtual AbstractDemuxer * newDemux(vlc_object_t *, const StreamFormat &,
                                            es_out_t *, AbstractSourceStream *) const; /* impl */
         virtual bool startDemux();
         virtual bool restartDemux();
@@ -115,6 +115,7 @@ namespace adaptive
         bool discontinuity;
         bool needrestart;
         bool inrestart;
+        bool demuxfirstchunk;
 
         demux_t *p_realdemux;
         StreamFormat format;
@@ -127,17 +128,20 @@ namespace adaptive
         std::string language;
         std::string description;
 
-        CommandsQueue *commandsqueue;
         AbstractDemuxer *demuxer;
         AbstractSourceStream *demuxersource;
+        FakeESOut::LockedFakeEsOut fakeEsOut();
+        FakeESOut::LockedFakeEsOut fakeEsOut() const;
         FakeESOut *fakeesout; /* to intercept/proxy what is sent from demuxstream */
-        vlc_mutex_t lock; /* lock for everything accessed by dequeuing */
+        mutable vlc_mutex_t lock; /* lock for everything accessed by dequeuing */
 
     private:
+        void declaredCodecs();
         buffering_status doBufferize(vlc_tick_t, vlc_tick_t, vlc_tick_t);
         buffering_status last_buffer_status;
-        bool dead;
+        bool valid;
         bool disabled;
+        unsigned notfound_sequence;
     };
 
     class AbstractStreamFactory

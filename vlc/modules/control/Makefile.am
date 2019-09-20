@@ -4,17 +4,18 @@ libdummy_plugin_la_SOURCES = control/dummy.c control/intromsg.h
 libgestures_plugin_la_SOURCES = control/gestures.c
 libhotkeys_plugin_la_SOURCES = control/hotkeys.c
 libhotkeys_plugin_la_LIBADD = $(LIBM)
-libnetsync_plugin_la_SOURCES = control/netsync.c
-libnetsync_plugin_la_LIBADD = $(SOCKET_LIBS)
-liboldrc_plugin_la_SOURCES = control/oldrc.c control/intromsg.h
-liboldrc_plugin_la_LIBADD = $(SOCKET_LIBS) $(LIBM)
+# XXX: netsync disabled, move current code to new playlist/player and add a
+# way to control the output clock from the player
+#libnetsync_plugin_la_SOURCES = control/netsync.c
+#libnetsync_plugin_la_LIBADD = $(SOCKET_LIBS)
+librc_plugin_la_SOURCES = control/rc.c control/intromsg.h
+librc_plugin_la_LIBADD = $(SOCKET_LIBS) $(LIBM)
 
 control_LTLIBRARIES = \
 	libdummy_plugin.la \
 	libgestures_plugin.la \
 	libhotkeys_plugin.la \
-	libnetsync_plugin.la \
-	liboldrc_plugin.la
+	librc_plugin.la
 
 liblirc_plugin_la_SOURCES = control/lirc.c
 liblirc_plugin_la_LIBADD = -llirc_client
@@ -29,16 +30,6 @@ libvlc_motion_la_CFLAGS = $(AM_CFLAGS) -fconstant-cfstrings
 endif
 libvlc_motion_la_LDFLAGS = -static
 noinst_LTLIBRARIES += libvlc_motion.la
-
-libmotion_plugin_la_SOURCES = control/motion.c
-libmotion_plugin_la_LIBADD = libvlc_motion.la
-libmotion_plugin_la_LDFLAGS = $(AM_LDFLAGS) -rpath '$(controldir)'
-if HAVE_DARWIN
-libmotion_plugin_la_LDFLAGS += -Wl,-framework,IOKit,-framework,CoreFoundation
-endif
-if !HAVE_WIN32
-control_LTLIBRARIES += libmotion_plugin.la
-endif
 
 libdbus_plugin_la_SOURCES = \
 	control/dbus/dbus_introspect.h control/dbus/dbus_common.h \

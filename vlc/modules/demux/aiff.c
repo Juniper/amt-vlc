@@ -2,7 +2,6 @@
  * aiff.c: Audio Interchange File Format demuxer
  *****************************************************************************
  * Copyright (C) 2004-2007 VLC authors and VideoLAN
- * $Id: b8ed3d1119469a9bfdc9e1c7fdf00395a5900669 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *
@@ -48,7 +47,7 @@ vlc_module_begin ()
     set_subcategory( SUBCAT_INPUT_DEMUX )
     set_description( N_("AIFF demuxer" ) )
     set_capability( "demux", 10 )
-    set_callbacks( Open, NULL )
+    set_callback( Open )
     add_shortcut( "aiff" )
 vlc_module_end ()
 
@@ -251,9 +250,8 @@ static int Demux( demux_t *p_demux )
     p_block->i_dts =
     p_block->i_pts = VLC_TICK_0 + p_sys->i_time;
 
-    p_sys->i_time += CLOCK_FREQ *
-                     p_block->i_buffer /
-                     p_sys->i_ssnd_fsize /
+    p_sys->i_time += vlc_tick_from_samples(p_block->i_buffer,
+                                           p_sys->i_ssnd_fsize) /
                      p_sys->fmt.audio.i_rate;
 
     /* */
@@ -268,7 +266,6 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
 {
     demux_sys_t *p_sys = p_demux->p_sys;
     double f, *pf;
-    int64_t *pi64;
 
     switch( i_query )
     {
@@ -307,7 +304,7 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
                 {
                     return VLC_EGENERIC;
                 }
-                p_sys->i_time = CLOCK_FREQ * i_frame / p_sys->fmt.audio.i_rate;
+                p_sys->i_time = vlc_tick_from_samples( i_frame, p_sys->fmt.audio.i_rate );
                 return VLC_SUCCESS;
             }
             return VLC_EGENERIC;
@@ -321,10 +318,10 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
         {
             int64_t i_end  = p_sys->i_ssnd_end > 0 ? p_sys->i_ssnd_end : stream_Size( p_demux->s );
 
-            pi64 = va_arg( args, int64_t * );
             if( p_sys->i_ssnd_start < i_end )
             {
-                *pi64 = CLOCK_FREQ * ( i_end - p_sys->i_ssnd_start ) / p_sys->i_ssnd_fsize / p_sys->fmt.audio.i_rate;
+                *va_arg( args, vlc_tick_t * ) =
+                    vlc_tick_from_samples( i_end - p_sys->i_ssnd_start, p_sys->i_ssnd_fsize) / p_sys->fmt.audio.i_rate;
                 return VLC_SUCCESS;
             }
             return VLC_EGENERIC;

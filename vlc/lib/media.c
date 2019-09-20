@@ -2,7 +2,6 @@
  * media.c: Libvlc API media descripor management
  *****************************************************************************
  * Copyright (C) 2007 VLC authors and VideoLAN
- * $Id: 5ffa91b47d435feacd4dd6a115a902d1ac9dfa9b $
  *
  * Authors: Pierre d'Herbemont <pdherbemont@videolan.org>
  *
@@ -29,21 +28,22 @@
 #include <errno.h>
 
 #include <vlc/libvlc.h>
+#include <vlc/libvlc_picture.h>
 #include <vlc/libvlc_media.h>
 #include <vlc/libvlc_media_list.h> // For the subitems, here for convenience
 #include <vlc/libvlc_events.h>
 
 #include <vlc_common.h>
-#include <vlc_input.h>
 #include <vlc_meta.h>
-#include <vlc_playlist.h> /* For the preparser */
 #include <vlc_url.h>
+#include <vlc_thumbnailer.h>
 
 #include "../src/libvlc.h"
 
 #include "libvlc_internal.h"
 #include "media_internal.h"
 #include "media_list_internal.h"
+#include "picture_internal.h"
 
 static const vlc_meta_type_t libvlc_to_vlc_meta[] =
 {
@@ -200,13 +200,17 @@ static void input_item_add_subnode( libvlc_media_t *md,
 /**************************************************************************
  * input_item_subitemtree_added (Private) (vlc event Callback)
  **************************************************************************/
-static void input_item_subitemtree_added( const vlc_event_t * p_event,
-                                          void * user_data )
+static void input_item_subtree_added(input_item_t *item,
+                                     input_item_node_t *node,
+                                     void *user_data)
 {
+    VLC_UNUSED(item);
     libvlc_media_t * p_md = user_data;
-    libvlc_event_t event;
-    input_item_node_t *node = p_event->u.input_item_subitem_tree_added.p_root;
+    libvlc_media_add_subtree(p_md, node);
+}
 
+void libvlc_media_add_subtree(libvlc_media_t *p_md, input_item_node_t *node)
+{
     /* FIXME FIXME FIXME
      * Recursive function calls seem much simpler for this. But playlists are
      * untrusted and can be arbitrarily deep (e.g. with XSPF). So recursion can
@@ -214,6 +218,7 @@ static void input_item_subitemtree_added( const vlc_event_t * p_event,
     input_item_add_subnode( p_md, node );
 
     /* Construct the event */
+    libvlc_event_t event;
     event.type = libvlc_MediaSubItemTreeAdded;
     event.u.media_subitemtree_added.item = p_md;
 
@@ -277,7 +282,7 @@ static void send_parsed_changed( libvlc_media_t *p_md,
     }
 
     p_md->parsed_status = new_status;
-    if( p_md->parsed_status == libvlc_media_parsed_status_skipped )
+    if( p_md->parsed_status != libvlc_media_parsed_status_done )
         p_md->has_asked_preparse = false;
 
     vlc_mutex_unlock( &p_md->parsed_lock );
@@ -305,13 +310,15 @@ static void send_parsed_changed( libvlc_media_t *p_md,
 /**************************************************************************
  * input_item_preparse_ended (Private) (vlc event Callback)
  **************************************************************************/
-static void input_item_preparse_ended( const vlc_event_t * p_event,
-                                       void * user_data )
+static void input_item_preparse_ended(input_item_t *item,
+                                      enum input_item_preparse_status status,
+                                      void *user_data)
 {
+    VLC_UNUSED(item);
     libvlc_media_t * p_md = user_data;
     libvlc_media_parsed_status_t new_status;
 
-    switch( p_event->u.input_item_preparse_ended.new_status )
+    switch( status )
     {
         case ITEM_PREPARSE_SKIPPED:
             new_status = libvlc_media_parsed_status_skipped;
@@ -344,14 +351,6 @@ static void install_input_item_observer( libvlc_media_t *p_md )
                       vlc_InputItemDurationChanged,
                       input_item_duration_changed,
                       p_md );
-    vlc_event_attach( &p_md->p_input_item->event_manager,
-                      vlc_InputItemSubItemTreeAdded,
-                      input_item_subitemtree_added,
-                      p_md );
-    vlc_event_attach( &p_md->p_input_item->event_manager,
-                      vlc_InputItemPreparseEnded,
-                      input_item_preparse_ended,
-                      p_md );
 }
 
 /**************************************************************************
@@ -366,14 +365,6 @@ static void uninstall_input_item_observer( libvlc_media_t *p_md )
     vlc_event_detach( &p_md->p_input_item->event_manager,
                       vlc_InputItemDurationChanged,
                       input_item_duration_changed,
-                      p_md );
-    vlc_event_detach( &p_md->p_input_item->event_manager,
-                      vlc_InputItemSubItemTreeAdded,
-                      input_item_subitemtree_added,
-                      p_md );
-    vlc_event_detach( &p_md->p_input_item->event_manager,
-                      vlc_InputItemPreparseEnded,
-                      input_item_preparse_ended,
                       p_md );
 }
 
@@ -705,8 +696,8 @@ libvlc_media_subitems( libvlc_media_t * p_md )
 /**************************************************************************
  * Getter for statistics information
  **************************************************************************/
-int libvlc_media_get_stats( libvlc_media_t *p_md,
-                            libvlc_media_stats_t *p_stats )
+bool libvlc_media_get_stats(libvlc_media_t *p_md,
+                            libvlc_media_stats_t *p_stats)
 {
     input_item_t *item = p_md->p_input_item;
 
@@ -778,6 +769,11 @@ libvlc_media_get_duration( libvlc_media_t * p_md )
     return from_mtime(input_item_GetDuration( p_md->p_input_item ));
 }
 
+static const input_preparser_callbacks_t input_preparser_callbacks = {
+    .on_preparse_ended = input_item_preparse_ended,
+    .on_subtree_added = input_item_subtree_added,
+};
+
 static int media_parse(libvlc_media_t *media, bool b_async,
                        libvlc_media_parse_flag_t parse_flag, int timeout)
 {
@@ -797,21 +793,18 @@ static int media_parse(libvlc_media_t *media, bool b_async,
         input_item_meta_request_option_t parse_scope = META_REQUEST_OPTION_SCOPE_LOCAL;
         int ret;
 
-        /* Ignore libvlc_media_fetch_local flag since local art will be fetched
-         * by libvlc_MetadataRequest */
-        if (parse_flag & libvlc_media_fetch_network)
-        {
-            ret = libvlc_ArtRequest(libvlc, item,
-                                    META_REQUEST_OPTION_SCOPE_NETWORK);
-            if (ret != VLC_SUCCESS)
-                return ret;
-        }
-
         if (parse_flag & libvlc_media_parse_network)
             parse_scope |= META_REQUEST_OPTION_SCOPE_NETWORK;
+        if (parse_flag & libvlc_media_fetch_local)
+            parse_scope |= META_REQUEST_OPTION_FETCH_LOCAL;
+        if (parse_flag & libvlc_media_fetch_network)
+            parse_scope |= META_REQUEST_OPTION_FETCH_NETWORK;
         if (parse_flag & libvlc_media_do_interact)
             parse_scope |= META_REQUEST_OPTION_DO_INTERACT;
-        ret = libvlc_MetadataRequest(libvlc, item, parse_scope, timeout, media);
+
+        ret = libvlc_MetadataRequest(libvlc, item, parse_scope,
+                                     &input_preparser_callbacks, media,
+                                     timeout, media);
         if (ret != VLC_SUCCESS)
             return ret;
     }
@@ -866,8 +859,7 @@ libvlc_media_parse_stop( libvlc_media_t *media )
 /**************************************************************************
  * Get parsed status for media object.
  **************************************************************************/
-int
-libvlc_media_is_parsed(libvlc_media_t *media)
+bool libvlc_media_is_parsed(libvlc_media_t *media)
 {
     bool parsed;
 
@@ -1093,6 +1085,117 @@ libvlc_media_type_t libvlc_media_get_type( libvlc_media_t *p_md )
     default:
         return libvlc_media_type_unknown;
     }
+}
+
+struct libvlc_media_thumbnail_request_t
+{
+    libvlc_media_t *md;
+    unsigned int width;
+    unsigned int height;
+    bool crop;
+    libvlc_picture_type_t type;
+    vlc_thumbnailer_request_t* req;
+};
+
+static void media_on_thumbnail_ready( void* data, picture_t* thumbnail )
+{
+    libvlc_media_thumbnail_request_t *req = data;
+    libvlc_media_t *p_media = req->md;
+    libvlc_event_t event;
+    event.type = libvlc_MediaThumbnailGenerated;
+    libvlc_picture_t* pic = NULL;
+    if ( thumbnail != NULL )
+        pic = libvlc_picture_new( VLC_OBJECT(p_media->p_libvlc_instance->p_libvlc_int),
+                                    thumbnail, req->type, req->width, req->height,
+                                    req->crop );
+    event.u.media_thumbnail_generated.p_thumbnail = pic;
+    libvlc_event_send( &p_media->event_manager, &event );
+    if ( pic != NULL )
+        libvlc_picture_release( pic );
+    libvlc_media_release( p_media );
+    free( req );
+}
+
+libvlc_media_thumbnail_request_t*
+libvlc_media_thumbnail_request_by_time( libvlc_media_t *md, libvlc_time_t time,
+                                        libvlc_thumbnailer_seek_speed_t speed,
+                                        unsigned int width, unsigned int height,
+                                        bool crop, libvlc_picture_type_t picture_type,
+                                        libvlc_time_t timeout )
+{
+    assert( md );
+    libvlc_priv_t *p_priv = libvlc_priv(md->p_libvlc_instance->p_libvlc_int);
+    if( unlikely( p_priv->p_thumbnailer == NULL ) )
+        return NULL;
+    libvlc_media_thumbnail_request_t *req = malloc( sizeof( *req ) );
+    if ( unlikely( req == NULL ) )
+        return NULL;
+
+    req->md = md;
+    req->width = width;
+    req->height = height;
+    req->type = picture_type;
+    req->crop = crop;
+    libvlc_media_retain( md );
+    req->req = vlc_thumbnailer_RequestByTime( p_priv->p_thumbnailer,
+        VLC_TICK_FROM_MS( time ),
+        speed == libvlc_media_thumbnail_seek_fast ?
+            VLC_THUMBNAILER_SEEK_FAST : VLC_THUMBNAILER_SEEK_PRECISE,
+        md->p_input_item,
+        timeout > 0 ? VLC_TICK_FROM_MS( timeout ) : VLC_TICK_INVALID,
+        media_on_thumbnail_ready, req );
+    if ( req->req == NULL )
+    {
+        free( req );
+        libvlc_media_release( md );
+        return NULL;
+    }
+    return req;
+}
+
+libvlc_media_thumbnail_request_t*
+libvlc_media_thumbnail_request_by_pos( libvlc_media_t *md, float pos,
+                                       libvlc_thumbnailer_seek_speed_t speed,
+                                       unsigned int width, unsigned int height,
+                                       bool crop, libvlc_picture_type_t picture_type,
+                                       libvlc_time_t timeout )
+{
+    assert( md );
+    libvlc_priv_t *priv = libvlc_priv(md->p_libvlc_instance->p_libvlc_int);
+    if( unlikely( priv->p_thumbnailer == NULL ) )
+        return NULL;
+    libvlc_media_thumbnail_request_t *req = malloc( sizeof( *req ) );
+    if ( unlikely( req == NULL ) )
+        return NULL;
+
+    req->md = md;
+    req->width = width;
+    req->height = height;
+    req->crop = crop;
+    req->type = picture_type;
+    libvlc_media_retain( md );
+    req->req = vlc_thumbnailer_RequestByPos( priv->p_thumbnailer, pos,
+        speed == libvlc_media_thumbnail_seek_fast ?
+            VLC_THUMBNAILER_SEEK_FAST : VLC_THUMBNAILER_SEEK_PRECISE,
+        md->p_input_item,
+        timeout > 0 ? VLC_TICK_FROM_MS( timeout ) : VLC_TICK_INVALID,
+        media_on_thumbnail_ready, req );
+    if ( req->req == NULL )
+    {
+        free( req );
+        libvlc_media_release( md );
+        return NULL;
+    }
+    return req;
+}
+
+void libvlc_media_thumbnail_cancel( libvlc_media_thumbnail_request_t *req )
+{
+    libvlc_priv_t *p_priv = libvlc_priv(req->md->p_libvlc_instance->p_libvlc_int);
+    assert( p_priv->p_thumbnailer != NULL );
+    vlc_thumbnailer_Cancel( p_priv->p_thumbnailer, req->req );
+    libvlc_media_release( req->md );
+    free( req );
 }
 
 int libvlc_media_slaves_add( libvlc_media_t *p_md,

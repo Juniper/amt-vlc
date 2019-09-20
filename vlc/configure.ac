@@ -421,22 +421,6 @@ AS_IF([test "$SYS" = linux],[
 ])
 AM_CONDITIONAL([HAVE_ANDROID], [test "${HAVE_ANDROID}" = "1"])
 
-dnl Tizen (minimum SDK version: 2.3)
-AS_IF([test "$SYS" = linux],[
-    AC_MSG_CHECKING([for Tizen])
-    AC_PREPROC_IFELSE([AC_LANG_PROGRAM(
-        [[#include <tizen.h>
-        ]],[[;]])
-    ],[
-      HAVE_TIZEN="1"
-      AC_DEFINE([HAVE_TIZEN_SDK], [1], [Define to 1 if vlc is built against Tizen SDK])
-      AC_MSG_RESULT([yes])
-    ],[
-      AC_MSG_RESULT([no])
-    ])
-])
-AM_CONDITIONAL([HAVE_TIZEN], [test "${HAVE_TIZEN}" = "1"])
-
 dnl
 dnl  Check for the contrib directory
 dnl
@@ -649,8 +633,8 @@ dnl Check for system libs needed
 need_libc=false
 
 dnl Check for usual libc functions
-AC_CHECK_FUNCS([accept4 daemon fcntl flock fstatvfs fork getenv getpwuid_r isatty memalign mkostemp mmap open_memstream newlocale openat pipe2 pread posix_fadvise posix_madvise posix_memalign setlocale stricmp strnicmp strptime uselocale])
-AC_REPLACE_FUNCS([aligned_alloc atof atoll dirfd fdopendir flockfile fsync getdelim getpid lfind lldiv memrchr nrand48 poll recvmsg rewind sendmsg setenv strcasecmp strcasestr strdup strlcpy strndup strnlen strnstr strsep strtof strtok_r strtoll swab tdestroy tfind timegm timespec_get strverscmp pathconf])
+AC_CHECK_FUNCS([accept4 daemon fcntl flock fstatvfs fork getenv getpwuid_r isatty memalign mkostemp mmap open_memstream newlocale openat pipe2 pread posix_fadvise posix_madvise setlocale stricmp strnicmp strptime uselocale])
+AC_REPLACE_FUNCS([aligned_alloc atof atoll dirfd fdopendir flockfile fsync getdelim getpid lfind lldiv memrchr nrand48 poll posix_memalign recvmsg rewind sendmsg setenv strcasecmp strcasestr strdup strlcpy strndup strnlen strnstr strsep strtof strtok_r strtoll swab tdestroy tfind timegm timespec_get strverscmp pathconf])
 AC_REPLACE_FUNCS([gettimeofday])
 AC_CHECK_FUNC(fdatasync,,
   [AC_DEFINE(fdatasync, fsync, [Alias fdatasync() to fsync() if missing.])
@@ -1698,6 +1682,18 @@ asm volatile("ptrue p0.s" ::: "p0");
 ])
 AM_CONDITIONAL([HAVE_SVE], [test "${ac_cv_arm_sve}" = "yes"])
 
+AC_ARG_ENABLE([pointer-auth],
+  AS_HELP_STRING([--disable-pointer-auth],
+    [disable ARMv8.3 Pointer Authentication (default auto)]),, [
+  AS_IF([test "${host_cpu}" = "aarch64"], [enable_ptrauth="yes"] ,[enable_ptrauth="no"])
+])
+AS_IF([test "${enable_ptrauth}" != "no"], [
+  AX_CHECK_COMPILE_FLAG([-msign-return-address=non-leaf], [
+    AX_APPEND_FLAG([-msign-return-address=non-leaf], [CFLAGS])
+    AX_APPEND_FLAG([-msign-return-address=non-leaf], [CXXFLAGS])
+  ])
+])
+
 
 AC_ARG_ENABLE([altivec],
   AS_HELP_STRING([--disable-altivec],
@@ -2051,7 +2047,7 @@ PKG_ENABLE_MODULES_VLC([NFS], [nfs], [libnfs >= 1.10.0], (support nfs protocol v
 dnl
 dnl smb2 access support
 dnl
-PKG_ENABLE_MODULES_VLC([SMB2], [smb2], [libsmb2 >= 2.0.0], (support smb2 protocol via libsmb2), [auto])
+PKG_ENABLE_MODULES_VLC([SMB2], [smb2], [libsmb2 >= 3.0.0], (support smb2 protocol via libsmb2), [auto])
 
 dnl
 dnl  Video4Linux 2
@@ -2313,7 +2309,7 @@ fi
 dnl
 dnl  matroska demux plugin
 dnl
-PKG_WITH_MODULES([MATROSKA], [libebml libmatroska], [
+PKG_WITH_MODULES([MATROSKA], [libebml >= 1.3.6 libmatroska], [
        VLC_ADD_PLUGIN([mkv])
        VLC_ADD_CFLAGS([mkv], [$MATROSKA_CFLAGS])
        VLC_ADD_LIBS([mkv], [$MATROSKA_LIBS])
@@ -2328,7 +2324,7 @@ AC_ARG_ENABLE([mod],
   AS_HELP_STRING([--disable-mod],
     [do not use libmodplug (default auto)]))
 if test "${enable_mod}" != "no" ; then
-    PKG_CHECK_MODULES(LIBMODPLUG, [libmodplug >= 0.8.4 libmodplug != 0.8.8], [
+    PKG_CHECK_MODULES(LIBMODPLUG, [libmodplug >= 0.8.9.0], [
           VLC_ADD_PLUGIN([mod])
           VLC_ADD_CXXFLAGS([mod],[$LIBMODPLUG_CFLAGS])
           VLC_ADD_CFLAGS([mod],[$LIBMODPLUG_CFLAGS]) #modules/demux/mod.c needs CFLAGS_mod, not CXXFLAGS_mod
@@ -3803,22 +3799,6 @@ if test "${HAVE_ANDROID}" = "1"; then
 fi
 
 dnl
-dnl  Tizen audio
-dnl
-AC_ARG_ENABLE([tizen_audio],
-  AS_HELP_STRING([--enable-tizen-audio],
-    [Tizen audio module (default enabled on Tizen)]),, [
-  AS_IF([test "$HAVE_TIZEN" = "1"], [
-    enable_tizen_audio="yes"
-  ])
-])
-if test "${enable_tizen_audio}" = "yes"; then
-  AC_CHECK_HEADERS([audio_io.h],
-    [ VLC_ADD_PLUGIN([tizen_audio]) ],
-    [ AC_MSG_ERROR([cannot find Tizen audio_io headers])] )
-fi
-
-dnl
 dnl libsamplerate plugin
 dnl
 PKG_ENABLE_MODULES_VLC([SAMPLERATE], [], [samplerate], [Resampler with libsamplerate], [auto])
@@ -3933,7 +3913,7 @@ AS_IF([test "${enable_qt}" != "no"], [
 AC_ARG_ENABLE([qt-qml-cache],
   AS_HELP_STRING([--enable-qt-qml-cache],
     [enable qml cache generation]))
-AM_CONDITIONAL([HAVE_QMLCACHE], [test "${enable_qt_qml_cache}" = "yes" && "x$QMLCACHE" != "xno"])
+AM_CONDITIONAL([HAVE_QMLCACHE], [test "${enable_qt_qml_cache}" = "yes" && test "x$QMLCACHE" != "xno"])
 
 AC_ARG_ENABLE([qt-qml-debug],
   AS_HELP_STRING([--enable-qt-qml-debug], [enable qml debuger]))
@@ -4008,12 +3988,6 @@ AS_IF([test "${enable_skins2}" != "no"], [
     enable_skins2="yes"
   ])
 ])
-
-AS_IF([test "${enable_skins2}" = "yes"], [
-  AC_MSG_WARN([Skins2 interface disabled, it need to ported to the new player and playlist.])
-  enable_skins2="0"
-], [])
-
 AM_CONDITIONAL([BUILD_SKINS], [test "${enable_skins2}" = "yes"])
 
 AC_ARG_ENABLE([libtar],
@@ -4462,10 +4436,14 @@ AC_ARG_ENABLE([vlc],
 AM_CONDITIONAL([BUILD_VLC], [test "${enable_vlc}" != "no"])
 
 dnl
-dnl Fuzzer (at the end in order to don't mess dependencies FLAGS)
+dnl Fuzzer (at the end not to mess dependencies FLAGS)
 dnl
 AS_VAR_IF(with_libfuzzer, no, [], [
-    LIBS="-lstdc++ ${LIBM} -L${with_libfuzzer} -lFuzzer"
+    LIBS="-lstdc++ ${LIBM}"
+    AS_IF([test "${with_libfuzzer}" != "yes"], [
+      LIBS="$LIBS -L${with_libfuzzer}"
+    ])
+    LIBS="$LIBS -lFuzzer"
     AX_CHECK_COMPILE_FLAG(-fsanitize-coverage=trace-pc-guard, [
         AX_APPEND_FLAG([-fsanitize-coverage=trace-pc-guard])
         AX_APPEND_FLAG([-fsanitize-coverage=trace-pc-guard], [CXXFLAGS])

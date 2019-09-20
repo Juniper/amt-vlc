@@ -44,6 +44,7 @@ struct vlc_va_sys_t
     vdp_t *vdp;
     VdpDevice device;
     VdpChromaType type;
+    void *hwaccel_context;
     uint32_t width;
     uint32_t height;
     vlc_vdp_video_field_t *pool[];
@@ -70,9 +71,8 @@ static vlc_vdp_video_field_t *CreateSurface(vlc_va_t *va)
     return field;
 }
 
-static vlc_vdp_video_field_t *GetSurface(vlc_va_t *va)
+static vlc_vdp_video_field_t *GetSurface(vlc_va_sys_t *sys)
 {
-    vlc_va_sys_t *sys = va->sys;
     vlc_vdp_video_field_t *f;
 
     for (unsigned i = 0; (f = sys->pool[i]) != NULL; i++)
@@ -89,27 +89,51 @@ static vlc_vdp_video_field_t *GetSurface(vlc_va_t *va)
     return NULL;
 }
 
-static int Lock(vlc_va_t *va, picture_t *pic, uint8_t **data)
+static vlc_vdp_video_field_t *Get(vlc_va_sys_t *sys)
 {
     vlc_vdp_video_field_t *field;
-    unsigned tries = (CLOCK_FREQ + VOUT_OUTMEM_SLEEP) / VOUT_OUTMEM_SLEEP;
+    unsigned tries = (VLC_TICK_FROM_SEC(1) + VOUT_OUTMEM_SLEEP) / VOUT_OUTMEM_SLEEP;
 
-    while ((field = GetSurface(va)) == NULL)
+    while ((field = GetSurface(sys)) == NULL)
     {
         if (--tries == 0)
-            return VLC_ENOMEM;
+            return NULL;
         /* Pool empty. Wait for some time as in src/input/decoder.c.
          * XXX: Both this and the core should use a semaphore or a CV. */
         vlc_tick_sleep(VOUT_OUTMEM_SLEEP);
     }
+
+    return field;
+}
+
+static int Lock(vlc_va_t *va, picture_t *pic, uint8_t **data)
+{
+    vlc_va_sys_t *sys = va->sys;
+    vlc_vdp_video_field_t *field = Get(sys);
+    if (field == NULL)
+        return VLC_ENOMEM;
 
     pic->context = &field->context;
     *data = (void *)(uintptr_t)field->frame->surface;
     return VLC_SUCCESS;
 }
 
+static void Close(vlc_va_t *va)
+{
+    vlc_va_sys_t *sys = va->sys;
+
+    for (unsigned i = 0; sys->pool[i] != NULL; i++)
+        vlc_vdp_video_destroy(sys->pool[i]);
+    vdp_release_x11(sys->vdp);
+    if (sys->hwaccel_context)
+        av_free(sys->hwaccel_context);
+    free(sys);
+}
+
+static const struct vlc_va_operations ops = { Lock, Close, };
+
 static int Open(vlc_va_t *va, AVCodecContext *avctx, enum PixelFormat pix_fmt,
-                const es_format_t *fmt, picture_sys_t *p_sys)
+                const es_format_t *fmt, void *p_sys)
 {
     if (pix_fmt != AV_PIX_FMT_VDPAU)
         return VLC_EGENERIC;
@@ -150,6 +174,7 @@ static int Open(vlc_va_t *va, AVCodecContext *avctx, enum PixelFormat pix_fmt,
     sys->type = type;
     sys->width = width;
     sys->height = height;
+    sys->hwaccel_context = NULL;
 
     err = vdp_get_x11(NULL, -1, &sys->vdp, &sys->device);
     if (err != VDP_STATUS_OK)
@@ -167,6 +192,7 @@ static int Open(vlc_va_t *va, AVCodecContext *avctx, enum PixelFormat pix_fmt,
 
     if (av_vdpau_bind_context(avctx, sys->device, func, flags))
         goto error;
+    sys->hwaccel_context = avctx->hwaccel_context;
     va->sys = sys;
 
     unsigned i = 0;
@@ -192,35 +218,24 @@ static int Open(vlc_va_t *va, AVCodecContext *avctx, enum PixelFormat pix_fmt,
                  i, refs);
 
     const char *infos;
-    if (vdp_get_information_string(sys->vdp, &infos) != VDP_STATUS_OK)
-        infos = "VDPAU";
+    if (vdp_get_information_string(sys->vdp, &infos) == VDP_STATUS_OK)
+        msg_Info(va, "Using %s", infos);
 
-    va->description = infos;
-    va->get = Lock;
+    va->ops = &ops;
     return VLC_SUCCESS;
 
 error:
+    if (sys->hwaccel_context)
+        av_free(sys->hwaccel_context);
     vdp_release_x11(sys->vdp);
     free(sys);
     return VLC_EGENERIC;
 }
 
-static void Close(vlc_va_t *va, void **hwctx)
-{
-    vlc_va_sys_t *sys = va->sys;
-
-    for (unsigned i = 0; sys->pool[i] != NULL; i++)
-        vlc_vdp_video_destroy(sys->pool[i]);
-    vdp_release_x11(sys->vdp);
-    av_freep(hwctx);
-    free(sys);
-}
-
 vlc_module_begin()
     set_description(N_("VDPAU video decoder"))
-    set_capability("hw decoder", 100)
     set_category(CAT_INPUT)
     set_subcategory(SUBCAT_INPUT_VCODEC)
-    set_callbacks(Open, Close)
+    set_va_callback(Open, 100)
     add_shortcut("vdpau")
 vlc_module_end()

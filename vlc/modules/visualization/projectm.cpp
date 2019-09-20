@@ -2,7 +2,6 @@
  * projectm.cpp: visualization module based on libprojectM
  *****************************************************************************
  * Copyright © 2009-2011 VLC authors and VideoLAN
- * $Id: 04f6a3f8db27378becd31b1427604b5ad8b35db8 $
  *
  * Authors: Rémi Duraffort <ivoire@videolan.org>
  *          Laurent Aimar

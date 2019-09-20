@@ -52,7 +52,7 @@ static int TryEnterMTA(vlc_object_t *obj)
     HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
     if (unlikely(FAILED(hr)))
     {
-        msg_Err (obj, "cannot initialize COM (error 0x%lx)", hr);
+        msg_Err (obj, "cannot initialize COM (error 0x%lX)", hr);
         return -1;
     }
     return 0;
@@ -77,7 +77,6 @@ static char default_device_b[1] = "";
 typedef struct
 {
     aout_stream_t *stream; /**< Underlying audio output stream */
-    module_t *module;
     audio_output_t *aout;
     IMMDeviceEnumerator *it; /**< Device enumerator, NULL when exiting */
     IMMDevice *dev; /**< Selected output device, NULL if none */
@@ -162,13 +161,13 @@ static void Pause(audio_output_t *aout, bool paused, vlc_tick_t date)
     (void) date;
 }
 
-static void Flush(audio_output_t *aout, bool wait)
+static void Flush(audio_output_t *aout)
 {
     aout_sys_t *sys = aout->sys;
     HRESULT hr;
 
     EnterMTA();
-    hr = aout_stream_Flush(sys->stream, wait);
+    hr = aout_stream_Flush(sys->stream);
     LeaveMTA();
 
     vlc_FromHR(aout, hr);
@@ -756,7 +755,7 @@ static int DeviceSelectLocked(audio_output_t *aout, const char *id)
 
     if (id != NULL && strcmp(id, default_device_b) != 0)
     {
-        sys->requested_device = ToWide(id);
+        sys->requested_device = ToWide(id); /* FIXME leak */
         if (unlikely(sys->requested_device == NULL))
             return -1;
     }
@@ -785,18 +784,6 @@ static int DeviceSelect(audio_output_t *aout, const char *id)
 }
 
 /*** Initialization / deinitialization **/
-static wchar_t *var_InheritWide(vlc_object_t *obj, const char *name)
-{
-    char *v8 = var_InheritString(obj, name);
-    if (v8 == NULL)
-        return NULL;
-
-    wchar_t *v16 = ToWide(v8);
-    free(v8);
-    return v16;
-}
-#define var_InheritWide(o,n) var_InheritWide(VLC_OBJECT(o),n)
-
 /** MMDevice audio output thread.
  * This thread takes cares of the audio session control. Inconveniently enough,
  * the audio session control interface must:
@@ -831,7 +818,7 @@ static HRESULT MMSession(audio_output_t *aout, IMMDeviceEnumerator *it)
         msg_Dbg(aout, "using selected device %ls", sys->requested_device);
         hr = IMMDeviceEnumerator_GetDevice(it, sys->requested_device, &sys->dev);
         if (FAILED(hr))
-            msg_Err(aout, "cannot get selected device %ls (error 0x%lx)",
+            msg_Err(aout, "cannot get selected device %ls (error 0x%lX)",
                     sys->requested_device, hr);
         sys->acquired_device = sys->requested_device;
     }
@@ -846,7 +833,7 @@ static HRESULT MMSession(audio_output_t *aout, IMMDeviceEnumerator *it)
                                                          eConsole, &sys->dev);
         if (FAILED(hr))
         {
-            msg_Err(aout, "cannot get default device (error 0x%lx)", hr);
+            msg_Err(aout, "cannot get default device (error 0x%lX)", hr);
             sys->acquired_device = NULL;
         }
         else
@@ -879,7 +866,7 @@ static HRESULT MMSession(audio_output_t *aout, IMMDeviceEnumerator *it)
     }
     else
     {
-        msg_Err(aout, "cannot get device identifier (error 0x%lx)", hr);
+        msg_Err(aout, "cannot get device identifier (error 0x%lX)", hr);
         return hr;
     }
 
@@ -896,20 +883,28 @@ static HRESULT MMSession(audio_output_t *aout, IMMDeviceEnumerator *it)
                                                          &control);
         if (SUCCEEDED(hr))
         {
-            wchar_t *ua = var_InheritWide(aout, "user-agent");
-            IAudioSessionControl_SetDisplayName(control, ua, NULL);
-            free(ua);
+            char *ua = var_InheritString(aout, "user-agent");
+            if (ua != NULL)
+            {
+                wchar_t *wua = ToWide(ua);
+                if (likely(wua != NULL))
+                {
+                    IAudioSessionControl_SetDisplayName(control, wua, NULL);
+                    free(wua);
+                }
+                free(ua);
+            }
 
             IAudioSessionControl_RegisterAudioSessionNotification(control,
                                                          &sys->session_events);
         }
         else
-            msg_Err(aout, "cannot get session control (error 0x%lx)", hr);
+            msg_Err(aout, "cannot get session control (error 0x%lX)", hr);
 
         hr = IAudioSessionManager_GetSimpleAudioVolume(manager, guid, FALSE,
                                                        &volume);
         if (FAILED(hr))
-            msg_Err(aout, "cannot get simple volume (error 0x%lx)", hr);
+            msg_Err(aout, "cannot get simple volume (error 0x%lX)", hr);
 
         /* Try to get version 2 (Windows 7) of the manager & control */
         wchar_t *siid = NULL;
@@ -946,7 +941,7 @@ static HRESULT MMSession(audio_output_t *aout, IMMDeviceEnumerator *it)
     }
     else
     {
-        msg_Err(aout, "cannot activate session manager (error 0x%lx)", hr);
+        msg_Err(aout, "cannot activate session manager (error 0x%lX)", hr);
         control = NULL;
         volume = NULL;
     }
@@ -963,10 +958,10 @@ static HRESULT MMSession(audio_output_t *aout, IMMDeviceEnumerator *it)
             msg_Dbg(aout, "volume from %+f dB to %+f dB with %f dB increments",
                     min, max, inc);
         else
-            msg_Err(aout, "cannot get volume range (error 0x%lx)", hr);
+            msg_Err(aout, "cannot get volume range (error 0x%lX)", hr);
     }
     else
-        msg_Err(aout, "cannot activate endpoint volume (error %lx)", hr);
+        msg_Err(aout, "cannot activate endpoint volume (error 0x%lX)", hr);
 
     /* Main loop (adjust volume as long as device is unchanged) */
     while (sys->requested_device == NULL)
@@ -980,7 +975,7 @@ static HRESULT MMSession(audio_output_t *aout, IMMDeviceEnumerator *it)
             {
                 hr = ISimpleAudioVolume_SetMasterVolume(volume, level, NULL);
                 if (FAILED(hr))
-                    msg_Err(aout, "cannot set master volume (error 0x%lx)",
+                    msg_Err(aout, "cannot set master volume (error 0x%lX)",
                             hr);
             }
             sys->requested_volume = -1.f;
@@ -989,7 +984,7 @@ static HRESULT MMSession(audio_output_t *aout, IMMDeviceEnumerator *it)
             if (SUCCEEDED(hr))
                 aout_VolumeReport(aout, cbrtf(level * sys->gain));
             else
-                msg_Err(aout, "cannot get master volume (error 0x%lx)", hr);
+                msg_Err(aout, "cannot get master volume (error 0x%lX)", hr);
 
             BOOL mute;
 
@@ -997,7 +992,7 @@ static HRESULT MMSession(audio_output_t *aout, IMMDeviceEnumerator *it)
             if (SUCCEEDED(hr))
                 aout_MuteReport(aout, mute != FALSE);
             else
-                msg_Err(aout, "cannot get mute (error 0x%lx)", hr);
+                msg_Err(aout, "cannot get mute (error 0x%lX)", hr);
 
             if (sys->requested_mute >= 0)
             {
@@ -1005,7 +1000,7 @@ static HRESULT MMSession(audio_output_t *aout, IMMDeviceEnumerator *it)
 
                 hr = ISimpleAudioVolume_SetMute(volume, mute, NULL);
                 if (FAILED(hr))
-                    msg_Err(aout, "cannot set mute (error 0x%lx)", hr);
+                    msg_Err(aout, "cannot set mute (error 0x%lX)", hr);
             }
             sys->requested_mute = -1;
         }
@@ -1066,7 +1061,7 @@ static void *MMThread(void *data)
                                                           &sys->device_events);
     HRESULT hr = DevicesEnum(it, MMThread_DevicesEnum_Added, aout);
     if (FAILED(hr))
-        msg_Warn(aout, "cannot enumerate audio endpoints (error 0x%lx)", hr);
+        msg_Warn(aout, "cannot enumerate audio endpoints (error 0x%lX)", hr);
 
     EnterCriticalSection(&sys->lock);
 
@@ -1095,7 +1090,7 @@ static HRESULT ActivateDevice(void *opaque, REFIID iid, PROPVARIANT *actparms,
     return IMMDevice_Activate(dev, iid, CLSCTX_ALL, actparms, pv);
 }
 
-static int aout_stream_Start(void *func, va_list ap)
+static int aout_stream_Start(void *func, bool forced, va_list ap)
 {
     aout_stream_start_t start = func;
     aout_stream_t *s = va_arg(ap, aout_stream_t *);
@@ -1103,18 +1098,11 @@ static int aout_stream_Start(void *func, va_list ap)
     HRESULT *hr = va_arg(ap, HRESULT *);
     LPCGUID sid = var_InheritBool(s, "volume-save") ? &GUID_VLC_AUD_OUT : NULL;
 
+    (void) forced;
     *hr = start(s, fmt, sid);
     if (*hr == AUDCLNT_E_DEVICE_INVALIDATED)
         return VLC_ETIMEOUT;
     return SUCCEEDED(*hr) ? VLC_SUCCESS : VLC_EGENERIC;
-}
-
-static void aout_stream_Stop(void *func, va_list ap)
-{
-    aout_stream_stop_t stop = func;
-    aout_stream_t *s = va_arg(ap, aout_stream_t *);
-
-    stop(s);
 }
 
 static int Start(audio_output_t *aout, audio_sample_format_t *restrict fmt)
@@ -1156,9 +1144,11 @@ static int Start(audio_output_t *aout, audio_sample_format_t *restrict fmt)
          * failed. */
         LeaveCriticalSection(&sys->lock);
         LeaveMTA();
-        vlc_object_release(s);
+        vlc_object_delete(s);
         return -1;
     }
+
+    module_t *module;
 
     for (;;)
     {
@@ -1166,8 +1156,8 @@ static int Start(audio_output_t *aout, audio_sample_format_t *restrict fmt)
         HRESULT hr;
         s->owner.device = sys->dev;
 
-        sys->module = vlc_module_load(s, "aout stream", modlist,
-                                      false, aout_stream_Start, s, fmt, &hr);
+        module = vlc_module_load(s, "aout stream", modlist,
+                                 false, aout_stream_Start, s, fmt, &hr);
         free(modlist);
 
         int ret = -1;
@@ -1195,7 +1185,7 @@ static int Start(audio_output_t *aout, audio_sample_format_t *restrict fmt)
             break;
     }
 
-    if (sys->module != NULL)
+    if (module != NULL)
     {
         IPropertyStore *props;
         HRESULT hr = IMMDevice_OpenPropertyStore(sys->dev, STGM_READ, &props);
@@ -1222,9 +1212,9 @@ static int Start(audio_output_t *aout, audio_sample_format_t *restrict fmt)
     LeaveCriticalSection(&sys->lock);
     LeaveMTA();
 
-    if (sys->module == NULL)
+    if (module == NULL)
     {
-        vlc_object_release(s);
+        vlc_object_delete(s);
         return -1;
     }
 
@@ -1241,10 +1231,10 @@ static void Stop(audio_output_t *aout)
     assert(sys->stream != NULL);
 
     EnterMTA();
-    vlc_module_unload(sys->stream, sys->module, aout_stream_Stop, sys->stream);
+    aout_stream_Stop(sys->stream);
     LeaveMTA();
 
-    vlc_object_release(sys->stream);
+    vlc_object_delete(sys->stream);
     sys->stream = NULL;
 }
 
@@ -1285,7 +1275,7 @@ static int Open(vlc_object_t *obj)
     char *saved_device_b = var_InheritString(aout, "mmdevice-audio-device");
     if (saved_device_b != NULL && strcmp(saved_device_b, default_device_b) != 0)
     {
-        sys->requested_device = ToWide(saved_device_b);
+        sys->requested_device = ToWide(saved_device_b); /* FIXME leak */
         free(saved_device_b);
 
         if (unlikely(sys->requested_device == NULL))
@@ -1307,7 +1297,7 @@ static int Open(vlc_object_t *obj)
     if (FAILED(hr))
     {
         LeaveMTA();
-        msg_Dbg(aout, "cannot create device enumerator (error 0x%lx)", hr);
+        msg_Dbg(aout, "cannot create device enumerator (error 0x%lX)", hr);
         goto error;
     }
     sys->it = pv;
@@ -1398,14 +1388,23 @@ static void Reload_DevicesEnum_Added(void *data, LPCWSTR wid, IMMDevice *dev)
 
 static int ReloadAudioDevices(char const *name, char ***values, char ***descs)
 {
+    bool in_mta = true;
+    HRESULT hr;
+
     (void) name;
 
-    bool in_mta = SUCCEEDED(CoInitializeEx(NULL, COINIT_MULTITHREADED));
+    hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+    if (FAILED(hr)) {
+        if (hr != RPC_E_CHANGED_MODE)
+            return -1;
+
+        in_mta = false;
+    }
 
     struct mm_list list = { .count = 0 };
     void *it;
-    HRESULT hr = CoCreateInstance(&CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL,
-                                  &IID_IMMDeviceEnumerator, &it);
+    hr = CoCreateInstance(&CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL,
+                          &IID_IMMDeviceEnumerator, &it);
     if (FAILED(hr))
         goto error;
 
@@ -1444,6 +1443,8 @@ error:
     return list.count;
 }
 
+VLC_CONFIG_STRING_ENUM(ReloadAudioDevices)
+
 #define MM_PASSTHROUGH_TEXT N_( \
     "HDMI/SPDIF audio passthrough")
 #define MM_PASSTHROUGH_LONGTEXT N_( \
@@ -1479,7 +1480,6 @@ vlc_module_begin()
         change_integer_list( pi_mmdevice_passthrough_values,
                              ppsz_mmdevice_passthrough_texts )
     add_string("mmdevice-audio-device", NULL, DEVICE_TEXT, DEVICE_LONGTEXT, false)
-        change_string_cb(ReloadAudioDevices)
     add_float("mmdevice-volume", 1.f, VOLUME_TEXT, VOLUME_LONGTEXT, true)
         change_float_range( 0.f, 1.25f )
 vlc_module_end()

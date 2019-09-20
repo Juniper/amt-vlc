@@ -2,7 +2,6 @@
  * dynamicoverlay_commands.c : dynamic overlay plugin commands
  *****************************************************************************
  * Copyright (C) 2008 VLC authors and VideoLAN
- * $Id: ff370a0aac17346c08c6756d47a014dd84924184 $
  *
  * Author: Søren Bøg <avacore@videolan.org>
  *         Jean-Paul Saman <jpsaman@videolan.org>
@@ -904,12 +903,11 @@ static const commanddesc_static_t p_commands[] =
 void RegisterCommand( filter_t *p_filter )
 {
     filter_sys_t *p_sys = p_filter->p_sys;
-    size_t i_index = 0;
 
     p_sys->i_commands = ARRAY_SIZE(p_commands);
     p_sys->pp_commands = (commanddesc_t **) calloc( p_sys->i_commands, sizeof(commanddesc_t*) );
     if( !p_sys->pp_commands ) return;
-    for( i_index = 0; i_index < p_sys->i_commands; i_index ++ )
+    for( size_t i_index = 0; i_index < p_sys->i_commands; i_index ++ )
     {
         p_sys->pp_commands[i_index] = (commanddesc_t *) malloc( sizeof(commanddesc_t) );
         if( !p_sys->pp_commands[i_index] ) return;

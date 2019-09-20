@@ -2,7 +2,6 @@
  * vlc_demux.h: Demuxer descriptor, queries and methods
  *****************************************************************************
  * Copyright (C) 1999-2005 VLC authors and VideoLAN
- * $Id: 26328c72680216c64dfd9510defe6ebfcb811796 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *
@@ -54,7 +53,7 @@
 /* demux_meta_t is returned by "meta reader" module to the demuxer */
 typedef struct demux_meta_t
 {
-    struct vlc_common_members obj;
+    struct vlc_object_t obj;
     input_item_t *p_item; /***< the input item that is being read */
 
     vlc_meta_t *p_meta;                 /**< meta data */
@@ -176,9 +175,9 @@ enum demux_query_e
     DEMUX_SET_POSITION,         /* arg1= double arg2= bool b_precise    res=can fail    */
 
     /* LENGTH/TIME in microsecond, 0 if unknown */
-    DEMUX_GET_LENGTH,           /* arg1= int64_t *      res=    */
-    DEMUX_GET_TIME,             /* arg1= int64_t *      res=    */
-    DEMUX_SET_TIME,             /* arg1= int64_t arg2= bool b_precise   res=can fail    */
+    DEMUX_GET_LENGTH,           /* arg1= vlc_tick_t *   res=    */
+    DEMUX_GET_TIME,             /* arg1= vlc_tick_t *   res=    */
+    DEMUX_SET_TIME,             /* arg1= vlc_tick_t arg2= bool b_precise   res=can fail    */
 
     /**
      * \todo Document
@@ -198,7 +197,8 @@ enum demux_query_e
     DEMUX_SET_GROUP_DEFAULT,
     DEMUX_SET_GROUP_ALL,
     DEMUX_SET_GROUP_LIST,       /* arg1= size_t, arg2= const int *, can fail */
-    DEMUX_SET_ES,               /* arg1= int                            can fail */
+    DEMUX_SET_ES,               /* arg1= int                        can fail */
+    DEMUX_SET_ES_LIST,          /* arg1= size_t, arg2= const int * (can be NULL) can fail */
 
     /* Ask the demux to demux until the given date at the next pf_demux call
      * but not more (and not less, at the precision available of course).
@@ -237,8 +237,8 @@ enum demux_query_e
      * (using DEMUX_SET_RATE). */
     DEMUX_CAN_CONTROL_RATE,     /* arg1= bool*pb_rate */
     /* DEMUX_SET_RATE is called only if DEMUX_CAN_CONTROL_RATE has returned true.
-     * It should return the value really used in *pi_rate */
-    DEMUX_SET_RATE,             /* arg1= int*pi_rate                                        can fail */
+     * It should return the value really used in *p_rate */
+    DEMUX_SET_RATE,             /* arg1= float*p_rate res=can fail */
 
     /** Checks whether the stream is actually a playlist, rather than a real
      * stream.
@@ -365,6 +365,42 @@ static inline bool demux_IsForced( demux_t *p_demux, const char *psz_name )
    if( p_demux->psz_name == NULL || strcmp( p_demux->psz_name, psz_name ) )
         return false;
     return true;
+}
+
+static inline int demux_SetPosition( demux_t *p_demux, double pos, bool precise,
+                                     bool absolute)
+{
+    if( !absolute )
+    {
+        double current_pos;
+        int ret = demux_Control( p_demux, DEMUX_GET_POSITION, &current_pos );
+        if( ret != VLC_SUCCESS )
+            return ret;
+        pos += current_pos;
+    }
+
+    if( pos < 0.f )
+        pos = 0.f;
+    else if( pos > 1.f )
+        pos = 1.f;
+    return demux_Control( p_demux, DEMUX_SET_POSITION, pos, precise );
+}
+
+static inline int demux_SetTime( demux_t *p_demux, vlc_tick_t time, bool precise,
+                                 bool absolute )
+{
+    if( !absolute )
+    {
+        vlc_tick_t current_time;
+        int ret = demux_Control( p_demux, DEMUX_GET_TIME, &current_time );
+        if( ret != VLC_SUCCESS )
+            return ret;
+        time += current_time;
+    }
+
+    if( time < 0 )
+        time = 0;
+    return demux_Control( p_demux, DEMUX_SET_TIME, time, precise );
 }
 
 /**

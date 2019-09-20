@@ -2,7 +2,6 @@
  * shout.c: This module forwards vorbis streams to an icecast server
  *****************************************************************************
  * Copyright (C) 2005 VLC authors and VideoLAN
- * $Id: a5d025e369daf892244c05f1fb7325f6aa3fd799 $
  *
  * Authors: Daniel Fischer <dan at subsignal dot org>
  *          Derk-Jan Hartman <hartman at videolan dot org>
@@ -367,7 +366,7 @@ static int Open( vlc_object_t *p_this )
         if ( i_ret != SHOUTERR_CONNECTED )
         {
             msg_Warn( p_access, "unable to establish connection, retrying..." );
-            vlc_tick_sleep( 30000000 );
+            vlc_tick_sleep( VLC_TICK_FROM_SEC(30) );
         }
     }
 

@@ -34,7 +34,8 @@
 
 struct vlc_demux_chained_t
 {
-    stream_t *fifo;
+    vlc_stream_fifo_t *writer;
+    stream_t *reader;
 
     vlc_thread_t thread;
     vlc_mutex_t  lock;
@@ -42,8 +43,8 @@ struct vlc_demux_chained_t
     struct
     {
         double  position;
-        int64_t length;
-        int64_t time;
+        vlc_tick_t length;
+        vlc_tick_t time;
     } stats;
 
     es_out_t *out;
@@ -53,11 +54,11 @@ struct vlc_demux_chained_t
 static void *vlc_demux_chained_Thread(void *data)
 {
     vlc_demux_chained_t *dc = data;
-    demux_t *demux = demux_New(VLC_OBJECT(dc->fifo), dc->name, dc->fifo,
+    demux_t *demux = demux_New(VLC_OBJECT(dc->reader), dc->name, dc->reader,
                                dc->out);
     if (demux == NULL)
     {
-        vlc_stream_Delete(dc->fifo);
+        vlc_stream_Delete(dc->reader);
         return NULL;
     }
 
@@ -72,7 +73,8 @@ static void *vlc_demux_chained_Thread(void *data)
         if (demux_TestAndClearFlags(demux, UINT_MAX) || vlc_tick_now() >= next_update)
         {
             double newpos;
-            int64_t newlen, newtime;
+            vlc_tick_t newlen;
+            vlc_tick_t newtime;
 
             if (demux_Control(demux, DEMUX_GET_POSITION, &newpos))
                 newpos = 0.;
@@ -102,8 +104,8 @@ vlc_demux_chained_t *vlc_demux_chained_New(vlc_object_t *parent,
     if (unlikely(dc == NULL))
         return NULL;
 
-    dc->fifo = vlc_stream_fifo_New(parent);
-    if (dc->fifo == NULL)
+    dc->writer = vlc_stream_fifo_New(parent, &dc->reader);
+    if (dc->writer == NULL)
     {
         free(dc);
         return NULL;
@@ -120,8 +122,8 @@ vlc_demux_chained_t *vlc_demux_chained_New(vlc_object_t *parent,
     if (vlc_clone(&dc->thread, vlc_demux_chained_Thread, dc,
                   VLC_THREAD_PRIORITY_INPUT))
     {
-        vlc_stream_Delete(dc->fifo);
-        vlc_stream_fifo_Close(dc->fifo);
+        vlc_stream_Delete(dc->reader);
+        vlc_stream_fifo_Close(dc->writer);
         vlc_mutex_destroy(&dc->lock);
         free(dc);
         dc = NULL;
@@ -131,7 +133,7 @@ vlc_demux_chained_t *vlc_demux_chained_New(vlc_object_t *parent,
 
 void vlc_demux_chained_Send(vlc_demux_chained_t *dc, block_t *block)
 {
-    vlc_stream_fifo_Queue(dc->fifo, block);
+    vlc_stream_fifo_Queue(dc->writer, block);
 }
 
 int vlc_demux_chained_ControlVa(vlc_demux_chained_t *dc, int query, va_list ap)
@@ -145,12 +147,12 @@ int vlc_demux_chained_ControlVa(vlc_demux_chained_t *dc, int query, va_list ap)
             break;
         case DEMUX_GET_LENGTH:
             vlc_mutex_lock(&dc->lock);
-            *va_arg(ap, int64_t *) = dc->stats.length;
+            *va_arg(ap, vlc_tick_t *) = dc->stats.length;
             vlc_mutex_unlock(&dc->lock);
             break;
         case DEMUX_GET_TIME:
             vlc_mutex_lock(&dc->lock);
-            *va_arg(ap, int64_t *) = dc->stats.time;
+            *va_arg(ap, vlc_tick_t *) = dc->stats.time;
             vlc_mutex_unlock(&dc->lock);
             break;
         default:
@@ -161,7 +163,7 @@ int vlc_demux_chained_ControlVa(vlc_demux_chained_t *dc, int query, va_list ap)
 
 void vlc_demux_chained_Delete(vlc_demux_chained_t *dc)
 {
-    vlc_stream_fifo_Close(dc->fifo);
+    vlc_stream_fifo_Close(dc->writer);
     vlc_join(dc->thread, NULL);
     vlc_mutex_destroy(&dc->lock);
     free(dc);

@@ -5,7 +5,7 @@
 #USE_FFMPEG ?= 1
 
 ifndef USE_LIBAV
-FFMPEG_HASH=d0e740b8fb30f02914594d00eb311a32442a63f8
+FFMPEG_HASH=0e833f615b59cd7611374d1d77257eaf00635ad7
 FFMPEG_GITURL := http://git.videolan.org/git/ffmpeg.git
 FFMPEG_LAVC_MIN := 57.37.100
 USE_FFMPEG := 1
@@ -33,6 +33,7 @@ FFMPEGCONF = \
 	--disable-protocol=concat \
 	--disable-bsfs \
 	--disable-bzlib \
+	--disable-libvpx \
 	--disable-avresample \
 	--enable-bsf=vp9_superframe
 
@@ -70,11 +71,8 @@ ifndef BUILD_NETWORK
 FFMPEGCONF += --disable-network
 endif
 ifdef BUILD_ENCODERS
-FFMPEGCONF += --enable-libmp3lame --enable-libvpx --disable-decoder=libvpx_vp8 --disable-decoder=libvpx_vp9
-ifndef USE_FFMPEG
-FFMPEGCONF += --disable-decoder=libvpx
-endif
-DEPS_ffmpeg += lame $(DEPS_lame) vpx $(DEPS_vpx)
+FFMPEGCONF += --enable-libmp3lame
+DEPS_ffmpeg += lame $(DEPS_lame)
 else
 FFMPEGCONF += --disable-encoders --disable-muxers
 endif
@@ -151,7 +149,7 @@ ifeq ($(ARCH),x86_64)
 FFMPEGCONF += --cpu=core2
 endif
 ifdef HAVE_IOS
-FFMPEGCONF += --enable-pic --extra-ldflags="$(EXTRA_CFLAGS)"
+FFMPEGCONF += --enable-pic --extra-ldflags="$(EXTRA_CFLAGS) -isysroot $(IOS_SDK)"
 ifdef HAVE_NEON
 FFMPEGCONF += --as="$(AS)"
 endif
@@ -182,7 +180,7 @@ endif
 # Windows
 ifdef HAVE_WIN32
 ifndef HAVE_VISUALSTUDIO
-DEPS_ffmpeg += d3d11
+DEPS_ffmpeg += wine-headers
 ifndef HAVE_MINGW_W64
 DEPS_ffmpeg += directx
 endif
@@ -241,11 +239,14 @@ $(TARBALLS)/ffmpeg-$(FFMPEG_BASENAME).tar.xz:
 ffmpeg: ffmpeg-$(FFMPEG_BASENAME).tar.xz .sum-ffmpeg
 	rm -Rf $@ $@-$(FFMPEG_BASENAME)
 	mkdir -p $@-$(FFMPEG_BASENAME)
-	tar xvJf "$<" --strip-components=1 -C $@-$(FFMPEG_BASENAME)
+	tar xvJfo "$<" --strip-components=1 -C $@-$(FFMPEG_BASENAME)
 ifdef USE_FFMPEG
 	$(APPLY) $(SRC)/ffmpeg/armv7_fixup.patch
 	$(APPLY) $(SRC)/ffmpeg/dxva_vc1_crash.patch
 	$(APPLY) $(SRC)/ffmpeg/h264_early_SAR.patch
+	$(APPLY) $(SRC)/ffmpeg/ffmpeg-mkv-overshoot.patch
+	$(APPLY) $(SRC)/ffmpeg/0001-avcodec-hevcdec-set-the-SEI-parameters-early-on-the-.patch
+	$(APPLY) $(SRC)/ffmpeg/0001-avcodec-h264_slice-set-the-SEI-parameters-early-on-t.patch
 endif
 ifdef USE_LIBAV
 	$(APPLY) $(SRC)/ffmpeg/libav_gsm.patch

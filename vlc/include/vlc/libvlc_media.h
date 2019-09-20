@@ -737,7 +737,7 @@ LIBVLC_API void
  * Get media descriptor's user_data. user_data is specialized data
  * accessed by the host application, VLC.framework uses it as a pointer to
  * an native object that references a libvlc_media_t pointer
- * 
+ *
  * \see libvlc_media_set_user_data
  *
  * \param p_md media descriptor object
@@ -847,7 +847,7 @@ libvlc_media_thumbnail_request_by_time( libvlc_media_t *md,
                                         libvlc_time_t time,
                                         libvlc_thumbnailer_seek_speed_t speed,
                                         unsigned int width, unsigned int height,
-                                        libvlc_picture_type_t picture_type,
+                                        bool crop, libvlc_picture_type_t picture_type,
                                         libvlc_time_t timeout );
 
 /**
@@ -877,7 +877,7 @@ libvlc_media_thumbnail_request_by_pos( libvlc_media_t *md,
                                        float pos,
                                        libvlc_thumbnailer_seek_speed_t speed,
                                        unsigned int width, unsigned int height,
-                                       libvlc_picture_type_t picture_type,
+                                       bool crop, libvlc_picture_type_t picture_type,
                                        libvlc_time_t timeout );
 
 /**

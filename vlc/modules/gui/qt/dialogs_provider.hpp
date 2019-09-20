@@ -2,7 +2,6 @@
  * dialogs_provider.hpp : Dialogs provider
  ****************************************************************************
  * Copyright (C) 2006-2008 the VideoLAN team
- * $Id: 413d5398a68e741d5abaf284efafcccc3927bc3f $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *          Jean-Baptiste Kempf <jb@videolan.org>
@@ -99,8 +98,6 @@ public:
                                     QString *selectedFilter = NULL );
 
 protected:
-    QSignalMapper *menusMapper;
-    QSignalMapper *menusUpdateMapper;
     void customEvent( QEvent *);
 
 private:
@@ -121,7 +118,6 @@ private:
     void openDialog( int );
 
 public slots:
-    void playlistDialog();
     void bookmarksDialog();
     void mediaInfoDialog();
     void mediaCodecDialog();
@@ -167,15 +163,12 @@ public slots:
     void openAndStreamingDialogs();
     void openAndTranscodingDialogs();
 
-    void openAPlaylist();
     void savePlayingToPlaylist();
 
     void loadSubtitlesFile();
 
     void quit();
-private slots:
-    void menuAction( QObject *);
-    void menuUpdateAction( QObject * );
+
 signals:
     void  toolBarConfUpdated();
     void releaseMouseEvents();

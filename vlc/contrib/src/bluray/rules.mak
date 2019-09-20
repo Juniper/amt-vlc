@@ -1,10 +1,12 @@
 # LIBBLURAY
 
-BLURAY_VERSION := 1.0.2
+BLURAY_VERSION := 1.1.2
 BLURAY_URL := $(VIDEOLAN)/libbluray/$(BLURAY_VERSION)/libbluray-$(BLURAY_VERSION).tar.bz2
 
 ifdef BUILD_DISCS
+ifndef HAVE_WINSTORE
 PKGS += bluray
+endif
 endif
 ifeq ($(call need_pkg,"libbluray >= 0.7.0"),)
 PKGS_FOUND += bluray
@@ -27,9 +29,7 @@ endif
 DEPS_bluray = libxml2 $(DEPS_libxml2) freetype2 $(DEPS_freetype2)
 
 BLURAY_CONF = --disable-examples  \
-              --with-libxml2      \
-              --enable-udf        \
-              --enable-bdjava
+              --with-libxml2
 
 ifneq ($(WITH_FONTCONFIG), 0)
 DEPS_bluray += fontconfig $(DEPS_fontconfig)
@@ -48,7 +48,7 @@ $(TARBALLS)/libbluray-$(BLURAY_VERSION).tar.bz2:
 
 bluray: libbluray-$(BLURAY_VERSION).tar.bz2 .sum-bluray
 	$(UNPACK)
-	$(APPLY) $(SRC)/bluray/0001-Implement-dl_get_path-for-darwin-macOS.patch
+	$(APPLY) $(SRC)/bluray/0001-install-bdjo_data-header.patch
 	$(call pkg_static,"src/libbluray.pc.in")
 	$(MOVE)
 

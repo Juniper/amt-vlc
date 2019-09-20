@@ -2,7 +2,6 @@
  * gradient.c : Gradient and edge detection video effects plugin for vlc
  *****************************************************************************
  * Copyright (C) 2000-2008 VLC authors and VideoLAN
- * $Id: 78377108b96fe4b76af5b99f59691899a42f0ad9 $
  *
  * Authors: Samuel Hocevar <sam@zoy.org>
  *          Antoine Cellerier <dionoea -at- videolan -dot- org>

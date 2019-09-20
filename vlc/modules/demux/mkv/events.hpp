@@ -2,7 +2,6 @@
  * events.hpp : matroska demuxer
  *****************************************************************************
  * Copyright (C) 2003-2004 VLC authors and VideoLAN
- * $Id: 3aa670841a589c815c4374b82190d09ab0a55495 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Steve Lhomme <steve.lhomme@free.fr>
@@ -47,7 +46,7 @@ public:
     void SetPci(const pci_t *data);
     void ResetPci();
 
-    void AddES( es_out_id_t* es, int category );
+    bool AddES( es_out_id_t* es, int category );
     void DelES( es_out_id_t* es );
 
 private:

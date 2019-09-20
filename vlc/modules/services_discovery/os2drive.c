@@ -45,7 +45,7 @@ vlc_module_begin ()
     set_category (CAT_PLAYLIST)
     set_subcategory (SUBCAT_PLAYLIST_SD)
     set_capability ("services_discovery", 0)
-    set_callbacks (Open, NULL)
+    set_callback(Open)
     add_shortcut ("disc")
 
     VLC_SD_PROBE_SUBMODULE
@@ -90,7 +90,7 @@ static int Open (vlc_object_t *obj)
             letter = 'A' + drive;
 
             mrl[8] = name[0] = letter;
-            item = input_item_NewDisc (mrl, name, INPUT_DURATION_UNKNOWN);
+            item = input_item_NewDisc (mrl, name, INPUT_DURATION_INDEFINITE);
             msg_Dbg (sd, "adding %s (%s)", mrl, name);
             if (item == NULL)
                 break;

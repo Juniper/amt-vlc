@@ -2,7 +2,6 @@
  * transcode.c: transcoding stream output module
  *****************************************************************************
  * Copyright (C) 2003-2009 VLC authors and VideoLAN
- * $Id: 3b8248de5cc10c572fc4f789a6ac4f20ec1cb980 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Gildas Bazin <gbazin@videolan.org>
@@ -356,6 +355,29 @@ static void SetSPUEncoderConfig( sout_stream_t *p_stream, transcode_encoder_conf
     free( psz_string );
 
 }
+/*****************************************************************************
+ * Control
+ *****************************************************************************/
+static int Control( sout_stream_t *p_stream, int i_query, va_list args )
+{
+    switch( i_query )
+    {
+        case SOUT_STREAM_EMPTY:
+            if( p_stream->p_next )
+                return sout_StreamControlVa( p_stream->p_next, i_query, args );
+            break;
+        case SOUT_STREAM_ID_SPU_HIGHLIGHT:
+        {
+            sout_stream_id_sys_t *id = (sout_stream_id_sys_t *) va_arg(args, void *);
+            void *spu_hl = va_arg(args, void *);
+            if( p_stream->p_next && id->downstream_id )
+                return sout_StreamControl( p_stream->p_next, i_query,
+                                           id->downstream_id, spu_hl );
+            break;
+        }
+    }
+    return VLC_EGENERIC;
+}
 
 /*****************************************************************************
  * Open:
@@ -441,10 +463,16 @@ static int Open( vlc_object_t *p_this )
     /* Set default size for TEXT spu non overlay conversion / updater */
     p_sys->senc_cfg.spu.i_width = (p_sys->venc_cfg.video.i_width) ? p_sys->venc_cfg.video.i_width : 1280;
     p_sys->senc_cfg.spu.i_height = (p_sys->venc_cfg.video.i_height) ? p_sys->venc_cfg.video.i_height : 720;
+    vlc_mutex_init( &p_sys->lock );
+
+    /* Blending can't work outside of normal orientation */
+    p_sys->vfilters_cfg.video.b_reorient = p_sys->b_soverlay ||
+                                           p_sys->vfilters_cfg.video.psz_spu_sources;
 
     p_stream->pf_add    = Add;
     p_stream->pf_del    = Del;
     p_stream->pf_send   = Send;
+    p_stream->pf_control = Control;
     p_stream->p_sys     = p_sys;
 
     return VLC_SUCCESS;
@@ -466,6 +494,8 @@ static void Close( vlc_object_t * p_this )
 
     transcode_encoder_config_clean( &p_sys->senc_cfg );
 
+    vlc_mutex_destroy( &p_sys->lock );
+
     free( p_sys );
 }
 
@@ -473,13 +503,6 @@ static void DeleteSoutStreamID( sout_stream_id_sys_t *id )
 {
     if( id )
     {
-        if( id->p_decoder )
-        {
-            es_format_Clean( &id->p_decoder->fmt_in );
-            es_format_Clean( &id->p_decoder->fmt_out );
-            vlc_object_release( id->p_decoder );
-        }
-
         vlc_mutex_destroy(&id->fifo.lock);
         free( id );
     }
@@ -489,32 +512,38 @@ static void SendSpuToVideoCallback( void *cbdata, subpicture_t *p_subpicture )
 {
     sout_stream_t *p_stream = cbdata;
     sout_stream_sys_t *p_sys = p_stream->p_sys;
+    vlc_mutex_lock( &p_sys->lock );
     if( !p_sys->id_video )
         subpicture_Delete( p_subpicture );
     else
         transcode_video_push_spu( p_stream,
                                   p_sys->id_video, p_subpicture );
+    vlc_mutex_unlock( &p_sys->lock );
 }
 
 static int GetVideoDimensions( void *cbdata, unsigned *w, unsigned *h )
 {
     sout_stream_t *p_stream = cbdata;
     sout_stream_sys_t *p_sys = p_stream->p_sys;
-    if( !p_sys->id_video )
-        return VLC_EGENERIC;
-    return transcode_video_get_output_dimensions( p_stream,
-                                                  p_sys->id_video, w, h );
+    int i_ret = VLC_EGENERIC;
+    vlc_mutex_lock( &p_sys->lock );
+    if( p_sys->id_video )
+        i_ret = transcode_video_get_output_dimensions( p_stream,
+                                                       p_sys->id_video, w, h );
+    vlc_mutex_unlock( &p_sys->lock );
+    return i_ret;
 }
 
 static vlc_tick_t GetMasterDrift( void *cbdata )
 {
     sout_stream_t *p_stream = cbdata;
     sout_stream_sys_t *p_sys = p_stream->p_sys;
+    vlc_mutex_lock( &p_sys->lock );
+    vlc_tick_t drift = 0;
     if( p_sys->id_master_sync )
-    {
-        return p_sys->id_master_sync->i_drift;
-    }
-    return 0;
+        drift = p_sys->id_master_sync->i_drift;
+    vlc_mutex_unlock( &p_sys->lock );
+    return drift;
 }
 
 static int ValidateDrift( void *cbdata, vlc_tick_t i_drift )
@@ -577,11 +606,9 @@ static void *Add( sout_stream_t *p_stream, const es_format_t *p_fmt )
     p_owner->p_obj = VLC_OBJECT(p_stream);
 
     id->p_decoder = &p_owner->dec;
-    id->p_decoder->p_module = NULL;
-    es_format_Init( &id->p_decoder->fmt_out, p_fmt->i_cat, 0 );
-    es_format_Copy( &id->p_decoder->fmt_in, p_fmt );
+    decoder_Init( id->p_decoder, p_fmt );
+
     es_format_SetMeta( &id->p_decoder->fmt_out, &id->p_decoder->fmt_in );
-    id->p_decoder->b_frame_drop_allowed = false;
 
     switch( p_fmt->i_cat )
     {
@@ -591,7 +618,7 @@ static void *Add( sout_stream_t *p_stream, const es_format_t *p_fmt )
             if( p_sys->b_master_sync )
             {
                 id->pf_drift_validate = ValidateDrift;
-                id->callback_data = p_sys;
+                id->callback_data = p_stream;
             }
             break;
         case VIDEO_ES:
@@ -616,14 +643,18 @@ static void *Add( sout_stream_t *p_stream, const es_format_t *p_fmt )
     if( p_fmt->i_cat == AUDIO_ES && id->p_enccfg->i_codec )
     {
         success = !transcode_audio_init(p_stream, p_fmt, id);
+        vlc_mutex_lock( &p_sys->lock );
         if( success && p_sys->b_master_sync && !p_sys->id_master_sync )
             p_sys->id_master_sync = id;
+        vlc_mutex_unlock( &p_sys->lock );
     }
     else if( p_fmt->i_cat == VIDEO_ES && id->p_enccfg->i_codec )
     {
         success = !transcode_video_init(p_stream, p_fmt, id);
+        vlc_mutex_lock( &p_sys->lock );
         if( success && !p_sys->id_video )
             p_sys->id_video = id;
+        vlc_mutex_unlock( &p_sys->lock );
     }
     else if( ( p_fmt->i_cat == SPU_ES ) &&
              ( id->p_enccfg->i_codec || p_sys->b_soverlay ) )
@@ -644,6 +675,7 @@ static void *Add( sout_stream_t *p_stream, const es_format_t *p_fmt )
     return id;
 
 error:
+    decoder_Destroy( id->p_decoder );
     DeleteSoutStreamID( id );
     return NULL;
 }
@@ -652,29 +684,39 @@ static void Del( sout_stream_t *p_stream, void *_id )
 {
     sout_stream_sys_t *p_sys = p_stream->p_sys;
     sout_stream_id_sys_t *id = (sout_stream_id_sys_t *)_id;
+
     if( id->b_transcode )
     {
-        switch( id->p_decoder->fmt_in.i_cat )
+        int i_cat = id->p_decoder ? id->p_decoder->fmt_in.i_cat : UNKNOWN_ES;
+        switch( i_cat )
         {
         case AUDIO_ES:
             Send( p_stream, id, NULL );
-            transcode_audio_clean( id );
+            decoder_Destroy( id->p_decoder );
+            vlc_mutex_lock( &p_sys->lock );
             if( id == p_sys->id_master_sync )
                 p_sys->id_master_sync = NULL;
+            vlc_mutex_unlock( &p_sys->lock );
+            transcode_audio_clean( p_stream, id );
             break;
         case VIDEO_ES:
             Send( p_stream, id, NULL );
+            decoder_Destroy( id->p_decoder );
+            vlc_mutex_lock( &p_sys->lock );
             if( id == p_sys->id_video )
                 p_sys->id_video = NULL;
+            vlc_mutex_unlock( &p_sys->lock );
             transcode_video_clean( p_stream, id );
             break;
         case SPU_ES:
+            decoder_Destroy( id->p_decoder );
             transcode_spu_clean( p_stream, id );
             break;
         default:
             break;
         }
     }
+    else decoder_Destroy( id->p_decoder );
 
     if( id->downstream_id ) sout_StreamIdDel( p_stream->p_next, id->downstream_id );
 

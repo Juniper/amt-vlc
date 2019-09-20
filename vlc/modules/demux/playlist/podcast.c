@@ -2,7 +2,6 @@
  * podcast.c : podcast playlist imports
  *****************************************************************************
  * Copyright (C) 2005-2009 VLC authors and VideoLAN
- * $Id: 200a1d0b8ca72ff80d308905898c4e704d75b27c $
  *
  * Authors: Antoine Cellerier <dionoea -at- videolan -dot- org>
  *
@@ -287,7 +286,8 @@ static int ReadDir( stream_t *p_demux, input_item_node_t *p_subitems )
                     }
 
                     vlc_xml_decode( psz_item_mrl );
-                    vlc_xml_decode( psz_item_name );
+                    if( psz_item_name )
+                       vlc_xml_decode( psz_item_name );
                     p_input = input_item_New( psz_item_mrl, psz_item_name );
                     FREENULL( psz_item_mrl );
                     FREENULL( psz_item_name );
@@ -381,10 +381,10 @@ static vlc_tick_t strTimeToMTime( const char *psz )
     switch( sscanf( psz, "%u:%u:%u", &h, &m, &s ) )
     {
     case 3:
-        return (vlc_tick_t)( ( h*60 + m )*60 + s ) * CLOCK_FREQ;
+        return vlc_tick_from_sec( ( h*60 + m )*60 + s );
     case 2:
-        return (vlc_tick_t)( h*60 + m ) * CLOCK_FREQ;
+        return vlc_tick_from_sec( h*60 + m );
     default:
-        return INPUT_DURATION_UNKNOWN;
+        return INPUT_DURATION_UNSET;
     }
 }

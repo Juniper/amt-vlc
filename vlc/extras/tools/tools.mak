@@ -2,7 +2,8 @@
 #
 # This file is under the same license as the vlc package.
 
-include packages.mak
+include $(TOOLS)/packages.mak
+TARBALLS := $(TOOLS)
 
 #
 # common rules
@@ -24,14 +25,24 @@ else
 download = $(error Neither curl nor wget found!)
 endif
 
+ifeq ($(shell sha512sum --version >/dev/null 2>&1 || echo FAIL),)
+SHA512SUM = sha512sum --check
+else ifeq ($(shell shasum --version >/dev/null 2>&1 || echo FAIL),)
+SHA512SUM = shasum -a 512 --check
+else ifeq ($(shell openssl version >/dev/null 2>&1 || echo FAIL),)
+SHA512SUM = openssl dgst -sha512
+else
+SHA512SUM = $(error SHA-512 checksumming not found!)
+endif
+
 download_pkg = $(call download,$(VIDEOLAN)/$(2)/$(lastword $(subst /, ,$(@)))) || \
 	( $(call download,$(1)) && echo "Please upload package $(lastword $(subst /, ,$(@))) to our FTP" )  \
-	&& grep $(@) SHA512SUMS| shasum -a 512 -c
+	&& grep $(@) $(TOOLS)/SHA512SUMS| $(SHA512SUM)
 
 UNPACK = $(RM) -R $@ \
-    $(foreach f,$(filter %.tar.gz %.tgz,$^), && tar xvzf $(f)) \
-    $(foreach f,$(filter %.tar.bz2,$^), && tar xvjf $(f)) \
-    $(foreach f,$(filter %.tar.xz,$^), && tar xvJf $(f)) \
+    $(foreach f,$(filter %.tar.gz %.tgz,$^), && tar xvzfo $(f)) \
+    $(foreach f,$(filter %.tar.bz2,$^), && tar xvjfo $(f)) \
+    $(foreach f,$(filter %.tar.xz,$^), && tar xvJfo $(f)) \
     $(foreach f,$(filter %.zip,$^), && unzip $(f))
 
 UNPACK_DIR = $(patsubst %.tar,%,$(basename $(notdir $<)))
@@ -81,7 +92,7 @@ cmake-$(CMAKE_VERSION).tar.gz:
 
 cmake: cmake-$(CMAKE_VERSION).tar.gz
 	$(UNPACK)
-	$(APPLY) cmake-winstore.patch
+	$(APPLY) $(TOOLS)/cmake-msys-FindPkg.patch
 	$(MOVE)
 
 .buildcmake: cmake
@@ -115,9 +126,12 @@ libtool-$(LIBTOOL_VERSION).tar.gz:
 
 libtool: libtool-$(LIBTOOL_VERSION).tar.gz
 	$(UNPACK)
-	$(APPLY) libtool-2.4.2-bitcode.patch
-	$(APPLY) libtool-2.4.2-san.patch
-	$(APPLY) libtool-2.4.6-clang-libs.patch
+	(cd $(UNPACK_DIR) && chmod u+w build-aux/ltmain.sh)
+	$(APPLY) $(TOOLS)/libtool-2.4.6-bitcode.patch
+	$(APPLY) $(TOOLS)/libtool-2.4.6-san.patch
+	$(APPLY) $(TOOLS)/libtool-2.4.6-clang-libs.patch
+	$(APPLY) $(TOOLS)/libtool-2.4.6-response-files.patch
+	(cd $(UNPACK_DIR) && autoreconf -fv)
 	$(MOVE)
 
 .buildlibtool: libtool .automake .help2man
@@ -188,6 +202,7 @@ automake-$(AUTOMAKE_VERSION).tar.gz:
 
 automake: automake-$(AUTOMAKE_VERSION).tar.gz
 	$(UNPACK)
+	$(APPLY) $(TOOLS)/automake-clang.patch
 	$(MOVE)
 
 .buildautomake: automake .autoconf
@@ -205,8 +220,8 @@ m4-$(M4_VERSION).tar.gz:
 
 m4: m4-$(M4_VERSION).tar.gz
 	$(UNPACK)
-	$(APPLY) bison-macOS-c41f233c.patch
-	$(APPLY) bison-macOS-7df04f9.patch
+	$(APPLY) $(TOOLS)/bison-macOS-c41f233c.patch
+	$(APPLY) $(TOOLS)/bison-macOS-7df04f9.patch
 	$(MOVE)
 
 .buildm4: m4
@@ -258,7 +273,7 @@ ragel-$(RAGEL_VERSION).tar.gz:
 
 ragel: ragel-$(RAGEL_VERSION).tar.gz
 	$(UNPACK)
-	$(APPLY) ragel-6.8-javacodegen.patch
+	$(APPLY) $(TOOLS)/ragel-6.8-javacodegen.patch
 	$(MOVE)
 
 
@@ -333,8 +348,8 @@ bison-$(BISON_VERSION).tar.xz:
 
 bison: bison-$(BISON_VERSION).tar.xz
 	$(UNPACK)
-	$(APPLY) bison-macOS-c41f233c.patch
-	$(APPLY) bison-macOS-7df04f9.patch
+	$(APPLY) $(TOOLS)/bison-macOS-c41f233c.patch
+	$(APPLY) $(TOOLS)/bison-macOS-7df04f9.patch
 	$(MOVE)
 
 .buildbison: bison
@@ -385,6 +400,44 @@ CLEAN_PKG += gettext
 DISTCLEAN_PKG += gettext-$(GETTEXT_VERSION).tar.gz
 CLEAN_FILE += .buildgettext
 
+#
+# meson build
+#
+
+meson-$(MESON_VERSION).tar.gz:
+	$(call download_pkg,$(MESON_URL),meson)
+
+meson: meson-$(MESON_VERSION).tar.gz
+	$(UNPACK)
+	$(MOVE)
+
+.buildmeson: meson
+	printf "#!/bin/sh\n\npython3 $(abspath .)/meson/meson.py \"\$$@\"\n" > $(PREFIX)/bin/meson
+	chmod +x $(PREFIX)/bin/meson
+	touch $@
+
+CLEAN_PKG += meson
+DISTCLEAN_PKG += meson-$(MESON_VERSION).tar.gz
+CLEAN_FILE += .buildmeson
+
+#
+# ninja build
+#
+
+ninja-$(NINJA_VERSION).tar.gz:
+	$(call download_pkg,$(NINJA_URL),ninja)
+
+ninja: ninja-$(NINJA_VERSION).tar.gz
+	$(UNPACK)
+	$(MOVE)
+
+.buildninja: ninja
+	(cd $<; ./configure.py --bootstrap && mv ninja $(PREFIX)/bin/)
+	touch $@
+
+CLEAN_PKG += ninja
+DISTCLEAN_PKG += ninja-$(NINJA_VERSION).tar.gz
+CLEAN_FILE += .buildninja
 
 #
 #

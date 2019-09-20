@@ -2,7 +2,6 @@
  * tta.c : The Lossless True Audio parser
  *****************************************************************************
  * Copyright (C) 2006 VLC authors and VideoLAN
- * $Id: 187065eb176895df249c590caad9ee1d0242d159 $
  *
  * Authors: Derk-Jan Hartman <hartman at videolan dot org>
  *
@@ -226,7 +225,7 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
 {
     demux_sys_t *p_sys = p_demux->p_sys;
     double   f, *pf;
-    int64_t i64, *pi64;
+    int64_t i64;
 
     switch( i_query )
     {
@@ -265,13 +264,12 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
             return VLC_EGENERIC;
 
         case DEMUX_GET_LENGTH:
-            pi64 = va_arg( args, int64_t * );
-            *pi64 = vlc_tick_from_sec( p_sys->i_totalframes * TTA_FRAMETIME );
+            *va_arg( args, vlc_tick_t * ) =
+                vlc_tick_from_sec( p_sys->i_totalframes * TTA_FRAMETIME );
             return VLC_SUCCESS;
 
         case DEMUX_GET_TIME:
-            pi64 = va_arg( args, int64_t * );
-            *pi64 = vlc_tick_from_sec( p_sys->i_currentframe * TTA_FRAMETIME );
+            *va_arg( args, vlc_tick_t * ) = vlc_tick_from_sec( p_sys->i_currentframe * TTA_FRAMETIME );
             return VLC_SUCCESS;
 
         case DEMUX_CAN_PAUSE:

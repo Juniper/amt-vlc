@@ -2,7 +2,6 @@
  * plugins.hpp : Plug-ins and extensions listing
  ****************************************************************************
  * Copyright (C) 2008 the VideoLAN team
- * $Id: f4cf5adf2882fda8f376c43e0f05c95f7e03a49a $
  *
  * Authors: Jean-Baptiste Kempf <jb (at) videolan.org>
  *
@@ -142,7 +141,7 @@ private slots:
 private:
     AddonsTab( intf_thread_t *p_intf );
     virtual ~AddonsTab();
-    bool eventFilter ( QObject * watched, QEvent * event );
+    bool eventFilter ( QObject * watched, QEvent * event ) override;
 
     enum
     {

@@ -2,7 +2,6 @@
  * logo.c : logo video plugin for vlc
  *****************************************************************************
  * Copyright (C) 2003-2006 VLC authors and VideoLAN
- * $Id: fb062f34141531a647b3bd6c58f547641c2c232f $
  *
  * Authors: Gildas Bazin <gbazin@videolan.org>
  *          Simon Latapie <garf@videolan.org>
@@ -381,12 +380,15 @@ static subpicture_t *FilterSub( filter_t *p_filter, vlc_tick_t date )
         goto exit;
 
     /* Create new SPU region */
-    memset( &fmt, 0, sizeof(video_format_t) );
-    fmt.i_chroma = VLC_CODEC_YUVA;
+    video_format_Init( &fmt, VLC_CODEC_YUVA );
     fmt.i_sar_num = fmt.i_sar_den = 1;
     fmt.i_width = fmt.i_visible_width = p_pic->p[Y_PLANE].i_visible_pitch;
     fmt.i_height = fmt.i_visible_height = p_pic->p[Y_PLANE].i_visible_lines;
     fmt.i_x_offset = fmt.i_y_offset = 0;
+    fmt.transfer    = p_pic->format.transfer;
+    fmt.primaries   = p_pic->format.primaries;
+    fmt.space       = p_pic->format.space;
+    fmt.color_range = p_pic->format.color_range;
     p_region = subpicture_region_New( &fmt );
     if( !p_region )
     {
@@ -542,9 +544,9 @@ static int Mouse( filter_t *p_filter, vlc_mouse_t *p_mouse,
             int i_dx, i_dy;
             vlc_mouse_GetMotion( &i_dx, &i_dy, p_old, p_new );
             p_sys->i_pos_x = VLC_CLIP( p_sys->i_pos_x + i_dx, 0,
-                                    p_filter->fmt_in.video.i_width  - i_logo_w );
+                                    (int)p_filter->fmt_in.video.i_width  - i_logo_w );
             p_sys->i_pos_y = VLC_CLIP( p_sys->i_pos_y + i_dy, 0,
-                                    p_filter->fmt_in.video.i_height - i_logo_h );
+                                    (int)p_filter->fmt_in.video.i_height - i_logo_h );
         }
 
         if( p_sys->b_mouse_grab || b_over )
@@ -609,20 +611,18 @@ static picture_t *LoadImage( vlc_object_t *p_this, const char *psz_filename )
     if( !psz_filename )
         return NULL;
 
-    video_format_t fmt_in;
-    video_format_Init( &fmt_in, 0 );
-
-    video_format_t fmt_out;
-    video_format_Init( &fmt_out, VLC_CODEC_YUVA );
-
     image_handler_t *p_image = image_HandlerCreate( p_this );
     if( !p_image )
         return NULL;
 
+    video_format_t fmt_out;
+    video_format_Init( &fmt_out, VLC_CODEC_YUVA );
+
     char *psz_url = vlc_path2uri( psz_filename, NULL );
-    picture_t *p_pic = image_ReadUrl( p_image, psz_url, &fmt_in, &fmt_out );
+    picture_t *p_pic = image_ReadUrl( p_image, psz_url, &fmt_out );
     free( psz_url );
     image_HandlerDelete( p_image );
+    video_format_Clean( &fmt_out );
 
     return p_pic;
 }

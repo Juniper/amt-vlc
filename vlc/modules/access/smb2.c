@@ -58,8 +58,6 @@
 
 #include "smb_common.h"
 
-#define CIFS_PORT 445
-
 static int Open(vlc_object_t *);
 static void Close(vlc_object_t *);
 
@@ -137,17 +135,20 @@ smb2_set_generic_error(stream_t *access, const char *psz_func)
 static int
 vlc_smb2_mainloop(stream_t *access, bool teardown)
 {
+#define TEARDOWN_TIMEOUT 250 /* in ms */
     struct access_sys *sys = access->p_sys;
 
     int timeout = -1;
     int (*poll_func)(struct pollfd *, unsigned, int) = vlc_poll_i11e;
 
-    if (teardown && vlc_killed())
+    if (teardown)
     {
-        /* The thread is interrupted, so vlc_poll_i11e will return immediatly.
-         * Use poll() with a timeout instead for tear down. */
-        timeout = 500;
+        /* Don't use vlc_poll_i11e that will return immediately with the EINTR
+         * errno if VLC's input is interrupted. Use the posix poll with a
+         * timeout to let a chance for a clean teardown. */
+        timeout = TEARDOWN_TIMEOUT;
         poll_func = (void *)poll;
+        sys->error_status = 0;
     }
 
     sys->res_done = false;
@@ -161,11 +162,27 @@ vlc_smb2_mainloop(stream_t *access, bool teardown)
         if (p_fds[0].fd == -1 || (ret = poll_func(p_fds, 1, timeout)) < 0)
         {
             if (errno == EINTR)
+            {
                 msg_Warn(access, "vlc_poll_i11e interrupted");
+                if (poll_func != (void *) poll)
+                {
+                    /* Try again with a timeout to let the command complete.
+                     * Indeed, if this command is interrupted, every future
+                     * commands will fail and we won't be able to teardown. */
+                    timeout = TEARDOWN_TIMEOUT;
+                    poll_func = (void *) poll;
+                }
+                else
+                    sys->error_status = -errno;
+            }
             else
+            {
                 msg_Err(access, "vlc_poll_i11e failed");
-            sys->error_status = -errno;
+                sys->error_status = -errno;
+            }
         }
+        else if (ret == 0)
+            sys->error_status = -ETIMEDOUT;
         else if (ret > 0 && p_fds[0].revents
              && smb2_service(sys->smb2, p_fds[0].revents) < 0)
             VLC_SMB2_SET_GENERIC_ERROR(access, "smb2_service");
@@ -464,7 +481,8 @@ vlc_smb2_open_share(stream_t *access, const struct smb2_url *smb2_url,
     if (!username)
     {
         username = "Guest";
-        password = "";
+        /* A NULL password enable ntlmssp anonymous login */
+        password = NULL;
     }
 
     smb2_set_password(sys->smb2, password);
@@ -583,10 +601,6 @@ Open(vlc_object_t *p_obj)
     if (vlc_UrlParseFixup(&sys->encoded_url, access->psz_url) != 0)
         return VLC_ENOMEM;
 
-    if (sys->encoded_url.i_port != 0 && sys->encoded_url.i_port != CIFS_PORT)
-        goto error;
-    sys->encoded_url.i_port = 0;
-
     sys->smb2 = smb2_init_context();
     if (sys->smb2 == NULL)
     {
@@ -594,14 +608,16 @@ Open(vlc_object_t *p_obj)
         goto error;
     }
 
+    smb2_set_security_mode(sys->smb2, SMB2_NEGOTIATE_SIGNING_ENABLED);
+
     if (sys->encoded_url.psz_path == NULL)
         sys->encoded_url.psz_path = (char *) "/";
 
     char *resolved_host = vlc_smb2_resolve(access, sys->encoded_url.psz_host,
-                                           CIFS_PORT);
+                                           sys->encoded_url.i_port);
 
     /* smb2_* functions need a decoded url. Re compose the url from the
-     * modified sys->encoded_url (without port and with the resolved host). */
+     * modified sys->encoded_url (with the resolved host). */
     char *url;
     if (resolved_host != NULL)
     {
@@ -653,9 +669,17 @@ Open(vlc_object_t *p_obj)
 
     if (ret != 0)
     {
-        vlc_dialog_display_error(access,
-                                 _("SMB2 operation failed"), "%s",
-                                 smb2_get_error(sys->smb2));
+        const char *error = smb2_get_error(sys->smb2);
+        if (error && *error)
+            vlc_dialog_display_error(access,
+                                     _("SMB2 operation failed"), "%s", error);
+        if (credential.i_get_order == GET_FROM_DIALOG)
+        {
+            /* Tell other smb modules (likely dsm) that we already requested
+             * credential to the users and that it it useless to try again.
+             * This avoid to show 2 login dialogs for the same access. */
+            var_Create(access, "smb-dialog-failed", VLC_VAR_VOID);
+        }
         goto error;
     }
 

@@ -2,7 +2,6 @@
  * puzzle_bezier.c : Bezier curves management
  *****************************************************************************
  * Copyright (C) 2013 Vianney Boyer
- * $Id: 92cc1788030d6bdc1064b483071602086e7da5be $
  *
  * Author:  Vianney Boyer <vlcvboyer -at- gmail -dot- com>
  *

@@ -4,7 +4,6 @@
  * Copyright (C) 2006-2009 the VideoLAN team
  * Copyright (C) 2007 Société des arts technologiques
  * Copyright (C) 2007 Savoir-faire Linux
- * $Id: 48044383a53bb0026863bdeafcb012a0b0c75bdf $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *          Jean-Baptiste Kempf <jb@videolan.org>
@@ -34,10 +33,10 @@
 
 #include "components/preferences_widgets.hpp"
 
-#include "ui/open_file.h"
-#include "ui/open_disk.h"
-#include "ui/open_net.h"
-#include "ui/open_capture.h"
+#include "ui_open_file.h"
+#include "ui_open_disk.h"
+#include "ui_open_net.h"
+#include "ui_open_capture.h"
 
 #include <QFileDialog>
 

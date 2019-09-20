@@ -38,7 +38,6 @@
 #include <va/va.h>
 
 #include <vlc_common.h>
-#include <vlc_fs.h>
 #include <vlc_fourcc.h>
 #include <vlc_filter.h>
 #include <vlc_picture_pool.h>
@@ -72,118 +71,6 @@ vlc_chroma_to_vaapi(int i_vlc_chroma, unsigned *va_rt_format, int *va_fourcc)
             break;
         default:
             vlc_assert_unreachable();
-    }
-}
-
-/**************************
- * VA instance management *
- **************************/
-
-struct vlc_vaapi_instance {
-    VADisplay dpy;
-    VANativeDisplay native;
-    vlc_vaapi_native_destroy_cb native_destroy_cb;
-    atomic_uint pic_refcount;
-};
-
-struct vlc_vaapi_instance *
-vlc_vaapi_InitializeInstance(vlc_object_t *o, VADisplay dpy,
-                             VANativeDisplay native,
-                             vlc_vaapi_native_destroy_cb native_destroy_cb)
-{
-    int major = 0, minor = 0;
-    VA_CALL(o, vaInitialize, dpy, &major, &minor);
-    struct vlc_vaapi_instance *inst = malloc(sizeof(*inst));
-
-    if (unlikely(inst == NULL))
-        goto error;
-    inst->dpy = dpy;
-    inst->native = native;
-    inst->native_destroy_cb = native_destroy_cb;
-    atomic_init(&inst->pic_refcount, 1);
-
-    return inst;
-error:
-    vaTerminate(dpy);
-    if (native != NULL && native_destroy_cb != NULL)
-        native_destroy_cb(native);
-    return NULL;
-}
-
-static void native_drm_destroy_cb(VANativeDisplay native)
-{
-    vlc_close((intptr_t) native);
-}
-
-struct vlc_vaapi_instance *
-vlc_vaapi_InitializeInstanceDRM(vlc_object_t *o,
-                                VADisplay (*pf_getDisplayDRM)(int),
-                                VADisplay *pdpy, const char *device)
-{
-    static const char *default_drm_device_paths[] = {
-        "/dev/dri/renderD128",
-        "/dev/dri/card0",
-        "/dev/dri/renderD129",
-        "/dev/dri/card1",
-    };
-
-    const char *user_drm_device_paths[] = { device };
-    const char **drm_device_paths;
-    size_t drm_device_paths_count;
-
-    if (device != NULL)
-    {
-        drm_device_paths = user_drm_device_paths;
-        drm_device_paths_count = 1;
-    }
-    else
-    {
-        drm_device_paths = default_drm_device_paths;
-        drm_device_paths_count = ARRAY_SIZE(default_drm_device_paths);
-    }
-
-    for (size_t i = 0; i < drm_device_paths_count; i++)
-    {
-        int drm_fd = vlc_open(drm_device_paths[i], O_RDWR);
-        if (drm_fd < 0)
-            continue;
-
-        VADisplay dpy = pf_getDisplayDRM(drm_fd);
-        if (dpy)
-        {
-            struct vlc_vaapi_instance *va_inst =
-                vlc_vaapi_InitializeInstance(o, dpy,
-                                             (VANativeDisplay)(intptr_t)drm_fd,
-                                             native_drm_destroy_cb);
-            if (va_inst)
-            {
-                *pdpy = dpy;
-                return va_inst;
-            }
-        }
-        else
-            vlc_close(drm_fd);
-    }
-    return NULL;
-}
-
-
-VADisplay
-vlc_vaapi_HoldInstance(struct vlc_vaapi_instance *inst)
-{
-    atomic_fetch_add(&inst->pic_refcount, 1);
-    return inst->dpy;
-}
-
-void
-vlc_vaapi_ReleaseInstance(struct vlc_vaapi_instance *inst)
-{
-    if (atomic_fetch_sub(&inst->pic_refcount, 1) == 1)
-    {
-        vaTerminate(inst->dpy);
-        if (inst->native != NULL && inst->native_destroy_cb != NULL)
-            inst->native_destroy_cb(inst->native);
-        free(inst);
     }
 }
 
@@ -539,7 +426,7 @@ struct pic_sys_vaapi_instance
 {
     atomic_int pic_refcount;
     VADisplay va_dpy;
-    struct vlc_vaapi_instance *va_inst;
+    vlc_decoder_device *dec_device;
     unsigned num_render_targets;
     VASurfaceID render_targets[];
 };
@@ -560,11 +447,10 @@ pool_pic_destroy_cb(picture_t *pic)
     {
         vaDestroySurfaces(instance->va_dpy, instance->render_targets,
                           instance->num_render_targets);
-        vlc_vaapi_ReleaseInstance(instance->va_inst);
+        vlc_decoder_device_Release(instance->dec_device);
         free(instance);
     }
     free(pic->p_sys);
-    free(pic);
 }
 
 static void
@@ -597,7 +483,7 @@ pic_sys_ctx_destroy_cb(struct picture_context_t *opaque)
 }
 
 picture_pool_t *
-vlc_vaapi_PoolNew(vlc_object_t *o, struct vlc_vaapi_instance *va_inst,
+vlc_vaapi_PoolNew(vlc_object_t *o, vlc_decoder_device *dec_device,
                   VADisplay dpy, unsigned count, VASurfaceID **render_targets,
                   const video_format_t *restrict fmt, bool b_force_fourcc)
 {
@@ -666,8 +552,8 @@ vlc_vaapi_PoolNew(vlc_object_t *o, struct vlc_vaapi_instance *va_inst,
         goto error_pic;
 
     atomic_store(&instance->pic_refcount, count);
-    instance->va_dpy = vlc_vaapi_HoldInstance(va_inst);
-    instance->va_inst = va_inst;
+    instance->va_dpy = dpy;
+    instance->dec_device = vlc_decoder_device_Hold(dec_device);
 
     *render_targets = instance->render_targets;
     return pool;
@@ -693,13 +579,13 @@ vlc_vaapi_PicSysGetRenderTargets(void *_sys, VASurfaceID **render_targets)
     return sys->instance->num_render_targets;
 }
 
-struct vlc_vaapi_instance *
+vlc_decoder_device *
 vlc_vaapi_PicSysHoldInstance(void *_sys, VADisplay *dpy)
 {
     picture_sys_t *sys = (picture_sys_t *)_sys;
     assert(sys->instance != NULL);
-    *dpy = vlc_vaapi_HoldInstance(sys->instance->va_inst);
-    return sys->instance->va_inst;
+    *dpy = sys->instance->va_dpy;
+    return vlc_decoder_device_Hold(sys->instance->dec_device);
 }
 
 #define ASSERT_VAAPI_CHROMA(pic) do { \

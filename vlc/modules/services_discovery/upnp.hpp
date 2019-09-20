@@ -3,7 +3,7 @@
  *****************************************************************************
  * Copyright (C) 2004-2018 VLC authors and VideoLAN
  *
- * Authors: Rémi Denis-Courmont <rem # videolan.org> (original plugin)
+ * Authors: Rémi Denis-Courmont (original plugin)
  *          Christian Henz <henz # c-lab.de>
  *          Mirsal Ennaime <mirsal dot ennaime at gmail dot com>
  *          Hugo Beauzée-Luyssen <hugo@beauzee.fr>
@@ -27,14 +27,13 @@
 #include <vector>
 #include <string>
 
-#ifdef _WIN32
-#include <windows.h>
-#include <wincrypt.h>
-#endif
-
 #include "upnp-wrapper.hpp"
+#include "../stream_out/dlna/dlna_common.hpp"
 
 #include <vlc_url.h>
+#include <vlc_interrupt.h>
+#include <vlc_threads.h>
+#include <vlc_cxx_helpers.hpp>
 
 namespace SD
 {
@@ -70,6 +69,7 @@ public:
 
 private:
     void parseNewServer( IXML_Document* doc, const std::string& location );
+    void parseSatipServer( IXML_Element* p_device_elem, const char *psz_base_url, const char *psz_udn, const char *psz_friendly_name, std::string iconUrl );
     std::string getIconURL( IXML_Element* p_device_elem , const char* psz_base_url );
 
 private:
@@ -86,13 +86,13 @@ class Upnp_i11e_cb
 {
 public:
     Upnp_i11e_cb( Upnp_FunPtr callback, void *cookie );
-    ~Upnp_i11e_cb();
+    ~Upnp_i11e_cb() = default;
     void waitAndRelease( void );
     static int run( Upnp_EventType, UpnpEventPtr, void *);
 
 private:
-    vlc_sem_t       m_sem;
-    vlc_mutex_t     m_lock;
+    vlc::threads::semaphore m_sem;
+    vlc::threads::mutex m_lock;
     int             m_refCount;
     Upnp_FunPtr     m_callback;
     void*           m_cookie;
@@ -121,6 +121,45 @@ private:
     char* m_psz_objectId;
     stream_t* m_access;
     input_item_node_t* m_node;
+};
+
+}
+
+namespace RD
+{
+
+struct MediaRendererDesc
+{
+    MediaRendererDesc( const std::string& udn, const std::string& fName,
+                    const std::string& base, const std::string& loc );
+    ~MediaRendererDesc();
+    std::string UDN;
+    std::string friendlyName;
+    std::string base_url;               // base url of the renderer
+    std::string location;               // device description url
+    vlc_renderer_item_t *inputItem;
+};
+
+class MediaRendererList : public UpnpInstanceWrapper::Listener
+{
+public:
+    MediaRendererList( vlc_renderer_discovery_t *p_rd );
+    ~MediaRendererList();
+
+    bool addRenderer(MediaRendererDesc *desc );
+    void removeRenderer(const std::string &udn );
+    MediaRendererDesc* getRenderer( const std::string& udn );
+    int onEvent( Upnp_EventType event_type,
+                 UpnpEventPtr p_event,
+                 void* p_user_data ) override;
+
+private:
+    void parseNewRenderer( IXML_Document* doc, const std::string& location );
+
+private:
+    vlc_renderer_discovery_t* const m_rd;
+    std::vector<MediaRendererDesc*> m_list;
+
 };
 
 }

@@ -2,7 +2,6 @@
  * vc1.c : VC1 Video demuxer
  *****************************************************************************
  * Copyright (C) 2002-2004 VLC authors and VideoLAN
- * $Id: 069cc39a39189aac8949364a2852ce85fa65b894 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *
@@ -180,11 +179,11 @@ static int Demux( demux_t *p_demux)
 
             if( p_sys->p_packetizer->fmt_out.video.i_frame_rate > 0 &&
                 p_sys->p_packetizer->fmt_out.video.i_frame_rate_base > 0 )
-                p_sys->i_dts += CLOCK_FREQ *
-                    p_sys->p_packetizer->fmt_out.video.i_frame_rate_base /
-                    p_sys->p_packetizer->fmt_out.video.i_frame_rate;
+                p_sys->i_dts += vlc_tick_from_samples(
+                    p_sys->p_packetizer->fmt_out.video.i_frame_rate_base,
+                    p_sys->p_packetizer->fmt_out.video.i_frame_rate );
             else if( p_sys->f_fps > 0.001f )
-                p_sys->i_dts += (int64_t)((float) CLOCK_FREQ / p_sys->f_fps);
+                p_sys->i_dts += (vlc_tick_t)((float) CLOCK_FREQ / p_sys->f_fps);
             else
                 p_sys->i_dts += VLC_TICK_FROM_MS(40);
         }

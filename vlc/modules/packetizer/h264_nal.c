@@ -25,6 +25,8 @@
 
 #include "h264_nal.h"
 #include "hxxx_nal.h"
+#include "hxxx_ep3b.h"
+#include "iso_color_tables.h"
 
 #include <vlc_bits.h>
 #include <vlc_boxes.h>
@@ -56,6 +58,9 @@ enum h264_level_numbers_e
     H264_LEVEL_NUMBER_5   = 50,
     H264_LEVEL_NUMBER_5_1 = 51,
     H264_LEVEL_NUMBER_5_2 = 52,
+    H264_LEVEL_NUMBER_6   = 60,
+    H264_LEVEL_NUMBER_6_1 = 61,
+    H264_LEVEL_NUMBER_6_2 = 62,
 };
 
 const struct
@@ -80,6 +85,9 @@ const struct
     { H264_LEVEL_NUMBER_5,   { 110400 } },
     { H264_LEVEL_NUMBER_5_1, { 184320 } },
     { H264_LEVEL_NUMBER_5_2, { 184320 } },
+    { H264_LEVEL_NUMBER_6,   { 696320 } },
+    { H264_LEVEL_NUMBER_6_1, { 696320 } },
+    { H264_LEVEL_NUMBER_6_2, { 696320 } },
 };
 
 /*
@@ -460,9 +468,9 @@ static bool h264_parse_sequence_parameter_set_rbsp( bs_t *p_bs,
             }
             else
             {
-                p_sps->vui.colour.i_colour_primaries = HXXX_PRIMARIES_UNSPECIFIED;
-                p_sps->vui.colour.i_transfer_characteristics = HXXX_TRANSFER_UNSPECIFIED;
-                p_sps->vui.colour.i_matrix_coefficients = HXXX_MATRIX_UNSPECIFIED;
+                p_sps->vui.colour.i_colour_primaries = ISO_23001_8_CP_UNSPECIFIED;
+                p_sps->vui.colour.i_transfer_characteristics = ISO_23001_8_TC_UNSPECIFIED;
+                p_sps->vui.colour.i_matrix_coefficients = ISO_23001_8_MC_UNSPECIFIED;
             }
         }
 
@@ -614,14 +622,13 @@ static bool h264_parse_picture_parameter_set_rbsp( bs_t *p_bs,
         if(likely(p_h264type)) \
         { \
             bs_t bs; \
-            bs_init( &bs, p_buf, i_buf ); \
-            unsigned i_bitflow = 0; \
+            struct hxxx_bsfw_ep3b_ctx_s bsctx; \
             if( b_escaped ) \
             { \
-                bs.p_fwpriv = &i_bitflow; \
-                bs.pf_forward = hxxx_bsfw_ep3b_to_rbsp;  /* Does the emulated 3bytes conversion to rbsp */ \
+                hxxx_bsfw_ep3b_ctx_init( &bsctx ); \
+                bs_init_custom( &bs, p_buf, i_buf, &hxxx_bsfw_ep3b_callbacks, &bsctx );\
             } \
-            else (void) i_bitflow;\
+            else bs_init( &bs, p_buf, i_buf ); \
             bs_skip( &bs, 8 ); /* Skip nal_unit_header */ \
             if( !decode( &bs, p_h264type ) ) \
             { \
@@ -733,6 +740,9 @@ bool h264_get_dpb_values( const h264_sequence_parameter_set_t *p_sps,
     {
         switch( p_sps->i_profile ) /* E-2.1 */
         {
+            case PROFILE_H264_BASELINE:
+                i_max_num_reorder_frames = 0; /* only I & P */
+                break;
             case PROFILE_H264_CAVLC_INTRA:
             case PROFILE_H264_SVC_HIGH:
             case PROFILE_H264_HIGH:
@@ -801,17 +811,17 @@ bool h264_get_colorimetry( const h264_sequence_parameter_set_t *p_sps,
                            video_color_primaries_t *p_primaries,
                            video_transfer_func_t *p_transfer,
                            video_color_space_t *p_colorspace,
-                           bool *p_full_range )
+                           video_color_range_t *p_full_range )
 {
     if( !p_sps->vui.b_valid )
         return false;
     *p_primaries =
-        hxxx_colour_primaries_to_vlc( p_sps->vui.colour.i_colour_primaries );
+        iso_23001_8_cp_to_vlc_primaries( p_sps->vui.colour.i_colour_primaries );
     *p_transfer =
-        hxxx_transfer_characteristics_to_vlc( p_sps->vui.colour.i_transfer_characteristics );
+        iso_23001_8_tc_to_vlc_xfer( p_sps->vui.colour.i_transfer_characteristics );
     *p_colorspace =
-        hxxx_matrix_coeffs_to_vlc( p_sps->vui.colour.i_matrix_coefficients );
-    *p_full_range = p_sps->vui.colour.b_full_range;
+        iso_23001_8_mc_to_vlc_coeffs( p_sps->vui.colour.i_matrix_coefficients );
+    *p_full_range = p_sps->vui.colour.b_full_range ? COLOR_RANGE_FULL : COLOR_RANGE_LIMITED;
     return true;
 }
 

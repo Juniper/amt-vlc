@@ -503,7 +503,7 @@ static subpicture_t *Subtitle( decoder_t *p_dec, eia608_t *h, vlc_tick_t i_pts )
         return NULL;
 
     p_spu->i_start    = i_pts;
-    p_spu->i_stop     = i_pts + 10000000;   /* 10s max */
+    p_spu->i_stop     = i_pts + VLC_TICK_FROM_SEC(10);   /* 10s max */
     p_spu->b_ephemer  = true;
     p_spu->b_absolute = false;
 
@@ -547,7 +547,7 @@ static void Convert( decoder_t *p_dec, vlc_tick_t i_pts,
     {
         if( (p_buffer[0] & 0x04) /* Valid bit */ )
         {
-            const vlc_tick_t i_spupts = i_pts + i_ticks * CLOCK_FREQ / (1200/3);
+            const vlc_tick_t i_spupts = i_pts + vlc_tick_from_samples(i_ticks, 1200/3);
             /* Mask off the specific i_field bit, else some sequences can be lost. */
             if ( p_sys->p_eia608 &&
                 (p_buffer[0] & 0x03) == p_sys->i_field )

@@ -3,7 +3,6 @@
  *****************************************************************************
  * Copyright (C) 1999-2004 VLC authors and VideoLAN
  * Copyright 2008-2015 Rémi Denis-Courmont
- * $Id: 684290a5379c5f2d4d422af629951659974c6871 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *
@@ -125,7 +124,7 @@ void stream_CommonDelete(stream_t *s)
         block_Release(priv->block);
 
     free(s->psz_url);
-    vlc_object_release(s);
+    vlc_object_delete(s);
 }
 
 /**

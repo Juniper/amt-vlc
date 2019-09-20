@@ -4,12 +4,11 @@
  * This plugin provides support for macOS notifications on current playlist
  * item changes.
  *****************************************************************************
- * Copyright © 2008, 2011, 2012, 2015, 2018 the VideoLAN team
- * $Id: 8ac215e851fd0ecf6af54dfe456d979aecabb671 $
+ * Copyright © 2008, 2011, 2012, 2015, 2018, 2019 the VideoLAN team
  *
- * Authors: Rafaël Carré <funman@videolanorg>
- *          Felix Paul Kühne <fkuehne@videolan.org
- *          Marvin Scholz <epirat07@gmail.com>
+ * Authors: Marvin Scholz <epirat07@gmail.com>
+ *          Felix Paul Kühne <fkuehne # videolan.org>
+ *          Rafaël Carré <funman@videolanorg>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,14 +31,12 @@
 # include "config.h"
 #endif
 
-#import <Foundation/Foundation.h>
 #import <Cocoa/Cocoa.h>
 
 #include <vlc_common.h>
 #include <vlc_plugin.h>
 #include <vlc_playlist.h>
-#include <vlc_input.h>
-#include <vlc_meta.h>
+#include <vlc_player.h>
 #include <vlc_interface.h>
 #include <vlc_url.h>
 
@@ -47,14 +44,14 @@
 #pragma mark Class interfaces
 @interface VLCNotificationDelegate : NSObject <NSUserNotificationCenterDelegate>
 {
-    /** Interface thread, required for skipping to the next item */
-    intf_thread_t * _Nonnull interfaceThread;
-    
     /** Holds the last notification so it can be cleared when the next one is delivered */
-    NSUserNotification * _Nullable lastNotification;
-    
-    /** Indicates if VLC is in foreground */
-    BOOL isInForeground;
+    NSUserNotification * _Nullable _lastNotification;
+
+    /* the playlist reference */
+    vlc_playlist_t *_p_playlist;
+
+    /* the listener ID for player notifications */
+    vlc_player_listener_id *_playerListenerID;
 }
 
 /**
@@ -63,23 +60,32 @@
 - (instancetype)initWithInterfaceThread:(intf_thread_t * _Nonnull)intf_thread;
 
 /**
- * Delegate method called when the current input changed
+ * Delegate method called when the current input item changed
  */
-- (void)currentInputDidChanged:(input_thread_t * _Nonnull)input;
+- (void)currentInputItemChanged:(input_item_t *)inputItem;
 
 @end
 
-
-#pragma mark -
-#pragma mark Local prototypes
 struct intf_sys_t
 {
     void *vlcNotificationDelegate;
 };
 
-static int InputCurrent(vlc_object_t *, const char *,
-                        vlc_value_t, vlc_value_t, void *);
+#pragma mark -
+#pragma mark callback
 
+static void on_current_media_changed(vlc_player_t *player,
+                                     input_item_t *p_input_item, void *data)
+{
+
+    if (p_input_item)
+        input_item_Hold(p_input_item);
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        VLCNotificationDelegate *notificationDelegate = (__bridge VLCNotificationDelegate *)data;
+        [notificationDelegate currentInputItemChanged:p_input_item];
+    });
+}
 
 #pragma mark -
 #pragma mark C module functions
@@ -89,7 +95,6 @@ static int InputCurrent(vlc_object_t *, const char *,
 static int Open(vlc_object_t *p_this)
 {
     intf_thread_t *p_intf = (intf_thread_t *)p_this;
-    playlist_t *p_playlist = pl_Get(p_intf);
     intf_sys_t *p_sys = p_intf->p_sys = calloc(1, sizeof(intf_sys_t));
 
     if (!p_sys)
@@ -107,8 +112,6 @@ static int Open(vlc_object_t *p_this)
         p_sys->vlcNotificationDelegate = (__bridge_retained void*)notificationDelegate;
     }
 
-    var_AddCallback(p_playlist, "input-current", InputCurrent, p_intf);
-
     return VLC_SUCCESS;
 }
 
@@ -118,12 +121,7 @@ static int Open(vlc_object_t *p_this)
 static void Close(vlc_object_t *p_this)
 {
     intf_thread_t *p_intf = (intf_thread_t *)p_this;
-    playlist_t *p_playlist = pl_Get(p_intf);
     intf_sys_t *p_sys = p_intf->p_sys;
-    
-    // Remove the callback, this must be done here, before deallocating the
-    // notification delegate object
-    var_DelCallback(p_playlist, "input-current", InputCurrent, p_intf);
 
     @autoreleasepool {
         // Transfer ownership of notification delegate object back to ARC
@@ -135,27 +133,6 @@ static void Close(vlc_object_t *p_this)
     }
 
     free(p_sys);
-}
-
-/*
- * Callback invoked on playlist item change
- */
-static int InputCurrent(vlc_object_t *p_this, const char *psz_var,
-                        vlc_value_t oldval, vlc_value_t newval, void *param)
-{
-    intf_thread_t *p_intf = (intf_thread_t *)param;
-    intf_sys_t *p_sys = p_intf->p_sys;
-    input_thread_t *p_input = newval.p_address;
-    VLC_UNUSED(oldval);
-
-    @autoreleasepool {
-        VLCNotificationDelegate *notificationDelegate =
-            (__bridge VLCNotificationDelegate*)p_sys->vlcNotificationDelegate;
-        
-        [notificationDelegate currentInputDidChanged:(input_thread_t *)p_input];
-    }
-
-    return VLC_SUCCESS;
 }
 
 /**
@@ -193,18 +170,16 @@ static inline NSString* CharsToNSString(char * _Nullable cStr)
     self = [super init];
     
     if (self) {
-        interfaceThread = intf_thread;
-        
-        // Subscribe to notifications to determine if VLC is in foreground or not
-        [[NSNotificationCenter defaultCenter] addObserver:self
-                                                 selector:@selector(applicationActiveChange:)
-                                                     name:NSApplicationDidBecomeActiveNotification
-                                                   object:nil];
 
-        [[NSNotificationCenter defaultCenter] addObserver:self
-                                                 selector:@selector(applicationActiveChange:)
-                                                     name:NSApplicationDidResignActiveNotification
-                                                   object:nil];
+        _p_playlist = vlc_intf_GetMainPlaylist(intf_thread);
+        vlc_player_t *player = vlc_playlist_GetPlayer(_p_playlist);
+        static const struct vlc_player_cbs player_cbs =
+        {
+            .on_current_media_changed = on_current_media_changed
+        };
+        vlc_player_Lock(player);
+        _playerListenerID = vlc_player_AddListener(player, &player_cbs, (__bridge void *)self);
+        vlc_player_Unlock(player);
 
         [[NSUserNotificationCenter defaultUserNotificationCenter] setDelegate:self];
     }
@@ -212,36 +187,55 @@ static inline NSString* CharsToNSString(char * _Nullable cStr)
     return self;
 }
 
-- (void)currentInputDidChanged:(input_thread_t *)input
+- (void)dealloc
 {
-    if (!input)
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+
+    // Clear a remaining lastNotification in Notification Center, if any
+    if (_lastNotification) {
+        [[NSUserNotificationCenter defaultUserNotificationCenter]
+         removeDeliveredNotification:_lastNotification];
+        _lastNotification = nil;
+    }
+
+    if (_p_playlist) {
+        if (_playerListenerID) {
+            vlc_player_t *player = vlc_playlist_GetPlayer(_p_playlist);
+            vlc_player_Lock(player);
+            vlc_player_RemoveListener(player, _playerListenerID);
+            vlc_player_Unlock(player);
+        }
+    }
+}
+
+- (void)currentInputItemChanged:(input_item_t *)inputItem
+{
+    if (inputItem == NULL) {
         return;
-    
-    input_item_t *item = input_GetItem(input);
-    if (!item)
-        return;
+    }
     
     // Get title, first try now playing
-    NSString *title = CharsToNSString(input_item_GetNowPlayingFb(item));
+    NSString *title = CharsToNSString(input_item_GetNowPlayingFb(inputItem));
 
     // Fallback to item title or name
     if ([title length] == 0)
-        title = CharsToNSString(input_item_GetTitleFbName(item));
+        title = CharsToNSString(input_item_GetTitleFbName(inputItem));
 
     // If there is still not title, do not notify
-    if (unlikely([title length] == 0))
+    if (unlikely([title length] == 0)) {
         return;
+    }
 
     // Get artist name
-    NSString *artist = CharsToNSString(input_item_GetArtist(item));
+    NSString *artist = CharsToNSString(input_item_GetArtist(inputItem));
 
     // Get album name
-    NSString *album = CharsToNSString(input_item_GetAlbum(item));
+    NSString *album = CharsToNSString(input_item_GetAlbum(inputItem));
 
     // Get coverart path
     NSString *artPath = nil;
 
-    char *psz_arturl = input_item_GetArtURL(item);
+    char *psz_arturl = input_item_GetArtURL(inputItem);
     if (psz_arturl) {
         artPath = CharsToNSString(vlc_uri2path(psz_arturl));
         free(psz_arturl);
@@ -258,16 +252,8 @@ static inline NSString* CharsToNSString(char * _Nullable cStr)
     
     // Notify!
     [self notifyWithTitle:title description:desc imagePath:artPath];
-}
 
-/*
- * Called when the applications activity status changes
- */
-- (void)applicationActiveChange:(NSNotification *)n {
-    if (n.name == NSApplicationDidBecomeActiveNotification)
-        isInForeground = YES;
-    else if (n.name == NSApplicationDidResignActiveNotification)
-        isInForeground = NO;
+    input_item_Release(inputItem);
 }
 
 /*
@@ -279,7 +265,9 @@ static inline NSString* CharsToNSString(char * _Nullable cStr)
     // Check if notification button ("Skip") was clicked
     if (notification.activationType == NSUserNotificationActivationTypeActionButtonClicked) {
         // Skip to next song
-        playlist_Next(pl_Get(interfaceThread));
+        vlc_playlist_Lock(_p_playlist);
+        vlc_playlist_Next(_p_playlist);
+        vlc_playlist_Unlock(_p_playlist);
     }
 }
 
@@ -290,10 +278,10 @@ static inline NSString* CharsToNSString(char * _Nullable cStr)
         didDeliverNotification:(NSUserNotification *)notification
 {
     // Only keep the most recent notification in the Notification Center
-    if (lastNotification)
-        [center removeDeliveredNotification:lastNotification];
+    if (_lastNotification)
+        [center removeDeliveredNotification:_lastNotification];
 
-    lastNotification = notification;
+    _lastNotification = notification;
 }
 
 /*
@@ -334,21 +322,6 @@ static inline NSString* CharsToNSString(char * _Nullable cStr)
     // Send notification
     [[NSUserNotificationCenter defaultUserNotificationCenter]
         deliverNotification:notification];
-}
-
-/*
- * Cleanup
- */
-- (void)dealloc
-{
-    [[NSNotificationCenter defaultCenter] removeObserver:self];
-
-    // Clear a remaining lastNotification in Notification Center, if any
-    if (lastNotification) {
-        [[NSUserNotificationCenter defaultUserNotificationCenter]
-            removeDeliveredNotification:lastNotification];
-        lastNotification = nil;
-    }
 }
 
 @end

@@ -2,7 +2,6 @@
  * demux.c: demuxer using libavformat
  *****************************************************************************
  * Copyright (C) 2004-2009 VLC authors and VideoLAN
- * $Id: c88ddfd68335b51058ad3034c80a76b4af8166b0 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Gildas Bazin <gbazin@videolan.org>
@@ -94,7 +93,7 @@ static int IORead( void *opaque, uint8_t *buf, int buf_size );
 static int64_t IOSeek( void *opaque, int64_t offset, int whence );
 
 static block_t *BuildSsaFrame( const AVPacket *p_pkt, unsigned i_order );
-static void UpdateSeekPoint( demux_t *p_demux, int64_t i_time );
+static void UpdateSeekPoint( demux_t *p_demux, vlc_tick_t i_time );
 static void ResetTime( demux_t *p_demux, int64_t i_time );
 
 static vlc_fourcc_t CodecTagToFourcc( uint32_t codec_tag )
@@ -117,8 +116,41 @@ static void get_rotation(es_format_t *fmt, AVStream *s)
     AVDictionaryEntry *rotation = av_dict_get(s->metadata, kRotateKey, NULL, 0);
     long angle = 0;
 
-    if( rotation )
-    {
+    int32_t *matrix = (int32_t *)av_stream_get_side_data(s, AV_PKT_DATA_DISPLAYMATRIX, NULL);
+    if( matrix ) {
+        int64_t det = (int64_t)matrix[0] * matrix[4] - (int64_t)matrix[1] * matrix[3];
+        if (det < 0) {
+            /* Flip the matrix to decouple flip and rotation operations.
+             * Always assume an horizontal flip for simplicity,
+             * it can be changed later if rotation is 180º. */
+            av_display_matrix_flip(matrix, 1, 0);
+        }
+        angle = lround(av_display_rotation_get(matrix));
+
+        if (angle > 45 && angle < 135)
+            fmt->video.orientation = ORIENT_ROTATED_270;
+
+        else if (angle > 135 || angle < -135) {
+            if (det < 0)
+                fmt->video.orientation = ORIENT_VFLIPPED;
+            else
+                fmt->video.orientation = ORIENT_ROTATED_180;
+        }
+        else if (angle < -45 && angle > -135)
+            fmt->video.orientation = ORIENT_ROTATED_90;
+
+        else
+            fmt->video.orientation = ORIENT_NORMAL;
+
+        /* Flip is already applied to the 180º case. */
+        if (det < 0 && !(angle > 135 || angle < -135)) {
+            video_transform_t transform = (video_transform_t)fmt->video.orientation;
+            /* Flip first then rotate */
+            fmt->video.orientation = ORIENT_HFLIPPED;
+            video_format_TransformBy(&fmt->video, transform);
+        }
+
+    } else if( rotation ) {
         angle = strtol(rotation->value, NULL, 10);
 
         if (angle > 45 && angle < 135)
@@ -129,22 +161,6 @@ static void get_rotation(es_format_t *fmt, AVStream *s)
 
         else if (angle > 225 && angle < 315)
             fmt->video.orientation = ORIENT_ROTATED_270;
-
-        else
-            fmt->video.orientation = ORIENT_NORMAL;
-    }
-    int32_t *matrix = (int32_t *)av_stream_get_side_data(s, AV_PKT_DATA_DISPLAYMATRIX, NULL);
-    if( matrix ) {
-        angle = lround(av_display_rotation_get(matrix));
-
-        if (angle > 45 && angle < 135)
-            fmt->video.orientation = ORIENT_ROTATED_270;
-
-        else if (angle > 135 || angle < -135)
-            fmt->video.orientation = ORIENT_ROTATED_180;
-
-        else if (angle < -45 && angle > -135)
-            fmt->video.orientation = ORIENT_ROTATED_90;
 
         else
             fmt->video.orientation = ORIENT_NORMAL;
@@ -251,7 +267,7 @@ int avformat_OpenDemux( vlc_object_t *p_this )
     demux_t       *p_demux = (demux_t*)p_this;
     demux_sys_t   *p_sys;
     AVInputFormat *fmt = NULL;
-    int64_t       i_start_time = -1;
+    vlc_tick_t    i_start_time = VLC_TICK_INVALID;
     bool          b_can_seek;
     const char    *psz_url;
     int           error;
@@ -675,7 +691,7 @@ int avformat_OpenDemux( vlc_object_t *p_this )
     }
 
     if( p_sys->ic->start_time != (int64_t)AV_NOPTS_VALUE )
-        i_start_time = p_sys->ic->start_time * 1000000 / AV_TIME_BASE;
+        i_start_time = FROM_AV_TS(p_sys->ic->start_time);
 
     msg_Dbg( p_demux, "AVFormat(%s %s) supported stream", AVPROVIDER(LIBAVFORMAT), LIBAVFORMAT_IDENT );
     msg_Dbg( p_demux, "    - format = %s (%s)",
@@ -683,12 +699,12 @@ int avformat_OpenDemux( vlc_object_t *p_this )
     msg_Dbg( p_demux, "    - start time = %"PRId64, i_start_time );
     msg_Dbg( p_demux, "    - duration = %"PRId64,
              ( p_sys->ic->duration != (int64_t)AV_NOPTS_VALUE ) ?
-             p_sys->ic->duration * 1000000 / AV_TIME_BASE : -1 );
+             FROM_AV_TS(p_sys->ic->duration) : -1 );
 
     if( p_sys->ic->nb_chapters > 0 )
     {
         p_sys->p_title = vlc_input_title_New();
-        p_sys->p_title->i_length = p_sys->ic->duration * 1000000 / AV_TIME_BASE;
+        p_sys->p_title->i_length = FROM_AV_TS(p_sys->ic->duration);
     }
 
     for( unsigned i = 0; i < p_sys->ic->nb_chapters; i++ )
@@ -702,10 +718,10 @@ int avformat_OpenDemux( vlc_object_t *p_this )
             EnsureUTF8( s->psz_name );
             msg_Dbg( p_demux, "    - chapter %d: %s", i, s->psz_name );
         }
-        s->i_time_offset = p_sys->ic->chapters[i]->start * CLOCK_FREQ *
-            p_sys->ic->chapters[i]->time_base.num /
-            p_sys->ic->chapters[i]->time_base.den -
-            (i_start_time != -1 ? i_start_time : 0 );
+        s->i_time_offset = vlc_tick_from_samples( p_sys->ic->chapters[i]->start *
+            p_sys->ic->chapters[i]->time_base.num,
+            p_sys->ic->chapters[i]->time_base.den ) -
+            (i_start_time != VLC_TICK_INVALID ? i_start_time : 0 );
         TAB_APPEND( p_sys->p_title->i_seekpoint, p_sys->p_title->seekpoint, s );
     }
 
@@ -751,7 +767,7 @@ static int Demux( demux_t *p_demux )
     demux_sys_t *p_sys = p_demux->p_sys;
     AVPacket    pkt;
     block_t     *p_frame;
-    int64_t     i_start_time;
+    vlc_tick_t  i_start_time;
 
     /* Read a frame */
     int i_av_ret = av_read_frame( p_sys->ic, &pkt );
@@ -811,11 +827,9 @@ static int Demux( demux_t *p_demux )
         p_frame->i_flags |= BLOCK_FLAG_TYPE_I;
 
     /* Used to avoid timestamps overlow */
-    lldiv_t q;
     if( p_sys->ic->start_time != (int64_t)AV_NOPTS_VALUE )
     {
-        q = lldiv( p_sys->ic->start_time, AV_TIME_BASE);
-        i_start_time = q.quot * CLOCK_FREQ + q.rem * CLOCK_FREQ / AV_TIME_BASE;
+        i_start_time = vlc_tick_from_frac(p_sys->ic->start_time, AV_TIME_BASE);
     }
     else
         i_start_time = 0;
@@ -824,27 +838,21 @@ static int Demux( demux_t *p_demux )
         p_frame->i_dts = VLC_TICK_INVALID;
     else
     {
-        q = lldiv( pkt.dts, p_stream->time_base.den );
-        p_frame->i_dts = q.quot * CLOCK_FREQ *
-            p_stream->time_base.num + q.rem * CLOCK_FREQ *
-            p_stream->time_base.num /
-            p_stream->time_base.den - i_start_time + VLC_TICK_0;
+        p_frame->i_dts = vlc_tick_from_frac( pkt.dts * p_stream->time_base.num, p_stream->time_base.den )
+                - i_start_time + VLC_TICK_0;
     }
 
     if( pkt.pts == (int64_t)AV_NOPTS_VALUE )
         p_frame->i_pts = VLC_TICK_INVALID;
     else
     {
-        q = lldiv( pkt.pts, p_stream->time_base.den );
-        p_frame->i_pts = q.quot * CLOCK_FREQ *
-            p_stream->time_base.num + q.rem * CLOCK_FREQ *
-            p_stream->time_base.num /
-            p_stream->time_base.den - i_start_time + VLC_TICK_0;
+        p_frame->i_pts = vlc_tick_from_frac( pkt.pts * p_stream->time_base.num, p_stream->time_base.den )
+                - i_start_time + VLC_TICK_0;
     }
     if( pkt.duration > 0 && p_frame->i_length <= 0 )
-        p_frame->i_length = pkt.duration * CLOCK_FREQ *
-            p_stream->time_base.num /
-            p_stream->time_base.den;
+        p_frame->i_length = vlc_tick_from_samples(pkt.duration *
+            p_stream->time_base.num,
+            p_stream->time_base.den );
 
     /* Add here notoriously bugged file formats/samples */
     if( !strcmp( p_sys->fmt->name, "flv" ) )
@@ -904,7 +912,7 @@ static int Demux( demux_t *p_demux )
     return 1;
 }
 
-static void UpdateSeekPoint( demux_t *p_demux, int64_t i_time )
+static void UpdateSeekPoint( demux_t *p_demux, vlc_tick_t i_time )
 {
     demux_sys_t *p_sys = p_demux->p_sys;
     int i;
@@ -937,15 +945,12 @@ static void ResetTime( demux_t *p_demux, int64_t i_time )
     }
     else
     {
-        if( CLOCK_FREQ == AV_TIME_BASE )
-        {
-            t = i_time;
-        }
-        else
-        {
-            lldiv_t q = lldiv( i_time, AV_TIME_BASE );
-            t = q.quot * CLOCK_FREQ + q.rem * CLOCK_FREQ / AV_TIME_BASE;
-        }
+#if CLOCK_FREQ == AV_TIME_BASE
+        t = FROM_AV_TS(i_time);
+#else
+        lldiv_t q = lldiv( i_time, AV_TIME_BASE );
+        t = vlc_tick_from_sec(q.quot) + FROM_AV_TS(q.rem);
+#endif
 
         if( t == VLC_TICK_INVALID )
             t = VLC_TICK_0;
@@ -992,7 +997,7 @@ static block_t *BuildSsaFrame( const AVPacket *p_pkt, unsigned i_order )
         p_frame->i_length = vlc_tick_from_sec((h1-h0) * 3600 +
                                          (m1-m0) * 60 +
                                          (s1-s0) * 1) +
-                            CLOCK_FREQ * (c1-c0) / 100;
+                             VLC_TICK_FROM_MS (c1-c0) / 100;
     return p_frame;
 }
 
@@ -1002,9 +1007,9 @@ static block_t *BuildSsaFrame( const AVPacket *p_pkt, unsigned i_order )
 static int Control( demux_t *p_demux, int i_query, va_list args )
 {
     demux_sys_t *p_sys = p_demux->p_sys;
-    const int64_t i_start_time = p_sys->ic->start_time != (int64_t)AV_NOPTS_VALUE ? p_sys->ic->start_time : 0;
+    const int64_t i_start_time = p_sys->ic->start_time != AV_NOPTS_VALUE ? p_sys->ic->start_time : 0;
     double f, *pf;
-    int64_t i64, *pi64;
+    int64_t i64;
 
     switch( i_query )
     {
@@ -1061,27 +1066,24 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
         }
 
         case DEMUX_GET_LENGTH:
-            pi64 = va_arg( args, int64_t * );
             if( p_sys->ic->duration != (int64_t)AV_NOPTS_VALUE )
-                *pi64 = p_sys->ic->duration * CLOCK_FREQ / AV_TIME_BASE;
+                *va_arg( args, vlc_tick_t * ) = FROM_AV_TS(p_sys->ic->duration);
             else
-                *pi64 = 0;
+                *va_arg( args, vlc_tick_t * ) = 0;
             return VLC_SUCCESS;
 
         case DEMUX_GET_TIME:
-            pi64 = va_arg( args, int64_t * );
-            *pi64 = p_sys->i_pcr;
+            *va_arg( args, vlc_tick_t * ) = p_sys->i_pcr;
             return VLC_SUCCESS;
 
         case DEMUX_SET_TIME:
         {
-            i64 = va_arg( args, int64_t );
+            i64 = TO_AV_TS(va_arg( args, vlc_tick_t ));
             bool precise = va_arg( args, int );
-            i64 = i64 * AV_TIME_BASE / CLOCK_FREQ + i_start_time;
 
             msg_Warn( p_demux, "DEMUX_SET_TIME: %"PRId64, i64 );
 
-            if( av_seek_frame( p_sys->ic, -1, i64, AVSEEK_FLAG_BACKWARD ) < 0 )
+            if( av_seek_frame( p_sys->ic, -1, i64 + i_start_time, AVSEEK_FLAG_BACKWARD ) < 0 )
             {
                 return VLC_EGENERIC;
             }
@@ -1193,8 +1195,8 @@ static int Control( demux_t *p_demux, int i_query, va_list args )
             if( !p_sys->p_title )
                 return VLC_EGENERIC;
 
-            i64 = p_sys->p_title->seekpoint[i_seekpoint]->i_time_offset *
-                  AV_TIME_BASE / CLOCK_FREQ + i_start_time;
+            i64 = TO_AV_TS(p_sys->p_title->seekpoint[i_seekpoint]->i_time_offset) +
+                  i_start_time;
 
             msg_Warn( p_demux, "DEMUX_SET_SEEKPOINT: %"PRId64, i64 );
 

@@ -113,9 +113,20 @@ static bool CheckGLXext (Display *dpy, unsigned snum, const char *ext)
     return false;
 }
 
-static int Open (vlc_object_t *obj)
+static void Close(vlc_gl_t *gl)
 {
-    vlc_gl_t *gl = (vlc_gl_t *)obj;
+    vlc_gl_sys_t *sys = gl->sys;
+    Display *dpy = sys->display;
+
+    glXDestroyContext(dpy, sys->ctx);
+    glXDestroyWindow(dpy, sys->win);
+    XCloseDisplay(dpy);
+    free(sys);
+}
+
+static int Open(vlc_gl_t *gl, unsigned width, unsigned height)
+{
+    vlc_object_t *obj = VLC_OBJECT(gl);
 
     if (gl->surface->type != VOUT_WINDOW_TYPE_XID || !vlc_xlib_init (obj))
         return VLC_EGENERIC;
@@ -208,6 +219,7 @@ static int Open (vlc_object_t *obj)
     gl->resize = NULL;
     gl->swap = SwapBuffers;
     gl->getProcAddress = GetSymbol;
+    gl->destroy = Close;
 
     bool is_swap_interval_set = false;
 
@@ -245,6 +257,7 @@ static int Open (vlc_object_t *obj)
         var_SetString(gl->surface, "gl", "glx");
     }
 
+    (void) width; (void) height;
     return VLC_SUCCESS;
 
 error:
@@ -253,23 +266,11 @@ error:
     return VLC_EGENERIC;
 }
 
-static void Close (vlc_object_t *obj)
-{
-    vlc_gl_t *gl = (vlc_gl_t *)obj;
-    vlc_gl_sys_t *sys = gl->sys;
-    Display *dpy = sys->display;
-
-    glXDestroyContext (dpy, sys->ctx);
-    glXDestroyWindow (dpy, sys->win);
-    XCloseDisplay (dpy);
-    free (sys);
-}
-
 vlc_module_begin ()
     set_shortname (N_("GLX"))
     set_description (N_("GLX extension for OpenGL"))
     set_category (CAT_VIDEO)
     set_subcategory (SUBCAT_VIDEO_VOUT)
     set_capability ("opengl", 20)
-    set_callbacks (Open, Close)
+    set_callback(Open)
 vlc_module_end ()

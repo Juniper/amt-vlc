@@ -1,6 +1,6 @@
 # libvpx
 
-VPX_VERSION := 1.7.0
+VPX_VERSION := 1.8.0
 VPX_URL := http://github.com/webmproject/libvpx/archive/v${VPX_VERSION}.tar.gz
 
 PKGS += vpx
@@ -15,14 +15,11 @@ $(TARBALLS)/libvpx-$(VPX_VERSION).tar.gz:
 
 libvpx: libvpx-$(VPX_VERSION).tar.gz .sum-vpx
 	$(UNPACK)
-	$(APPLY) $(SRC)/vpx/libvpx-mac.patch
 	$(APPLY) $(SRC)/vpx/libvpx-ios.patch
 ifdef HAVE_ANDROID
 	$(APPLY) $(SRC)/vpx/libvpx-android.patch
+	$(APPLY) $(SRC)/vpx/libvpx-android-toolchain_path.patch
 endif
-	$(APPLY) $(SRC)/vpx/0001-ads2gas-Add-a-noelf-option.patch
-	$(APPLY) $(SRC)/vpx/0002-configure-Add-an-armv7-win32-gcc-target.patch
-	$(APPLY) $(SRC)/vpx/0003-configure-Add-an-arm64-win64-gcc-target.patch
 	$(MOVE)
 
 DEPS_vpx =
@@ -73,7 +70,7 @@ else ifdef HAVE_MACOSX
 VPX_OS := darwin10
 VPX_CROSS :=
 else ifdef HAVE_IOS
-ifeq ($(ARCH),arm)
+ifeq ($(ARCH),$(filter $(ARCH), arm aarch64))
 VPX_OS := darwin
 else
 VPX_OS := darwin11
@@ -133,7 +130,7 @@ VPX_CONF += --sdk-path=$(IOS_SDK) --enable-vp8-decoder
 ifdef HAVE_TVOS
 VPX_LDFLAGS := -L$(IOS_SDK)/usr/lib -isysroot $(IOS_SDK) -mtvos-version-min=9.0
 else
-VPX_LDFLAGS := -L$(IOS_SDK)/usr/lib -isysroot $(IOS_SDK) -miphoneos-version-min=6.1
+VPX_LDFLAGS := -L$(IOS_SDK)/usr/lib -isysroot $(IOS_SDK) -miphoneos-version-min=8.4
 endif
 ifeq ($(ARCH),aarch64)
 VPX_LDFLAGS += -arch arm64
@@ -147,10 +144,11 @@ ifdef HAVE_ANDROID
 # vpx configure.sh overrides our sysroot and it looks for it itself, and
 # uses that path to look for the compiler (which we already know)
 VPX_CONF += --sdk-path=$(shell dirname $(shell which $(HOST)-clang))
-# broken text relocations
-ifeq ($(ARCH),x86_64)
-VPX_CONF += --disable-mmx
 endif
+
+ifneq ($(filter i386 x86_64,$(ARCH)),)
+# broken text relocations or invalid register for .seh_savexmm with gcc8
+VPX_CONF += --disable-mmx
 endif
 
 ifndef WITH_OPTIMIZATION
@@ -161,6 +159,6 @@ endif
 	cd $< && LDFLAGS="$(VPX_LDFLAGS)" CROSS=$(VPX_CROSS) ./configure --target=$(VPX_TARGET) \
 		$(VPX_CONF) --prefix=$(PREFIX)
 	cd $< && $(MAKE)
-	cd $< && ../../../contrib/src/pkg-static.sh vpx.pc
+	$(call pkg_static,"vpx.pc")
 	cd $< && $(MAKE) install
 	touch $@

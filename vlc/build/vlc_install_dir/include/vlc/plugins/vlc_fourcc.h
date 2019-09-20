@@ -2,7 +2,6 @@
  * vlc_fourcc.h: Definition of various FOURCC and helpers
  *****************************************************************************
  * Copyright (C) 2009 Laurent Aimar
- * $Id: f515148532c412f7db22a5475197ce98a5299ba9 $
  *
  * Authors: Laurent Aimar <fenrir _AT_ videolan _DOT_ com>
  *
@@ -117,6 +116,7 @@
 #define VLC_CODEC_CDG             VLC_FOURCC('C','D','G',' ')
 #define VLC_CODEC_FRWU            VLC_FOURCC('F','R','W','U')
 #define VLC_CODEC_AMV             VLC_FOURCC('A','M','V',' ')
+#define VLC_CODEC_VP4             VLC_FOURCC('V','P','4','0')
 #define VLC_CODEC_VP7             VLC_FOURCC('V','P','7','0')
 #define VLC_CODEC_VP8             VLC_FOURCC('V','P','8','0')
 #define VLC_CODEC_VP9             VLC_FOURCC('V','P','9','0')
@@ -187,6 +187,8 @@
 #define VLC_CODEC_SPEEDHQ         VLC_FOURCC('S','H','Q','2')
 #define VLC_CODEC_PIXLET          VLC_FOURCC('p','x','l','t')
 #define VLC_CODEC_MAGICYUV        VLC_FOURCC('M','8','Y','0')
+#define VLC_CODEC_IMM4            VLC_FOURCC('I','M','M','4')
+#define VLC_CODEC_AGM             VLC_FOURCC('A','G','M','0')
 
 /***********
  * Chromas
@@ -289,6 +291,8 @@
 #define VLC_CODEC_NV42            VLC_FOURCC('N','V','4','2')
 /* 2 planes Y/UV 4:2:0 10-bit */
 #define VLC_CODEC_P010            VLC_FOURCC('P','0','1','0')
+/* 2 planes Y/UV 4:2:0 16-bit */
+#define VLC_CODEC_P016            VLC_FOURCC('P','0','1','6')
 
 /* Packed YUV */
 
@@ -345,11 +349,27 @@
 #define VLC_CODEC_GBR_PLANAR_9L   VLC_FOURCC('G','B','9','L')
 #define VLC_CODEC_GBR_PLANAR_10B  VLC_FOURCC('G','B','A','B')
 #define VLC_CODEC_GBR_PLANAR_10L  VLC_FOURCC('G','B','A','L')
+#define VLC_CODEC_GBR_PLANAR_12B  VLC_FOURCC('G','B','B','B')
+#define VLC_CODEC_GBR_PLANAR_12L  VLC_FOURCC('G','B','B','L')
+#define VLC_CODEC_GBR_PLANAR_14B  VLC_FOURCC('G','B','D','B')
+#define VLC_CODEC_GBR_PLANAR_14L  VLC_FOURCC('G','B','D','L')
 #define VLC_CODEC_GBR_PLANAR_16L  VLC_FOURCC('G','B','F','L')
 #define VLC_CODEC_GBR_PLANAR_16B  VLC_FOURCC('G','B','F','B')
+#define VLC_CODEC_GBRA_PLANAR_10B VLC_FOURCC('G','B','0','B')
+#define VLC_CODEC_GBRA_PLANAR_10L VLC_FOURCC('G','B','0','L')
+#define VLC_CODEC_GBRA_PLANAR_12B VLC_FOURCC('G','B','C','B')
+#define VLC_CODEC_GBRA_PLANAR_12L VLC_FOURCC('G','B','C','L')
+#define VLC_CODEC_GBRA_PLANAR_16L VLC_FOURCC('G','B','E','L')
+#define VLC_CODEC_GBRA_PLANAR_16B VLC_FOURCC('G','B','E','B')
 
 /* 8 bits grey */
 #define VLC_CODEC_GREY            VLC_FOURCC('G','R','E','Y')
+/* 10 bits grey */
+#define VLC_CODEC_GREY_10L        VLC_FOURCC('G','0','F','L')
+#define VLC_CODEC_GREY_10B        VLC_FOURCC('G','0','F','B')
+/* 12 bits grey */
+#define VLC_CODEC_GREY_12L        VLC_FOURCC('G','2','F','L')
+#define VLC_CODEC_GREY_12B        VLC_FOURCC('G','2','F','B')
 /* 16 bits grey */
 #define VLC_CODEC_GREY_16L        VLC_FOURCC('G','R','F','L')
 #define VLC_CODEC_GREY_16B        VLC_FOURCC('G','R','F','B')
@@ -565,8 +585,8 @@
 /* EIA/CEA-608/708 */
 #define VLC_CODEC_CEA608    VLC_FOURCC('c','6','0','8')
 #define VLC_CODEC_CEA708    VLC_FOURCC('c','7','0','8')
-#define VLC_CODEC_TTML      VLC_FOURCC('T','T','M','L')
-#define VLC_CODEC_TTML_TS   VLC_FOURCC('T','s','M','L') /* special for EN.303.560 */
+#define VLC_CODEC_TTML      VLC_FOURCC('s','t','p','p')
+#define VLC_CODEC_TTML_TS   VLC_FOURCC('s','t','p','P') /* special for EN.303.560 */
 #define VLC_CODEC_WEBVTT    VLC_FOURCC('w','v','t','t')
 
 /* XYZ colorspace 12 bits packed in 16 bits, organisation |XXX0|YYY0|ZZZ0| */
@@ -673,6 +693,15 @@ VLC_API const vlc_fourcc_t * vlc_fourcc_GetYUVFallback( vlc_fourcc_t );
  * It will always return a non NULL pointer that must not be freed.
  */
 VLC_API const vlc_fourcc_t * vlc_fourcc_GetRGBFallback( vlc_fourcc_t );
+
+/**
+ * It returns a list (terminated with the value 0) of fourccs in decreasing
+ * priority order for the given chroma. It will return either YUV or RGB
+ * fallbacks depending on whether or not the fourcc given is YUV.
+ *
+ * It will always return a non NULL pointer that must not be freed.
+ */
+VLC_API const vlc_fourcc_t * vlc_fourcc_GetFallback( vlc_fourcc_t );
 
 /**
  * It returns true if the given fourcc is YUV and false otherwise.

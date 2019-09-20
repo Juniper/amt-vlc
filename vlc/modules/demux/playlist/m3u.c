@@ -2,7 +2,6 @@
  * m3u.c : M3U playlist format import
  *****************************************************************************
  * Copyright (C) 2004 VLC authors and VideoLAN
- * $Id: ffc534d7a58014e5744d6e8d86cb159be0f5eb43 $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *          Sigmund Augdal Helberg <dnumgis@videolan.org>
@@ -218,14 +217,12 @@ static int ReadDir( stream_t *p_demux, input_item_node_t *p_subitems )
     char       *psz_artist = NULL;
     char       *psz_album_art = NULL;
     int        i_parsed_duration = 0;
-    vlc_tick_t i_duration = INPUT_DURATION_UNKNOWN;
+    vlc_tick_t i_duration = INPUT_DURATION_INDEFINITE;
     const char**ppsz_options = NULL;
     char *    (*pf_dup) (const char *) = p_demux->p_sys;
     int        i_options = 0;
     bool b_cleanup = false;
     input_item_t *p_input;
-
-    input_item_t *p_current_input = GetCurrentItem(p_demux);
 
     psz_line = vlc_stream_ReadLine( p_demux->s );
     while( psz_line )
@@ -312,7 +309,6 @@ static int ReadDir( stream_t *p_demux, input_item_node_t *p_subitems )
             if( !p_input )
                 goto error;
             input_item_AddOptions( p_input, i_options, ppsz_options, 0 );
-            input_item_CopyOptions( p_input, p_current_input );
 
             if( !EMPTY_STR(psz_artist) )
                 input_item_SetArtist( p_input, psz_artist );
@@ -341,7 +337,7 @@ static int ReadDir( stream_t *p_demux, input_item_node_t *p_subitems )
             FREENULL( psz_artist );
             FREENULL( psz_album_art );
             i_parsed_duration = 0;
-            i_duration = INPUT_DURATION_INVALID;
+            i_duration = INPUT_DURATION_INDEFINITE;
 
             b_cleanup = false;
         }

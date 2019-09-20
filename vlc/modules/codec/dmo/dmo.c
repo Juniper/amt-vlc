@@ -2,7 +2,6 @@
  * dmo.c : DirectMedia Object decoder module for vlc
  *****************************************************************************
  * Copyright (C) 2002, 2003 VLC authors and VideoLAN
- * $Id: ab0d8c874c9083d7784e1a550d1046bc9df59426 $
  *
  * Author: Gildas Bazin <gbazin@videolan.org>
  *
@@ -38,7 +37,6 @@
 
 #ifdef _WIN32
 #   include <objbase.h>
-#   include <vlc_charset.h>
 #endif
 
 #include <vlc_codecs.h>
@@ -47,12 +45,6 @@
 
 #ifndef NDEBUG
 # define DMO_DEBUG 1
-#endif
-
-#ifdef UNICODE
-# define PRIs "%ls"
-#else
-# define PRIs "%s"
 #endif
 
 typedef long (STDCALL *GETCLASS) ( const GUID*, const GUID*, void** );
@@ -87,7 +79,6 @@ vlc_module_begin ()
     set_capability( "audio decoder", 1 )
     set_callbacks(DecoderOpen, DecoderClose)
 
-#   define ENC_CFG_PREFIX "sout-dmo-"
     add_submodule ()
     set_description( N_("DirectMedia Object encoder") )
     add_shortcut( "dmo" )
@@ -159,7 +150,7 @@ static const GUID guid_wmv9_enc = { 0xd23b90d0, 0x144f, 0x46bd,{ 0x84, 0x1d, 0x5
 typedef struct
 {
     vlc_fourcc_t i_fourcc;
-    const TCHAR  *psz_dll;
+    const WCHAR  *psz_dll;
     const GUID   *p_guid;
 
 } codec_dll;
@@ -246,9 +237,8 @@ static int DecoderOpen( vlc_object_t *p_this )
     {
         if( decoders_table[i].i_fourcc == p_dec->fmt_in.i_codec )
         {
-            msg_Dbg( p_dec, "DMO codec for %4.4s may work with dll="PRIs,
-                     (char*)&p_dec->fmt_in.i_codec,
-                     decoders_table[i].psz_dll );
+            msg_Dbg( p_dec, "DMO codec for %4.4s may work with dll=%ls",
+                     (char*)&p_dec->fmt_in.i_codec, decoders_table[i].psz_dll);
             goto found;
         }
     }
@@ -750,8 +740,7 @@ loader:
     *p_hmsdmo_dll = LoadLibrary( codecs_table[i_codec].psz_dll );
     if( *p_hmsdmo_dll == NULL )
     {
-        msg_Dbg( p_this, "failed loading '"PRIs"'",
-                 codecs_table[i_codec].psz_dll );
+        msg_Dbg( p_this, "failed loading '%ls'", codecs_table[i_codec].psz_dll );
         return VLC_EGENERIC;
     }
 
@@ -856,6 +845,7 @@ static int DecBlock( decoder_t *p_dec, block_t **pp_block )
                        (IMediaBuffer *)p_in, DMO_INPUT_DATA_BUFFERF_SYNCPOINT,
                        0, 0 );
 
+        *pp_block = NULL;
         p_in->vt->Release( (IUnknown *)p_in );
 
         if( i_result == S_FALSE )
@@ -881,8 +871,6 @@ static int DecBlock( decoder_t *p_dec, block_t **pp_block )
 #ifdef DMO_DEBUG
             msg_Dbg( p_dec, "ProcessInput(): successful" );
 #endif
-            block_Release( p_block );
-            *pp_block = NULL;
         }
     }
 

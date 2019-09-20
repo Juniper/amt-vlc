@@ -29,15 +29,14 @@
 #include <vlc_opengl.h>
 
 #include "../opengl/vout_helper.h"
+#include <GL/glew.h>
 #include <GL/wglew.h>
-
-#include "common.h"
 
 /*****************************************************************************
  * Module descriptor
  *****************************************************************************/
-static int Open(vlc_object_t *);
-static void Close(vlc_object_t *);
+static int Open(vlc_gl_t *, unsigned width, unsigned height);
+static void Close(vlc_gl_t *);
 
 #define HW_GPU_AFFINITY_TEXT N_("GPU affinity")
 
@@ -50,7 +49,7 @@ vlc_module_begin()
     add_integer("gpu-affinity", -1, HW_GPU_AFFINITY_TEXT, HW_GPU_AFFINITY_TEXT, true)
 
     set_capability("opengl", 50)
-    set_callbacks(Open, Close)
+    set_callback(Open)
     add_shortcut("wgl")
 vlc_module_end()
 
@@ -60,8 +59,7 @@ vlc_module_end()
 
 struct vout_display_sys_t
 {
-    vout_display_sys_win32_t sys;
-
+    HWND                  hvideownd;
     HDC                   hGLDC;
     HGLRC                 hGLRC;
     vlc_gl_t              *gl;
@@ -97,7 +95,7 @@ static void CreateGPUAffinityDC(vlc_gl_t *gl, UINT nVidiaAffinity) {
     PIXELFORMATDESCRIPTOR pfd = VLC_PFD_INITIALIZER;
 
     /* create a temporary GL context */
-    HDC winDC = GetDC(sys->sys.hvideownd);
+    HDC winDC = GetDC(sys->hvideownd);
     SetPixelFormat(winDC, ChoosePixelFormat(winDC, &pfd), &pfd);
     HGLRC hGLRC = wglCreateContext(winDC);
     wglMakeCurrent(winDC, hGLRC);
@@ -138,7 +136,7 @@ static void DestroyGPUAffinityDC(vlc_gl_t *gl) {
     PIXELFORMATDESCRIPTOR pfd = VLC_PFD_INITIALIZER;
 
     /* create a temporary GL context */
-    HDC winDC = GetDC(sys->sys.hvideownd);
+    HDC winDC = GetDC(sys->hvideownd);
     SetPixelFormat(winDC, ChoosePixelFormat(winDC, &pfd), &pfd);
     HGLRC hGLRC = wglCreateContext(winDC);
     wglMakeCurrent(winDC, hGLRC);
@@ -156,9 +154,8 @@ static void DestroyGPUAffinityDC(vlc_gl_t *gl) {
     fncDeleteDCNV(sys->affinityHDC);
 }
 
-static int Open(vlc_object_t *object)
+static int Open(vlc_gl_t *gl, unsigned width, unsigned height)
 {
-    vlc_gl_t *gl = (vlc_gl_t *)object;
     vout_display_sys_t *sys;
 
     /* Allocate structure */
@@ -171,11 +168,11 @@ static int Open(vlc_object_t *object)
     if (nVidiaAffinity >= 0) CreateGPUAffinityDC(gl, nVidiaAffinity);
 
     vout_window_t *wnd = gl->surface;
-    sys->sys.hvideownd = wnd->handle.hwnd;
-    if (wnd->type != VOUT_WINDOW_TYPE_HWND)
+    if (wnd->type != VOUT_WINDOW_TYPE_HWND || wnd->handle.hwnd == 0)
         goto error;
 
-    sys->hGLDC = GetDC(wnd->handle.hwnd);
+    sys->hvideownd = wnd->handle.hwnd;
+    sys->hGLDC = GetDC(sys->hvideownd);
     if (sys->hGLDC == NULL)
     {
         msg_Err(gl, "Could not get the device context");
@@ -195,6 +192,24 @@ static int Open(vlc_object_t *object)
     }
 
     wglMakeCurrent(sys->hGLDC, sys->hGLRC);
+#if 0 /* TODO pick higher display depth if possible and the source requires it */
+    int attribsDesired[] = {
+        WGL_DRAW_TO_WINDOW_ARB, 1,
+        WGL_ACCELERATION_ARB, WGL_FULL_ACCELERATION_ARB,
+        WGL_RED_BITS_ARB, 10,
+        WGL_GREEN_BITS_ARB, 10,
+        WGL_BLUE_BITS_ARB, 10,
+        WGL_ALPHA_BITS_ARB, 2,
+        WGL_DOUBLE_BUFFER_ARB, 1,
+        0,0
+    };
+
+    UINT nMatchingFormats;
+    int index = 0;
+    PFNWGLCHOOSEPIXELFORMATARBPROC wglChoosePixelFormatARB__ = (PFNWGLCHOOSEPIXELFORMATARBPROC)wglGetProcAddress( "wglChoosePixelFormatARB" );
+    if (wglChoosePixelFormatARB__!= NULL)
+        wglChoosePixelFormatARB__(sys->hGLDC, attribsDesired, NULL, 1, &index,  &nMatchingFormats);
+#endif
 #ifdef WGL_EXT_swap_control
     /* Create an GPU Affinity DC */
     const char *extensions = (const char*)glGetString(GL_EXTENSIONS);
@@ -220,26 +235,27 @@ static int Open(vlc_object_t *object)
     gl->resize = NULL;
     gl->swap = Swap;
     gl->getProcAddress = OurGetProcAddress;
+    gl->destroy = Close;
 
     if (sys->exts.GetExtensionsStringEXT || sys->exts.GetExtensionsStringARB)
         gl->wgl.getExtensionsString = GetExtensionsString;
 
+    (void) width; (void) height;
     return VLC_SUCCESS;
 
 error:
-    Close(object);
+    Close(gl);
     return VLC_EGENERIC;
 }
 
-static void Close(vlc_object_t *object)
+static void Close(vlc_gl_t *gl)
 {
-    vlc_gl_t *gl = (vlc_gl_t *)object;
     vout_display_sys_t *sys = gl->sys;
 
     if (sys->hGLRC)
         wglDeleteContext(sys->hGLRC);
     if (sys->hGLDC)
-        ReleaseDC(sys->sys.hvideownd, sys->hGLDC);
+        ReleaseDC(sys->hvideownd, sys->hGLDC);
 
     DestroyGPUAffinityDC(gl);
 

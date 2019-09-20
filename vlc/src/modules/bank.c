@@ -146,7 +146,7 @@ error:
  */
 static void vlc_plugin_store(vlc_plugin_t *lib)
 {
-    /*vlc_assert_locked (&modules.lock);*/
+    vlc_mutex_assert(&modules.lock);
 
     lib->next = vlc_plugins;
     vlc_plugins = lib;
@@ -166,7 +166,7 @@ static vlc_plugin_t *module_InitStatic(vlc_plugin_cb entry)
         return NULL;
 
 #ifdef HAVE_DYNAMIC_PLUGINS
-    atomic_init(&lib->handle, 1 /* must be non-zero for module_Map() */);
+    atomic_init(&lib->handle, 0);
     lib->unloadable = false;
 #endif
     return lib;
@@ -193,7 +193,48 @@ static void module_InitStaticModules(void) { }
 #endif
 
 #ifdef HAVE_DYNAMIC_PLUGINS
-static const char vlc_entry_name[] = "vlc_entry" MODULE_SUFFIX;
+static const char *module_GetVersion(void *handle)
+{
+    const char *(*get_api_version)(void);
+
+    get_api_version = vlc_dlsym(handle, "vlc_entry_api_version");
+    if (get_api_version == NULL)
+        return NULL;
+
+    return get_api_version();
+}
+
+static void *module_Open(struct vlc_logger *log,
+                         const char *path, bool fast)
+{
+    void *handle = vlc_dlopen(path, fast);
+    if (handle == NULL)
+    {
+        char *errmsg = vlc_dlerror();
+
+        vlc_error(log, "cannot load plug-in %s: %s", path,
+                  errmsg ? errmsg : "unknown error");
+        free(errmsg);
+        return NULL;
+    }
+
+    const char *str = module_GetVersion(handle);
+    if (str == NULL) {
+        vlc_error(log, "cannot load plug-in %s: %s", path,
+                  "unknown version or not a plug-in");
+error:
+        vlc_dlclose(handle);
+        return NULL;
+    }
+
+    if (strcmp(str, VLC_API_VERSION_STRING)) {
+        vlc_error(log, "cannot load plug-in %s: unsupported version %s", path,
+                  str);
+        goto error;
+    }
+
+    return handle;
+}
 
 /**
  * Loads a dynamically-linked plug-in into memory and initialize it.
@@ -207,18 +248,12 @@ static const char vlc_entry_name[] = "vlc_entry" MODULE_SUFFIX;
 static vlc_plugin_t *module_InitDynamic(vlc_object_t *obj, const char *path,
                                         bool fast)
 {
-    void *handle = vlc_dlopen(path, fast);
+    void *handle = module_Open(obj->logger, path, fast);
     if (handle == NULL)
-    {
-        char *errmsg = vlc_dlerror();
-        msg_Err(obj, "cannot load plug-in %s: %s", path,
-                errmsg ? errmsg : "unknown error");
-        free(errmsg);
         return NULL;
-    }
 
     /* Try to resolve the symbol */
-    vlc_plugin_cb entry = vlc_dlsym(handle, vlc_entry_name);
+    vlc_plugin_cb entry = vlc_dlsym(handle, "vlc_entry");
     if (entry == NULL)
     {
         msg_Warn (obj, "cannot find plug-in entry point in %s", path);
@@ -474,7 +509,11 @@ static void AllocateAllPlugins (vlc_object_t *p_this)
     if( paths == NULL )
         return;
 
+#ifdef _WIN32
+    paths = realpath( paths, NULL );
+#else
     paths = strdup( paths ); /* don't harm the environment ! :) */
+#endif
     if( unlikely(paths == NULL) )
         return;
 
@@ -493,30 +532,27 @@ static void AllocateAllPlugins (vlc_object_t *p_this)
  *
  * \return 0 on success, -1 on failure
  */
-int module_Map(vlc_object_t *obj, vlc_plugin_t *plugin)
+int module_Map(struct vlc_logger *log, vlc_plugin_t *plugin)
 {
     static vlc_mutex_t lock = VLC_STATIC_MUTEX;
 
+    if (plugin->abspath == NULL)
+        return 0; /* static module needs not be mapped */
     if (atomic_load_explicit(&plugin->handle, memory_order_acquire))
         return 0; /* fast path: already loaded */
 
     /* Try to load the plug-in (without locks, so read-only) */
     assert(plugin->abspath != NULL);
 
-    void *handle = vlc_dlopen(plugin->abspath, false);
+    void *handle = module_Open(log, plugin->abspath, false);
     if (handle == NULL)
-    {
-        char *errmsg = vlc_dlerror();
-        msg_Err(obj, "cannot load plug-in %s: %s", plugin->abspath,
-                errmsg ? errmsg : "unknown error");
-        free(errmsg);
         return -1;
-    }
 
-    vlc_plugin_cb entry = vlc_dlsym(handle, vlc_entry_name);
+    vlc_plugin_cb entry = vlc_dlsym(handle, "vlc_entry");
     if (entry == NULL)
     {
-        msg_Err(obj, "cannot find plug-in entry point in %s", plugin->abspath);
+        vlc_error(log, "cannot find plug-in entry point in %s",
+                  plugin->abspath);
         goto error;
     }
 
@@ -558,16 +594,35 @@ static void module_Unmap(vlc_plugin_t *plugin)
     if (handle != NULL)
         vlc_dlclose(handle);
 }
-#else
-int module_Map(vlc_object_t *obj, vlc_plugin_t *plugin)
+
+void *module_Symbol(struct vlc_logger *log,
+                    vlc_plugin_t *plugin, const char *name)
 {
-    (void) obj; (void) plugin;
+    if (plugin->abspath == NULL || module_Map(log, plugin))
+        return NULL;
+
+    void *handle = (void *)atomic_load_explicit(&plugin->handle,
+                                                memory_order_relaxed);
+    assert(handle != NULL);
+    return vlc_dlsym(handle, name);
+}
+#else
+int module_Map(struct vlc_logger *log, vlc_plugin_t *plugin)
+{
+    (void) log; (void) plugin;
     return 0;
 }
 
 static void module_Unmap(vlc_plugin_t *plugin)
 {
     (void) plugin;
+}
+
+void *module_Symbol(struct vlc_logger *log,
+                    vlc_plugin_t *plugin, const char *name)
+{
+    (void) log; (void) plugin; (void) name;
+    return NULL;
 }
 #endif /* HAVE_DYNAMIC_PLUGINS */
 
@@ -619,8 +674,8 @@ void module_EndBank (bool b_plugins)
      * from module_InitBank(). */
     if( b_plugins )
         vlc_mutex_lock (&modules.lock);
-    /*else
-        vlc_assert_locked (&modules.lock); not for static mutexes :( */
+    else
+        vlc_mutex_assert(&modules.lock);
 
     assert (modules.usage > 0);
     if (--modules.usage == 0)
@@ -658,7 +713,7 @@ void module_EndBank (bool b_plugins)
  */
 void module_LoadPlugins(vlc_object_t *obj)
 {
-    /*vlc_assert_locked (&modules.lock); not for static mutexes :( */
+    /*vlc_mutex_assert (&modules.lock); not for static mutexes :( */
 
     if (modules.usage == 1)
     {

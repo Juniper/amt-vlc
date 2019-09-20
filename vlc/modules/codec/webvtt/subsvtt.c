@@ -34,8 +34,8 @@
 #include <vlc_memstream.h>
 #include <assert.h>
 
-#include "../codec/substext.h"
-#include "../demux/mp4/minibox.h"
+#include "../substext.h"
+#include "../../demux/mp4/minibox.h"
 #include "webvtt.h"
 
 
@@ -1463,12 +1463,12 @@ static int GetCueTextAlignment( const webvtt_dom_cue_t *p_cue )
             return SUBPICTURE_ALIGN_LEFT;
         case WEBVTT_ALIGN_RIGHT:
             return SUBPICTURE_ALIGN_RIGHT;
-        case WEBVTT_ALIGN_START:
-            return ((p_cue->settings.vertical == WEBVTT_ALIGN_RIGHT) ?
-                     SUBPICTURE_ALIGN_LEFT : SUBPICTURE_ALIGN_RIGHT);
-        case WEBVTT_ALIGN_END:
-            return ((p_cue->settings.vertical == WEBVTT_ALIGN_RIGHT)) ?
+        case WEBVTT_ALIGN_START: /* vertical provides rl or rl base direction */
+            return (p_cue->settings.vertical == WEBVTT_ALIGN_RIGHT) ?
                      SUBPICTURE_ALIGN_RIGHT : SUBPICTURE_ALIGN_LEFT;
+        case WEBVTT_ALIGN_END:
+            return (p_cue->settings.vertical == WEBVTT_ALIGN_RIGHT) ?
+                     SUBPICTURE_ALIGN_LEFT : SUBPICTURE_ALIGN_RIGHT;
         default:
             return 0;
     }
@@ -1856,7 +1856,8 @@ static void Render( decoder_t *p_dec, vlc_tick_t i_start, vlc_tick_t i_stop )
     vlc_array_init( &timedtags );
 
     GetTimedTags( p_sys->p_root->p_child, i_start, i_stop, &timedtags );
-    qsort( timedtags.pp_elems, timedtags.i_count, sizeof(*timedtags.pp_elems), timedtagsArrayCmp );
+    if( timedtags.i_count )
+        qsort( timedtags.pp_elems, timedtags.i_count, sizeof(*timedtags.pp_elems), timedtagsArrayCmp );
 
     vlc_tick_t i_substart = i_start;
     for( size_t i=0; i<timedtags.i_count; i++ )

@@ -4,7 +4,6 @@
  * Copyright (C) 2007-2009 the VideoLAN team
  * Copyright (C) 2007 Société des arts technologiques
  * Copyright (C) 2007 Savoir-faire Linux
- * $Id: 8fb1b993dd9c9941b084be6e339fa7f1937580af $
  *
  * Authors: Jean-Baptiste Kempf <jb@videolan.org>
  *          Pierre-Luc Beaudoin <pierre-luc.beaudoin@savoirfairelinux.com>
@@ -360,6 +359,115 @@ QString UDPDestBox::getMRL( const QString& mux )
     return m.getMrl();
 }
 
+SRTDestBox::SRTDestBox(QWidget *_parent, const char *_mux) :
+        VirtualDestBox( _parent ), mux( qfu( _mux ) )
+{
+    label->setText(
+            qtr( "This module outputs the transcoded stream to a network"
+                    " via SRT." ) );
+
+    QLabel *SRTLabel = new QLabel( qtr( "Address" ), this );
+    SRTEdit = new QLineEdit( this );
+    layout->addWidget( SRTLabel, 1, 0, 1, 1 );
+    layout->addWidget( SRTEdit, 1, 1, 1, 1 );
+
+    QLabel *SRTPortLabel = new QLabel( qtr( "Base port" ), this );
+    SRTPort = new QSpinBox( this );
+    SRTPort->setMaximumSize( QSize( 90, 16777215 ) );
+    SRTPort->setAlignment(
+            Qt::AlignRight | Qt::AlignTrailing | Qt::AlignVCenter );
+    SRTPort->setMinimum( 1 );
+    SRTPort->setMaximum( 65535 );
+    SRTPort->setValue( 7001 );
+    layout->addWidget( SRTPortLabel, 2, 0, 1, 1 );
+    layout->addWidget( SRTPort, 2, 1, 1, 1 );
+
+    QLabel *SAPNameLabel = new QLabel( qtr( "Stream name" ), this );
+    SAPName = new QLineEdit( this );
+    layout->addWidget( SAPNameLabel, 3, 0, 1, 1 );
+    layout->addWidget( SAPName, 3, 1, 1, 1 );
+
+    CT( SRTEdit );
+    CS( SRTPort );
+    CT( SAPName );
+}
+
+QString SRTDestBox::getMRL(const QString&)
+{
+    QString addr = SRTEdit->text();
+    QString name = SAPName->text();
+
+    if (addr.isEmpty())
+        return qfu( "" );
+    QString destination = addr + ":" + QString::number( SRTPort->value() );
+    SoutMrl m;
+    m.begin( "srt" );
+    m.option( "dst", destination );
+    /* mp4-mux ain't usable in rtp-output either */
+    if (!mux.isEmpty())
+        m.option( "mux", mux );
+    if (!name.isEmpty()) {
+        m.option( "sap" );
+        m.option( "name", name );
+    }
+    m.end();
+
+    return m.getMrl();
+}
+
+RISTDestBox::RISTDestBox( QWidget *_parent, const char *_mux )
+    : VirtualDestBox( _parent ), mux( qfu(_mux) )
+{
+    label->setText( qtr( "This module outputs the stream using the RIST protocol (TR06).") );
+
+    QLabel *RISTAddressLabel = new QLabel( qtr("Destination Address"), this );
+    RISTAddress = new QLineEdit(this);
+    layout->addWidget(RISTAddressLabel, 1, 0, 1, 1);
+    layout->addWidget(RISTAddress, 1, 1, 1, 1);
+
+    QLabel *RISTPortLabel = new QLabel( qtr("Destination Port"), this );
+    RISTPort = new QSpinBox(this);
+    RISTPort->setMaximumSize(QSize(90, 16777215));
+    RISTPort->setAlignment(Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter);
+    RISTPort->setMinimum(1);
+    RISTPort->setMaximum(65535);
+    RISTPort->setValue(1968);
+    layout->addWidget(RISTPortLabel, 2, 0, 1, 1);
+    layout->addWidget(RISTPort, 2, 1, 1, 1);
+
+    QLabel *RISTNameLabel = new QLabel( qtr("Stream Name"), this );
+    RISTName = new QLineEdit(this);
+    layout->addWidget(RISTNameLabel, 3, 0, 1, 1);
+    layout->addWidget(RISTName, 3, 1, 1, 1);
+
+    CT( RISTAddress );
+    CS( RISTPort );
+    CT( RISTName );
+}
+
+QString RISTDestBox::getMRL( const QString& )
+{
+    QString addr = RISTAddress->text();
+    QString name = RISTName->text();
+
+    if( addr.isEmpty() ) return qfu("");
+    QString destination = addr + ":" + QString::number(RISTPort->value());
+    SoutMrl m;
+    m.begin( "std" );
+    if( !name.isEmpty() )
+    {
+        m.option( "access", "rist{stream-name=" + name + "}" );
+    }
+    else
+    {
+        m.option( "access", "rist" );
+    }
+    m.option( "mux", "ts" );
+    m.option( "dst", destination );
+    m.end();
+
+    return m.getMrl();
+}
 
 
 RTPDestBox::RTPDestBox( QWidget *_parent, const char *_mux )

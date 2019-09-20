@@ -3,7 +3,6 @@
  *****************************************************************************
  * Copyright (C) 2004-2005 the VideoLAN team
  * Copyright © 2007 Rémi Denis-Courmont
- * $Id: a3233f3b26ecb1b89ee131aa7525308962a439b5 $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *          Rémi Denis-Courmont
@@ -227,7 +226,7 @@ typedef struct
     bool  b_strict;
     bool  b_parse;
 
-    int i_timeout;
+    vlc_tick_t i_timeout;
 } services_discovery_sys_t;
 
 typedef struct
@@ -264,11 +263,6 @@ typedef struct
     static int Decompress( const unsigned char *psz_src, unsigned char **_dst, int i_len );
     static void FreeSDP( sdp_t *p_sdp );
 
-static inline int min_int( int a, int b )
-{
-    return a > b ? b : a;
-}
-
 static bool IsWellKnownPayload (int type)
 {
     switch (type)
@@ -298,7 +292,7 @@ static int Open( vlc_object_t *p_this )
     if( !p_sys )
         return VLC_ENOMEM;
 
-    p_sys->i_timeout = var_CreateGetInteger( p_sd, "sap-timeout" );
+    p_sys->i_timeout = vlc_tick_from_sec(var_CreateGetInteger( p_sd, "sap-timeout" ));
 
     p_sd->p_sys  = p_sys;
     p_sd->description = _("Network streams (SAP)");
@@ -579,7 +573,6 @@ static void *Run( void *data )
         /* Check for items that need deletion */
         for( int i = 0; i < p_sys->i_announces; i++ )
         {
-            vlc_tick_t i_timeout = vlc_tick_from_sec( p_sys->i_timeout );
             sap_announce_t * p_announce = p_sys->pp_announces[i];
             vlc_tick_t i_last_period = now - p_announce->i_last;
 
@@ -587,7 +580,7 @@ static void *Run( void *data )
              * or if the last packet emitted was 10 times the average time
              * between two packets */
             if( ( p_announce->i_period_trust > 5 && i_last_period > 10 * p_announce->i_period ) ||
-                i_last_period > i_timeout )
+                i_last_period > p_sys->i_timeout )
             {
                 RemoveAnnounce( p_sd, p_announce );
             }
@@ -595,8 +588,8 @@ static void *Run( void *data )
             {
                 /* Compute next timeout */
                 if( p_announce->i_period_trust > 5 )
-                    timeout = min_int((10 * p_announce->i_period - i_last_period) / 1000, timeout);
-                timeout = min_int((i_timeout - i_last_period)/1000, timeout);
+                    timeout = __MIN(MS_FROM_VLC_TICK(10 * p_announce->i_period - i_last_period), timeout);
+                timeout = __MIN(MS_FROM_VLC_TICK(p_sys->i_timeout - i_last_period), timeout);
             }
         }
 
@@ -850,7 +843,7 @@ sap_announce_t *CreateAnnounce( services_discovery_t *p_sd, uint32_t *i_source, 
 
     /* Released in RemoveAnnounce */
     p_input = input_item_NewStream( p_sap->p_sdp->psz_uri, p_sdp->psz_sessionname,
-                                    INPUT_DURATION_UNKNOWN );
+                                    INPUT_DURATION_INDEFINITE );
     if( unlikely(p_input == NULL) )
     {
         free( p_sap );
@@ -1158,6 +1151,20 @@ static int ParseSDPConnection (const char *str, struct sockaddr_storage *addr,
     return 0;
 }
 
+static void net_SetPort(struct sockaddr *addr, uint16_t port)
+{
+    switch (addr->sa_family)
+    {
+#ifdef AF_INET6
+        case AF_INET6:
+            ((struct sockaddr_in6 *)addr)->sin6_port = port;
+        break;
+#endif
+        case AF_INET:
+            ((struct sockaddr_in *)addr)->sin_port = port;
+        break;
+    }
+}
 
 /***********************************************************************
  * ParseSDP : SDP parsing

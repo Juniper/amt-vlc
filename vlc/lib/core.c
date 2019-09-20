@@ -2,7 +2,6 @@
  * core.c: Core libvlc new API functions : initialization
  *****************************************************************************
  * Copyright (C) 2005 VLC authors and VideoLAN
- * $Id: 2dab53da119d4255d01d1148bc18012bebfcf4d3 $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *
@@ -35,7 +34,6 @@
 #include <limits.h>
 #include <assert.h>
 
-#include "../src/revision.c"
 
 libvlc_instance_t * libvlc_new( int argc, const char *const *argv )
 {

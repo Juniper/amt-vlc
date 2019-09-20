@@ -50,8 +50,8 @@ NearOptimalContext::NearOptimalContext()
     , last_download_rate( 0 )
 { }
 
-NearOptimalAdaptationLogic::NearOptimalAdaptationLogic()
-    : AbstractAdaptationLogic()
+NearOptimalAdaptationLogic::NearOptimalAdaptationLogic(vlc_object_t *obj)
+    : AbstractAdaptationLogic(obj)
     , currentBps( 0 )
     , usedBps( 0 )
 {
@@ -65,7 +65,7 @@ NearOptimalAdaptationLogic::~NearOptimalAdaptationLogic()
 
 BaseRepresentation *
 NearOptimalAdaptationLogic::getNextQualityIndex( BaseAdaptationSet *adaptSet, RepresentationSelector &selector,
-                                                 float gammaP, vlc_tick_t VD, vlc_tick_t Q )
+                                                 float gammaP, float VD, float Q )
 {
     BaseRepresentation *ret = NULL;
     BaseRepresentation *prev = NULL;

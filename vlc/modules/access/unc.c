@@ -52,12 +52,10 @@ typedef struct
 
 static void Win32AddConnection(stream_t *access, const char *server,
                                const char *share, const char *user,
-                               const char *pwd, const char *domain)
+                               const char *pwd)
 {
     NETRESOURCE net_resource;
     char remote_name[MAX_PATH];
-
-    VLC_UNUSED(domain);
 
     memset(&net_resource, 0, sizeof (net_resource));
     net_resource.dwType = RESOURCETYPE_DISK;
@@ -71,9 +69,12 @@ static void Win32AddConnection(stream_t *access, const char *server,
         *delim = '\0';
 
     const char *msg;
-    net_resource.lpRemoteName = remote_name;
+    net_resource.lpRemoteName = ToWide(remote_name);
 
-    switch (WNetAddConnection2(&net_resource, pwd, user, 0))
+    wchar_t *wpwd  = pwd  ? ToWide(pwd)  : NULL;
+    wchar_t *wuser = user ? ToWide(user) : NULL;
+
+    switch (WNetAddConnection2(&net_resource, wpwd, wuser, 0))
     {
         case NO_ERROR:
             msg = "connected to %s";
@@ -85,13 +86,15 @@ static void Win32AddConnection(stream_t *access, const char *server,
         default:
             msg = "failed to connect to %s";
     }
+    free(net_resource.lpRemoteName);
+    free(wpwd);
+    free(wuser);
     msg_Dbg(access, msg, remote_name);
 }
 
 /* Build an SMB URI
  * smb://[[[domain;]user[:password@]]server[/share[/path[/file]]]] */
 static int smb_get_uri( stream_t *p_access, char **ppsz_uri,
-                        const char *psz_domain,
                         const char *psz_user, const char *psz_pwd,
                         const char *psz_server, const char *psz_share_path,
                         const char *psz_name )
@@ -101,7 +104,7 @@ static int smb_get_uri( stream_t *p_access, char **ppsz_uri,
 #define PSZ_NAME_OR_NULL psz_name ? "/" : "", psz_name ? psz_name : ""
     if( psz_user )
         Win32AddConnection( p_access, psz_server, psz_share_path,
-                            psz_user, psz_pwd, psz_domain );
+                            psz_user, psz_pwd );
     return asprintf( ppsz_uri, "//%s%s%s%s", psz_server, PSZ_SHARE_PATH_OR_NULL,
                      PSZ_NAME_OR_NULL );
 }
@@ -180,7 +183,7 @@ static int DirRead(stream_t *p_access, input_item_node_t *p_node)
                 }
 
                 char* psz_path;
-                if( smb_get_uri( p_access, &psz_path, NULL, NULL, NULL,
+                if( smb_get_uri( p_access, &psz_path, NULL, NULL,
                                  p_sys->url.psz_host, p_sys->url.psz_path,
                                  psz_name ) < 0 )
                 {
@@ -291,7 +294,7 @@ static int Open(vlc_object_t *obj)
     {
         struct stat st;
 
-        if (smb_get_uri(access, &psz_uri, credential.psz_realm,
+        if (smb_get_uri(access, &psz_uri,
                         credential.psz_username, credential.psz_password,
                         url.psz_host, psz_decoded_path, NULL ) == -1 )
         {
@@ -344,6 +347,7 @@ static int Open(vlc_object_t *obj)
         sys->url = url;
         access->pf_readdir = DirRead;
         access->pf_control = access_vaDirectoryControlHelper;
+        fd = -1;
     }
     else
     {

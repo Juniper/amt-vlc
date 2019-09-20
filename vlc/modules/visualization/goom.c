@@ -32,7 +32,7 @@
 #include <vlc_common.h>
 #include <vlc_plugin.h>
 #include <vlc_aout.h>            /* aout_FormatNbChannels, AOUT_FMTS_SIMILAR */
-#include <vlc_vout.h>              /* vout_*Picture, aout_filter_RequestVout */
+#include <vlc_vout.h>              /* vout_*Picture, aout_filter_..tVout */
 #include <vlc_filter.h>
 
 #include <goom/goom.h>
@@ -79,9 +79,8 @@ vlc_module_end ()
 typedef struct
 {
     vlc_thread_t  thread;
+    video_format_t fmt;
 
-    int           i_width;
-    int           i_height;
     vout_thread_t *p_vout;
     int           i_speed;
 
@@ -100,13 +99,8 @@ typedef struct
 
 } goom_thread_t;
 
-typedef struct
-{
-    goom_thread_t *p_thread;
-
-} filter_sys_t;
-
 static block_t *DoWork ( filter_t *, block_t * );
+static void Flush( filter_t * );
 
 static void *Thread( void * );
 
@@ -116,32 +110,24 @@ static void *Thread( void * );
 static int Open( vlc_object_t *p_this )
 {
     filter_t       *p_filter = (filter_t *)p_this;
-    filter_sys_t   *p_sys;
     goom_thread_t  *p_thread;
-    video_format_t fmt;
-
-    /* Allocate structure */
-    p_sys = p_filter->p_sys = malloc( sizeof( filter_sys_t ) );
 
     /* Create goom thread */
-    p_sys->p_thread = p_thread = calloc( 1, sizeof(*p_thread) );
+    p_filter->p_sys = p_thread = calloc( 1, sizeof(*p_thread) );
 
-    const int width  = p_thread->i_width  = var_InheritInteger( p_filter, "goom-width" );
-    const int height = p_thread->i_height = var_InheritInteger( p_filter, "goom-height" );
+    const int width  = var_InheritInteger( p_filter, "goom-width" );
+    const int height = var_InheritInteger( p_filter, "goom-height" );
 
-    memset( &fmt, 0, sizeof(video_format_t) );
+    p_thread->fmt.i_width = p_thread->fmt.i_visible_width = width;
+    p_thread->fmt.i_height = p_thread->fmt.i_visible_height = height;
+    p_thread->fmt.i_chroma = VLC_CODEC_RGB32;
+    p_thread->fmt.i_sar_num = p_thread->fmt.i_sar_den = 1;
 
-    fmt.i_width = fmt.i_visible_width = width;
-    fmt.i_height = fmt.i_visible_height = height;
-    fmt.i_chroma = VLC_CODEC_RGB32;
-    fmt.i_sar_num = fmt.i_sar_den = 1;
-
-    p_thread->p_vout = aout_filter_RequestVout( p_filter, NULL, &fmt );
+    p_thread->p_vout = aout_filter_GetVout( p_filter, &p_thread->fmt );
     if( p_thread->p_vout == NULL )
     {
         msg_Err( p_filter, "no suitable vout module" );
         free( p_thread );
-        free( p_sys );
         return VLC_EGENERIC;
     }
 
@@ -163,15 +149,15 @@ static int Open( vlc_object_t *p_this )
         msg_Err( p_filter, "cannot launch goom thread" );
         vlc_mutex_destroy( &p_thread->lock );
         vlc_cond_destroy( &p_thread->wait );
-        aout_filter_RequestVout( p_filter, p_thread->p_vout, NULL );
+        vout_Close( p_thread->p_vout );
         free( p_thread );
-        free( p_sys );
         return VLC_EGENERIC;
     }
 
     p_filter->fmt_in.audio.i_format = VLC_CODEC_FL32;
     p_filter->fmt_out.audio = p_filter->fmt_in.audio;
     p_filter->pf_audio_filter = DoWork;
+    p_filter->pf_flush = Flush;
     return VLC_SUCCESS;
 }
 
@@ -182,32 +168,38 @@ static int Open( vlc_object_t *p_this )
  *****************************************************************************/
 static block_t *DoWork( filter_t *p_filter, block_t *p_in_buf )
 {
-    filter_sys_t *p_sys = p_filter->p_sys;
+    goom_thread_t *p_thread = p_filter->p_sys;
     block_t *p_block;
 
     /* Queue sample */
-    vlc_mutex_lock( &p_sys->p_thread->lock );
-    if( p_sys->p_thread->i_blocks == MAX_BLOCKS )
+    vlc_mutex_lock( &p_thread->lock );
+    if( p_thread->i_blocks == MAX_BLOCKS )
     {
-        vlc_mutex_unlock( &p_sys->p_thread->lock );
+        vlc_mutex_unlock( &p_thread->lock );
         return p_in_buf;
     }
 
     p_block = block_Alloc( p_in_buf->i_buffer );
     if( !p_block )
     {
-        vlc_mutex_unlock( &p_sys->p_thread->lock );
+        vlc_mutex_unlock( &p_thread->lock );
         return p_in_buf;
     }
     memcpy( p_block->p_buffer, p_in_buf->p_buffer, p_in_buf->i_buffer );
     p_block->i_pts = p_in_buf->i_pts;
 
-    p_sys->p_thread->pp_blocks[p_sys->p_thread->i_blocks++] = p_block;
+    p_thread->pp_blocks[p_thread->i_blocks++] = p_block;
 
-    vlc_cond_signal( &p_sys->p_thread->wait );
-    vlc_mutex_unlock( &p_sys->p_thread->lock );
+    vlc_cond_signal( &p_thread->wait );
+    vlc_mutex_unlock( &p_thread->lock );
 
     return p_in_buf;
+}
+
+static void Flush( filter_t *p_filter )
+{
+    goom_thread_t *p_thread = p_filter->p_sys;
+    vout_FlushAll( p_thread->p_vout );
 }
 
 /*****************************************************************************
@@ -292,7 +284,7 @@ static void *Thread( void *p_thread_data )
     PluginInfo *p_plugin_info;
     int canc = vlc_savecancel ();
 
-    p_plugin_info = goom_init( p_thread->i_width, p_thread->i_height );
+    p_plugin_info = goom_init( p_thread->fmt.i_width, p_thread->fmt.i_height );
 
     for( ;; )
     {
@@ -331,7 +323,8 @@ static void *Thread( void *p_thread_data )
         if( unlikely(p_pic == NULL) )
             continue;
 
-        memcpy( p_pic->p[0].p_pixels, plane, p_thread->i_width * p_thread->i_height * 4 );
+        memcpy( p_pic->p[0].p_pixels, plane,
+                p_thread->fmt.i_width * p_thread->fmt.i_height * 4 );
 
         p_pic->date = date_Get( &i_pts ) + GOOM_DELAY;
         vout_PutPicture( p_thread->p_vout, p_pic );
@@ -348,28 +341,26 @@ static void *Thread( void *p_thread_data )
 static void Close( vlc_object_t *p_this )
 {
     filter_t     *p_filter = (filter_t *)p_this;
-    filter_sys_t *p_sys = p_filter->p_sys;
+    goom_thread_t *p_thread = p_filter->p_sys;
 
     /* Stop Goom Thread */
-    vlc_mutex_lock( &p_sys->p_thread->lock );
-    p_sys->p_thread->b_exit = true;
-    vlc_cond_signal( &p_sys->p_thread->wait );
-    vlc_mutex_unlock( &p_sys->p_thread->lock );
+    vlc_mutex_lock( &p_thread->lock );
+    p_thread->b_exit = true;
+    vlc_cond_signal( &p_thread->wait );
+    vlc_mutex_unlock( &p_thread->lock );
 
-    vlc_join( p_sys->p_thread->thread, NULL );
+    vlc_join( p_thread->thread, NULL );
 
     /* Free data */
-    aout_filter_RequestVout( p_filter, p_sys->p_thread->p_vout, NULL );
-    vlc_mutex_destroy( &p_sys->p_thread->lock );
-    vlc_cond_destroy( &p_sys->p_thread->wait );
+    vout_Close( p_thread->p_vout );
+    vlc_mutex_destroy( &p_thread->lock );
+    vlc_cond_destroy( &p_thread->wait );
 
-    while( p_sys->p_thread->i_blocks-- )
+    while( p_thread->i_blocks-- )
     {
-        block_Release( p_sys->p_thread->pp_blocks[p_sys->p_thread->i_blocks] );
+        block_Release( p_thread->pp_blocks[p_thread->i_blocks] );
     }
 
-    free( p_sys->p_thread );
-
-    free( p_sys );
+    free( p_thread );
 }
 

@@ -50,7 +50,7 @@ void EPGChannels::addProgram( const EPGProgram *program )
     if ( !programsList.contains( program ) )
     {
         programsList << program;
-        qSort(programsList.begin(), programsList.end(), EPGProgram::lessThan);
+        std::sort(programsList.begin(), programsList.end(), EPGProgram::lessThan);
         update();
     }
 }
@@ -82,7 +82,7 @@ void EPGChannels::paintEvent( QPaintEvent *event )
         p.drawText( 0, - m_offset + ( i++ + 0.5 ) * TRACKS_HEIGHT - 4,
                     width(), height(), Qt::AlignLeft, text );
 
-        int i_width = fontMetrics().width( text );
+        int i_width = fontMetrics().horizontalAdvance( text );
         if( width() < i_width )
             setMinimumWidth( i_width );
     }

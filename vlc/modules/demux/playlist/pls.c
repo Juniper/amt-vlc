@@ -2,7 +2,6 @@
  * pls.c : PLS playlist format import
  *****************************************************************************
  * Copyright (C) 2004 VLC authors and VideoLAN
- * $Id: b9ed4f88ac7a8b3a74bff7165121208671a8bd5f $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  * Authors: Sigmund Augdal Helberg <dnumgis@videolan.org>
@@ -56,7 +55,6 @@ int Import_PLS( vlc_object_t *p_this )
     }
 
     if( strncasecmp( (const char *)p_peek, "[playlist]", 10 )
-     && strncasecmp( (const char *)p_peek, "[Reference]", 10 )
      && !stream_HasExtension( p_demux, ".pls" ) )
         return VLC_EGENERIC;
 
@@ -80,8 +78,6 @@ static int ReadDir( stream_t *p_demux, input_item_node_t *p_subitems )
     bool ascii = true;
     bool unicode = true;
 
-    input_item_t *p_current_input = GetCurrentItem(p_demux);
-
     while( ( psz_line = vlc_stream_ReadLine( p_demux->s ) ) )
     {
         if (ascii && !IsASCII(psz_line))
@@ -97,8 +93,7 @@ static int ReadDir( stream_t *p_demux, input_item_node_t *p_subitems )
             psz_line = latin;
         }
 
-        if( !strncasecmp( psz_line, "[playlist]", sizeof("[playlist]")-1 ) ||
-            !strncasecmp( psz_line, "[Reference]", sizeof("[Reference]")-1 ) )
+        if( !strncasecmp( psz_line, "[playlist]", sizeof("[playlist]")-1 ) )
         {
             free( psz_line );
             continue;
@@ -145,7 +140,6 @@ static int ReadDir( stream_t *p_demux, input_item_node_t *p_subitems )
             if( psz_mrl )
             {
                 p_input = input_item_New( psz_mrl, psz_name );
-                input_item_CopyOptions( p_input, p_current_input );
                 input_item_node_AppendItem( p_subitems, p_input );
                 input_item_Release( p_input );
                 free( psz_mrl_orig );
@@ -160,18 +154,11 @@ static int ReadDir( stream_t *p_demux, input_item_node_t *p_subitems )
             i_item = i_new_item;
         }
 
-        if( !strncasecmp( psz_key, "file", sizeof("file") -1 ) ||
-            !strncasecmp( psz_key, "Ref", sizeof("Ref") -1 ) )
+        if( !strncasecmp( psz_key, "file", sizeof("file") -1 ) )
         {
             free( psz_mrl_orig );
             psz_mrl_orig =
             psz_mrl = ProcessMRL( psz_value, p_demux->psz_url );
-
-            if( !strncasecmp( psz_key, "Ref", sizeof("Ref") -1 ) )
-            {
-                if( !strncasecmp( psz_mrl, "http://", sizeof("http://") -1 ) )
-                    memcpy( psz_mrl, "mmsh", 4 );
-            }
         }
         else if( !strncasecmp( psz_key, "title", sizeof("title") -1 ) )
         {
@@ -190,7 +177,6 @@ static int ReadDir( stream_t *p_demux, input_item_node_t *p_subitems )
     if( psz_mrl )
     {
         p_input = input_item_New( psz_mrl, psz_name );
-        input_item_CopyOptions( p_input, p_current_input );
         input_item_node_AppendItem( p_subitems, p_input );
         input_item_Release( p_input );
         free( psz_mrl_orig );

@@ -60,6 +60,7 @@ typedef struct logical_stream_s
     es_out_id_t      *p_es;
     date_t           dts;
     bool             b_contiguous;              /* Granule is end of packet */
+    bool             b_interpolation_failed;    /* Don't use dts, it was not interpolated */
 
     int              i_serial_no;
 
@@ -89,7 +90,7 @@ typedef struct logical_stream_s
     int i_pre_skip;
 
     /* offset of first keyframe for theora; can be 0 or 1 depending on version number */
-    int8_t i_keyframe_offset;
+    int8_t i_first_frame_index;
 
     /* keyframe index for seeking, created as we discover keyframes */
     demux_index_entry_t *idx;
@@ -218,7 +219,7 @@ typedef struct
     bool b_preparsing_done;
     bool b_es_created;
 
-    /* Length, if available. */
+    /* Length in second, if available. */
     int64_t i_length;
 
     bool b_slave;

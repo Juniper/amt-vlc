@@ -2,7 +2,6 @@
  * libavi.c : LibAVI
  *****************************************************************************
  * Copyright (C) 2001 VLC authors and VideoLAN
- * $Id: a622b9a3cda308c7dca663e122f0f932d5e4030b $
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -87,8 +86,8 @@ static int AVI_ChunkReadCommon( stream_t *s, avi_chunk_t *p_chk,
 
     if( p_father && AVI_ChunkEnd( p_chk ) > AVI_ChunkEnd( p_father ) )
     {
-        msg_Warn( s, "chunk %4.4s does not fit into parent %ld",
-                     (char*)&p_chk->common.i_chunk_fourcc, AVI_ChunkEnd( p_father ) );
+        msg_Warn( s, "chunk %4.4s does not fit into parent %"PRIu64,
+                  (char*)&p_chk->common.i_chunk_fourcc, AVI_ChunkEnd( p_father ) );
 
         /* How hard is to produce files with the correct declared size ? */
         if( p_father->common.i_chunk_fourcc != AVIFOURCC_RIFF ||
@@ -208,12 +207,17 @@ static int AVI_ChunkRead_list( stream_t *s, avi_chunk_t *p_container )
         {
             AVI_ChunkClean( s, p_chk );
             free( p_chk );
-            break;
+            p_chk = NULL;
+            if( i_ret != AVI_ZEROSIZED_CHUNK )
+                break;
         }
 
-        *pp_append = p_chk;
-        while( *pp_append )
-            pp_append = &((*pp_append)->common.p_next);
+        if( p_chk )
+        {
+            *pp_append = p_chk;
+            while( *pp_append )
+                pp_append = &((*pp_append)->common.p_next);
+        }
 
         if( p_container->common.i_chunk_size > 0 &&
             vlc_stream_Tell( s ) >= AVI_ChunkEnd( p_container ) )
@@ -222,7 +226,8 @@ static int AVI_ChunkRead_list( stream_t *s, avi_chunk_t *p_container )
         }
 
         /* If we can't seek then stop when we 've found LIST-movi */
-        if( p_chk->common.i_chunk_fourcc == AVIFOURCC_LIST &&
+        if( p_chk &&
+            p_chk->common.i_chunk_fourcc == AVIFOURCC_LIST &&
             p_chk->list.i_type == AVIFOURCC_movi &&
             ( !b_seekable || p_chk->common.i_chunk_size == 0 ) )
         {

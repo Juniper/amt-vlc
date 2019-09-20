@@ -1,98 +1,108 @@
 /*****************************************************************************
- * playlist_item.hpp : Item for a playlist tree
- ****************************************************************************
- * Copyright (C) 2006-2011 the VideoLAN team
- * $Id: b88314b1ffca7d34547186b84581198758c13a3e $
- *
- * Authors: Clément Stenac <zorglub@videolan.org>
+ * Copyright (C) 2019 VLC authors and VideoLAN
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * ( at your option ) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA 02110-1301, USA.
  *****************************************************************************/
-
-#ifndef VLC_QT_PLAYLIST_ITEM_HPP_
-#define VLC_QT_PLAYLIST_ITEM_HPP_
+#ifndef VLC_QT_PLAYLIST_NEW_ITEM_HPP_
+#define VLC_QT_PLAYLIST_NEW_ITEM_HPP_
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
 
-#include "qt.hpp"
+#include "vlc_player.h"
+#include <vlc_cxx_helpers.hpp>
+#include <vlc_input_item.h>
+#include <vlc_playlist.h>
+#include <QExplicitlySharedDataPointer>
+#include <QUrl>
+#include <QMetaType>
 
-#include <QList>
-#include <QString>
 
-class AbstractPLItem
+//namespace vlc {
+//  namespace playlist {
+
+using PlaylistItemPtr = vlc_shared_data_ptr_type(vlc_playlist_item_t,
+                                                 vlc_playlist_item_Hold,
+                                                 vlc_playlist_item_Release);
+
+/**
+ * Playlist item wrapper.
+ *
+ * It contains both the PlaylistItemPtr and cached data saved while the playlist
+ * is locked, so that the fields may be read without synchronization or race
+ * conditions.
+ */
+class PlaylistItem
 {
-    friend class PLItem; /* super ugly glue stuff */
-    friend class MLItem;
-    friend class VLCModel;
-    friend class PLModel;
-    friend class MLModel;
-
+    Q_GADGET
 public:
-    virtual ~AbstractPLItem() {}
+    Q_PROPERTY(QString title READ getTitle CONSTANT )
+    Q_PROPERTY(QString artist READ getArtist CONSTANT )
+    Q_PROPERTY(QString album READ getAlbum CONSTANT )
+    Q_PROPERTY(QUrl artwork READ getArtwork CONSTANT )
+    Q_PROPERTY(vlc_tick_t duration READ getDuration CONSTANT )
 
-protected:
-    virtual int id( ) const = 0;
-    int childCount() const { return children.count(); }
-    int indexOf( AbstractPLItem *item ) const { return children.indexOf( item ); };
-    int lastIndexOf( AbstractPLItem *item ) const { return children.lastIndexOf( item ); };
-    AbstractPLItem *parent() { return parentItem; }
-    virtual input_item_t *inputItem() = 0;
-    void insertChild( AbstractPLItem *item, int pos = -1 ) { children.insert( pos, item ); }
-    void appendChild( AbstractPLItem *item ) { insertChild( item, children.count() ); } ;
-    virtual AbstractPLItem *child( int id ) const = 0;
-    void removeChild( AbstractPLItem *item );
-    void clearChildren();
-    virtual QString getURI() const = 0;
-    virtual QString getTitle() const = 0;
-    virtual bool readOnly() const = 0;
+    PlaylistItem(vlc_playlist_item_t *item = nullptr);
 
-    QList<AbstractPLItem *> children;
-    AbstractPLItem *parentItem;
-};
+    operator bool() const;
 
-class PLItem : public AbstractPLItem
-{
-    friend class PLModel;
+    vlc_playlist_item_t *raw() const {
+        return d ? d->item.get() : nullptr;
+    }
 
-public:
-    virtual ~PLItem();
-    bool hasSameParent( PLItem *other ) { return parent() == other->parent(); }
-    bool operator< ( AbstractPLItem& );
+    bool isSelected() const;
+    void setSelected(bool selected);
+
+    QString getTitle() const;
+
+    QString getArtist() const;
+
+    QString getAlbum() const;
+
+    QUrl getArtwork() const;
+
+    vlc_tick_t getDuration() const;
+
+
+    void sync();
 
 private:
-    /* AbstractPLItem */
-    int id() const Q_DECL_OVERRIDE;
-    input_item_t *inputItem() Q_DECL_OVERRIDE { return p_input; }
-    AbstractPLItem *child( int id ) const Q_DECL_OVERRIDE { return children.value( id ); };
-    virtual QString getURI() const Q_DECL_OVERRIDE;
-    virtual QString getTitle() const Q_DECL_OVERRIDE;
-    virtual bool readOnly() const Q_DECL_OVERRIDE;
+    struct Data : public QSharedData {
+        PlaylistItemPtr item;
 
-    /* Local */
-    PLItem( playlist_item_t *, PLItem *parent );
-    int row();
-    void takeChildAt( int );
+        bool selected = false;
 
-    PLItem( playlist_item_t * );
-    void init( playlist_item_t *, PLItem * );
-    int i_playlist_id;
-    int i_flags;
-    input_item_t *p_input;
+        /* cached values */
+        QString title;
+        QString artist;
+        QString album;
+        QUrl artwork;
+
+        vlc_tick_t duration;
+    };
+
+    QExplicitlySharedDataPointer<Data> d;
 };
 
-#endif
+/* PlaylistItem has the same size as a raw pointer */
+static_assert(sizeof(PlaylistItem) == sizeof(void *), "invalid size of PlaylistItem");
 
+//  } // namespace playlist
+//} // namespace vlc
+
+Q_DECLARE_METATYPE(PlaylistItem)
+
+#endif

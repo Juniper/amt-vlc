@@ -51,7 +51,7 @@ static const dxgi_format_t dxgi_formats[] = {
     { "B5G6R5",      DXGI_FORMAT_B5G6R5_UNORM,        VLC_CODEC_RGB16    },
     { "Y416",        DXGI_FORMAT_Y416,                0                  },
     { "P010",        DXGI_FORMAT_P010,                VLC_CODEC_P010     },
-    { "P016",        DXGI_FORMAT_P016,                0                  },
+    { "P016",        DXGI_FORMAT_P016,                VLC_CODEC_P016     },
     { "Y210",        DXGI_FORMAT_Y210,                VLC_CODEC_YUYV     }, /* AV_PIX_FMT_YUYV422 */
     { "Y410",        DXGI_FORMAT_Y410,                0                  },
     { "NV11",        DXGI_FORMAT_NV11,                0                  },
@@ -85,6 +85,7 @@ static const d3d_format_t d3d_formats[] = {
     { "R8G8B8A8", DXGI_FORMAT_R8G8B8A8_UNORM, VLC_CODEC_RGBA,          8, 1, 1, { DXGI_FORMAT_R8G8B8A8_UNORM } },
     { "VA_RGBA",  DXGI_FORMAT_R8G8B8A8_UNORM, VLC_CODEC_D3D11_OPAQUE_RGBA,  8, 1, 1, { DXGI_FORMAT_R8G8B8A8_UNORM } },
     { "R8G8B8X8", DXGI_FORMAT_B8G8R8X8_UNORM, VLC_CODEC_RGB32,         8, 1, 1, { DXGI_FORMAT_B8G8R8X8_UNORM } },
+    { "RGBA64",   DXGI_FORMAT_R16G16B16A16_UNORM, VLC_CODEC_RGBA64,   16, 1, 1, { DXGI_FORMAT_R16G16B16A16_UNORM } },
     { "RGB10A2",  DXGI_FORMAT_R10G10B10A2_UNORM, VLC_CODEC_RGBA10,    10, 1, 1, { DXGI_FORMAT_R10G10B10A2_UNORM } },
     { "VA_RGB10", DXGI_FORMAT_R10G10B10A2_UNORM, VLC_CODEC_D3D11_OPAQUE_RGBA, 10, 1, 1, { DXGI_FORMAT_R10G10B10A2_UNORM } },
     { "AYUV",     DXGI_FORMAT_AYUV,           VLC_CODEC_VUYA,          8, 1, 1, { DXGI_FORMAT_R8G8B8A8_UNORM } },
@@ -139,7 +140,7 @@ void DxgiFormatMask(DXGI_FORMAT format, video_format_t *fmt)
     }
 }
 
-const char *DxgiVendorStr(int gpu_vendor)
+const char *DxgiVendorStr(unsigned int gpu_vendor)
 {
     static const struct {
         unsigned   id;

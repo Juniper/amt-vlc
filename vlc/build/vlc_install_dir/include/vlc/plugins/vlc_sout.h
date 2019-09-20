@@ -2,7 +2,6 @@
  * vlc_sout.h : stream output module
  *****************************************************************************
  * Copyright (C) 2002-2008 VLC authors and VideoLAN
- * $Id: 214b29ac17ce37a09fb33f0d92d21b82d51c3618 $
  *
  * Authors: Christophe Massiot <massiot@via.ecp.fr>
  *          Laurent Aimar <fenrir@via.ecp.fr>
@@ -47,12 +46,13 @@ extern "C" {
  * invalid unsynchronized access) */
 struct sout_instance_t
 {
-    struct vlc_common_members obj;
+    struct vlc_object_t obj;
 
     char *psz_sout;
 
     /** count of output that can't control the space */
     int                 i_out_pace_nocontrol;
+    bool                b_wants_substreams;
 
     vlc_mutex_t         lock;
     sout_stream_t       *p_stream;
@@ -67,7 +67,7 @@ struct sout_instance_t
 /** Stream output access_output */
 struct sout_access_out_t
 {
-    struct vlc_common_members obj;
+    struct vlc_object_t obj;
 
     module_t                *p_module;
     char                    *psz_access;
@@ -115,7 +115,7 @@ static inline bool sout_AccessOutCanControlPace( sout_access_out_t *p_ao )
 /** Muxer structure */
 struct  sout_mux_t
 {
-    struct vlc_common_members obj;
+    struct vlc_object_t obj;
     module_t            *p_module;
 
     sout_instance_t     *p_sout;
@@ -187,11 +187,13 @@ static inline int sout_MuxControl( sout_mux_t *p_mux, int i_query, ... )
 
 enum sout_stream_query_e {
     SOUT_STREAM_EMPTY,    /* arg1=bool *,       res=can fail (assume true) */
+    SOUT_STREAM_WANTS_SUBSTREAMS,  /* arg1=bool *, res=can fail (assume false) */
+    SOUT_STREAM_ID_SPU_HIGHLIGHT,  /* arg1=void *, arg2=const vlc_spu_highlight_t *, res=can fail */
 };
 
 struct sout_stream_t
 {
-    struct vlc_common_members obj;
+    struct vlc_object_t obj;
 
     module_t          *p_module;
     sout_instance_t   *p_sout;

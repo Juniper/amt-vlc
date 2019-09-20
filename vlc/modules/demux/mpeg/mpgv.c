@@ -2,7 +2,6 @@
  * mpgv.c : MPEG-I/II Video demuxer
  *****************************************************************************
  * Copyright (C) 2001-2004 VLC authors and VideoLAN
- * $Id: 1ab835048dda5e4a2b321c94a2d2852b143c2bc2 $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *
@@ -78,6 +77,26 @@ static void Close( vlc_object_t * p_this )
     free( p_sys );
 }
 
+static int CheckMPEGStartCode( const uint8_t *p_peek )
+{
+    switch( p_peek[3] )
+    {
+        case 0x00:
+            if( (p_peek[5] & 0x38) == 0x00 )
+                return VLC_EGENERIC;
+            break;
+        case 0xB0:
+        case 0xB1:
+        case 0xB6:
+            return VLC_EGENERIC;
+        default:
+            if( p_peek[3] > 0xB9 )
+                return VLC_EGENERIC;
+            break;
+    }
+    return VLC_SUCCESS;
+}
+
 /*****************************************************************************
  * Open: initializes demux structures
  *****************************************************************************/
@@ -91,7 +110,7 @@ static int Open( vlc_object_t * p_this )
 
     es_format_t  fmt;
 
-    if( vlc_stream_Peek( p_demux->s, &p_peek, 4 ) < 4 )
+    if( vlc_stream_Peek( p_demux->s, &p_peek, 8 ) < 8 )
     {
         msg_Dbg( p_demux, "cannot peek" );
         return VLC_EGENERIC;
@@ -107,12 +126,11 @@ static int Open( vlc_object_t * p_this )
         msg_Err( p_demux, "this doesn't look like an MPEG ES stream, continuing" );
     }
 
-    if( p_peek[3] > 0xb9 )
+    if( CheckMPEGStartCode( p_peek ) != VLC_SUCCESS )
     {
         if( !b_forced ) return VLC_EGENERIC;
         msg_Err( p_demux, "this seems to be a system stream (PS plug-in ?), but continuing" );
     }
-
     p_demux->pf_demux  = Demux;
     p_demux->pf_control= Control;
     p_demux->p_sys     = p_sys = malloc( sizeof( demux_sys_t ) );

@@ -3,7 +3,6 @@
  *****************************************************************************
  * Copyright (C) 2008-2018 VLC authors and VideoLAN
  * Copyright (C) 2008 Laurent Aimar
- * $Id: 1c61629886a64b276b1dbc49408dcef62fe20173 $
  *
  * Authors: Laurent Aimar < fenrir _AT_ videolan _DOT_ org >
  *
@@ -25,13 +24,16 @@
 #ifndef LIBVLC_VOUT_INTERNAL_H
 #define LIBVLC_VOUT_INTERNAL_H 1
 
+#include <stdatomic.h>
+
 #include <vlc_picture_fifo.h>
 #include <vlc_picture_pool.h>
 #include <vlc_vout_display.h>
-#include <vlc_vout_wrapper.h>
-#include "snapshot.h"
+#include "vout_wrapper.h"
 #include "statistic.h"
 #include "chrono.h"
+#include "../clock/clock.h"
+#include "../input/input_internal.h"
 
 /* It should be high enough to absorbe jitter due to difficult picture(s)
  * to decode but not too high as memory is not that cheap.
@@ -46,28 +48,65 @@
  */
 typedef struct {
     vout_thread_t        *vout;
+    vlc_clock_t          *clock;
     const video_format_t *fmt;
     unsigned             dpb_size;
     vlc_mouse_event      mouse_event;
-    void                 *opaque;
+    void                 *mouse_opaque;
 } vout_configuration_t;
 #include "control.h"
+
+struct vout_snapshot;
+
+enum vout_crop_mode {
+    VOUT_CROP_NONE, VOUT_CROP_RATIO, VOUT_CROP_WINDOW, VOUT_CROP_BORDER,
+};
 
 /* */
 struct vout_thread_sys_t
 {
+    bool dummy;
+
     /* Splitter module if used */
     char            *splitter_name;
 
-    /* Input thread for spu attachments */
-    input_thread_t    *input;
+    vlc_clock_t     *clock;
+    float           rate;
+    vlc_tick_t      delay;
 
     /* */
     video_format_t  original;   /* Original format ie coming from the decoder */
+    struct {
+        struct {
+            unsigned num;
+            unsigned den;
+        } dar;
+        struct {
+            enum vout_crop_mode mode;
+            union {
+                struct {
+                    unsigned num;
+                    unsigned den;
+                } ratio;
+                struct {
+                    unsigned x;
+                    unsigned y;
+                    unsigned width;
+                    unsigned height;
+                } window;
+                struct {
+                    unsigned left;
+                    unsigned right;
+                    unsigned top;
+                    unsigned bottom;
+                } border;
+            };
+        } crop;
+    } source;
     unsigned        dpb_size;
 
     /* Snapshot interface */
-    vout_snapshot_t snapshot;
+    struct vout_snapshot *snapshot;
 
     /* Statistics */
     vout_statistic_t statistic;
@@ -78,25 +117,15 @@ struct vout_thread_sys_t
     vlc_fourcc_t    spu_blend_chroma;
     filter_t        *spu_blend;
 
-    /* Video output window */
-    vout_window_t   *window;
-
     /* Thread & synchronization */
     vlc_thread_t    thread;
-    bool            dead;
     vout_control_t  control;
-
-    /* */
-    struct {
-        vout_display_t *vd;
-        bool           use_dr;
-    } display;
 
     struct {
         vlc_tick_t  date;
         vlc_tick_t  timestamp;
         bool        is_interlaced;
-        picture_t   *decoded;
+        picture_t   *decoded; // decoded picture before passed through chain_static
         picture_t   *current;
         picture_t   *next;
     } displayed;
@@ -139,15 +168,32 @@ struct vout_thread_sys_t
     /* */
     vlc_mouse_t     mouse;
     vlc_mouse_event mouse_event;
-    void            *opaque;
+    void            *mouse_opaque;
 
-    /* */
+    /* Video output window */
+    bool            window_enabled;
+    vlc_mutex_t     window_lock;
+
+    /* Video output display */
+    vout_display_cfg_t display_cfg;
+    vout_display_t *display;
+    vlc_mutex_t     display_lock;
+
     picture_pool_t  *private_pool;
     picture_pool_t  *display_pool;
     picture_pool_t  *decoder_pool;
     picture_fifo_t  *decoder_fifo;
     vout_chrono_t   render;           /**< picture render time estimator */
+
+    atomic_uintptr_t refs;
 };
+
+/**
+ * Creates a video output.
+ */
+vout_thread_t *vout_Create(vlc_object_t *obj) VLC_USED;
+
+vout_thread_t *vout_CreateDummy(vlc_object_t *obj) VLC_USED;
 
 /**
  * Returns a suitable vout or release the given one.
@@ -156,73 +202,74 @@ struct vout_thread_sys_t
  * is possible, otherwise it returns NULL.
  * If cfg->vout is not used, it will be closed and released.
  *
- * You can release the returned value either by vout_Request or vout_Close()
- * followed by a vlc_object_release() or shorter vout_CloseAndRelease()
+ * You can release the returned value either by vout_Request() or vout_Close().
  *
- * \param object a vlc object
  * \param cfg the video configuration requested.
  * \param input used to get attachments for spu filters
- * \return a vout
+ * \retval 0 on success
+ * \retval -1 on error
  */
-vout_thread_t * vout_Request( vlc_object_t *object, const vout_configuration_t *cfg,
-                              input_thread_t *input );
-#define vout_Request(a,b,c) vout_Request(VLC_OBJECT(a),b,c)
+int vout_Request(const vout_configuration_t *cfg, input_thread_t *input);
 
 /**
- * This function will close a vout created by vout_Request.
- * The associated vout module is closed.
- * Note: It is not released yet, you'll have to call vlc_object_release()
- * or use the convenient vout_CloseAndRelease().
+ * Disables a vout.
+ *
+ * This disables a vout, but keeps it for later reuse.
+ */
+void vout_Stop(vout_thread_t *);
+
+/**
+ * Stop the display plugin, but keep its window plugin for later reuse.
+ */
+void vout_StopDisplay(vout_thread_t *);
+
+/**
+ * Destroys a vout.
+ *
+ * This function closes and releases a vout created by vout_Request().
  *
  * \param p_vout the vout to close
  */
 void vout_Close( vout_thread_t *p_vout );
 
-/**
- * This function will close a vout created by vout_Create
- * and then release it.
- *
- * \param p_vout the vout to close and release
- */
-static inline void vout_CloseAndRelease( vout_thread_t *p_vout )
-{
-    vout_Close( p_vout );
-    vlc_object_release( p_vout );
-}
-
 /* TODO to move them to vlc_vout.h */
-void vout_ControlChangeFullscreen(vout_thread_t *, const char *id);
-void vout_ControlChangeWindowed(vout_thread_t *);
-void vout_ControlChangeWindowState(vout_thread_t *, unsigned state);
-void vout_ControlChangeDisplaySize(vout_thread_t *,
-                                   unsigned width, unsigned height);
-void vout_ControlChangeDisplayFilled(vout_thread_t *, bool is_filled);
-void vout_ControlChangeZoom(vout_thread_t *, int num, int den);
-void vout_ControlChangeSampleAspectRatio(vout_thread_t *, unsigned num, unsigned den);
-void vout_ControlChangeCropRatio(vout_thread_t *, unsigned num, unsigned den);
-void vout_ControlChangeCropWindow(vout_thread_t *, int x, int y, int width, int height);
-void vout_ControlChangeCropBorder(vout_thread_t *, int left, int top, int right, int bottom);
+void vout_ChangeFullscreen(vout_thread_t *, const char *id);
+void vout_ChangeWindowed(vout_thread_t *);
+void vout_ChangeWindowState(vout_thread_t *, unsigned state);
+void vout_ChangeDisplaySize(vout_thread_t *, unsigned width, unsigned height);
+void vout_ChangeDisplayFilled(vout_thread_t *, bool is_filled);
+void vout_ChangeZoom(vout_thread_t *, unsigned num, unsigned den);
+void vout_ChangeDisplayAspectRatio(vout_thread_t *, unsigned num, unsigned den);
+void vout_ChangeCropRatio(vout_thread_t *, unsigned num, unsigned den);
+void vout_ChangeCropWindow(vout_thread_t *, int x, int y, int width, int height);
+void vout_ChangeCropBorder(vout_thread_t *, int left, int top, int right, int bottom);
 void vout_ControlChangeFilters(vout_thread_t *, const char *);
 void vout_ControlChangeSubSources(vout_thread_t *, const char *);
 void vout_ControlChangeSubFilters(vout_thread_t *, const char *);
-void vout_ControlChangeSubMargin(vout_thread_t *, int);
-void vout_ControlChangeViewpoint( vout_thread_t *, const vlc_viewpoint_t *);
+void vout_ChangeSpuChannelMargin(vout_thread_t *, enum vlc_vout_order order, int);
+void vout_ChangeViewpoint( vout_thread_t *, const vlc_viewpoint_t *);
 
 /* */
+void vout_CreateVars( vout_thread_t * );
 void vout_IntfInit( vout_thread_t * );
 void vout_IntfReinit( vout_thread_t * );
+void vout_IntfDeinit(vlc_object_t *);
 
 /* */
-int  vout_OpenWrapper (vout_thread_t *, const char *, const vout_display_state_t *);
-void vout_CloseWrapper(vout_thread_t *, vout_display_state_t *);
-int  vout_InitWrapper(vout_thread_t *);
-void vout_EndWrapper(vout_thread_t *);
-void vout_ManageWrapper(vout_thread_t *);
+vout_display_t *vout_OpenWrapper(vout_thread_t *, const char *,
+                     const vout_display_cfg_t *);
+void vout_CloseWrapper(vout_thread_t *, vout_display_t *vd);
 
 /* */
-int spu_ProcessMouse(spu_t *, const vlc_mouse_t *, const video_format_t *);
-void spu_Attach( spu_t *, input_thread_t *input, bool );
-void spu_ChangeMargin(spu_t *, int);
+ssize_t vout_RegisterSubpictureChannelInternal( vout_thread_t *,
+                                                vlc_clock_t *clock,
+                                                enum vlc_vout_order *out_order );
+ssize_t spu_RegisterChannelInternal( spu_t *, vlc_clock_t *, enum vlc_vout_order * );
+void spu_Attach( spu_t *, input_thread_t *input );
+void spu_Detach( spu_t * );
+void spu_SetClockDelay(spu_t *spu, size_t channel_id, vlc_tick_t delay);
+void spu_SetClockRate(spu_t *spu, size_t channel_id, float rate);
+void spu_ChangeChannelOrderMargin(spu_t *, enum vlc_vout_order, int);
 void spu_SetHighlight(spu_t *, const vlc_spu_highlight_t*);
 
 /**
@@ -232,31 +279,39 @@ void spu_SetHighlight(spu_t *, const vlc_spu_highlight_t*);
 void vout_ChangePause( vout_thread_t *, bool b_paused, vlc_tick_t i_date );
 
 /**
+ * This function will change the rate of the vout
+ * It is thread safe
+ */
+void vout_ChangeRate( vout_thread_t *, float rate );
+
+/**
+ * This function will change the delay of the vout
+ * It is thread safe
+ */
+void vout_ChangeDelay( vout_thread_t *, vlc_tick_t delay );
+
+/**
+ * This function will change the rate of the spu channel
+ * It is thread safe
+ */
+void vout_ChangeSpuRate( vout_thread_t *, size_t channel_id, float rate );
+/**
+ * This function will change the delay of the spu channel
+ * It is thread safe
+ */
+void vout_ChangeSpuDelay( vout_thread_t *, size_t channel_id, vlc_tick_t delay );
+
+
+/**
  * Updates the pointing device state.
  */
 void vout_MouseState(vout_thread_t *, const vlc_mouse_t *);
-
-/**
- * This function will apply an offset on subtitle subpicture.
- */
-void spu_OffsetSubtitleDate( spu_t *p_spu, vlc_tick_t i_duration );
 
 /**
  * This function will return and reset internal statistics.
  */
 void vout_GetResetStatistic( vout_thread_t *p_vout, unsigned *pi_displayed,
                              unsigned *pi_lost );
-
-/**
- * This function will ensure that all ready/displayed pictures have at most
- * the provided date.
- */
-void vout_Flush( vout_thread_t *p_vout, vlc_tick_t i_date );
-
-/**
- * Empty all the pending pictures in the vout
- */
-#define vout_FlushAll( vout )  vout_Flush( vout, VLC_TICK_INVALID )
 
 /*
  * Cancel the vout, if cancel is true, it won't return any pictures after this

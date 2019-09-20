@@ -36,7 +36,7 @@
 
 #include "rtp.h"
 #ifdef HAVE_SRTP
-# include <srtp.h>
+# include "srtp.h"
 # include <gcrypt.h>
 # include <vlc_gcrypt.h>
 #endif
@@ -263,8 +263,7 @@ static int Open (vlc_object_t *obj)
     p_sys->fd           = fd;
     p_sys->rtcp_fd      = rtcp_fd;
     p_sys->max_src      = var_CreateGetInteger (obj, "rtp-max-src");
-    p_sys->timeout      = var_CreateGetInteger (obj, "rtp-timeout")
-                        * CLOCK_FREQ;
+    p_sys->timeout      = vlc_tick_from_sec( var_CreateGetInteger (obj, "rtp-timeout") );
     p_sys->max_dropout  = var_CreateGetInteger (obj, "rtp-max-dropout");
     p_sys->max_misorder = var_CreateGetInteger (obj, "rtp-max-misorder");
     p_sys->thread_ready = false;
@@ -413,8 +412,7 @@ static int Control (demux_t *demux, int query, va_list args)
         case DEMUX_GET_LENGTH:
         case DEMUX_GET_TIME:
         {
-            int64_t *v = va_arg (args, int64_t *);
-            *v = 0;
+            *va_arg (args, vlc_tick_t *) = 0;
             return VLC_SUCCESS;
         }
     }

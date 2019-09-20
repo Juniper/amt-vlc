@@ -2,7 +2,6 @@
  * faad.c: AAC decoder using libfaad2
  *****************************************************************************
  * Copyright (C) 2001, 2003 VLC authors and VideoLAN
- * $Id: 286c7aab5af1f215161f4b19280233c777e12d7d $
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Gildas Bazin <gbazin@videolan.org>
@@ -36,7 +35,7 @@
 
 #include <vlc_common.h>
 #include <vlc_plugin.h>
-#include <vlc_input.h>
+#include <vlc_input_item.h>
 #include <vlc_codec.h>
 #include <vlc_cpu.h>
 #include <vlc_aout.h>
@@ -110,7 +109,10 @@ static int Open( vlc_object_t *p_this )
     decoder_sys_t *p_sys;
     NeAACDecConfiguration *cfg;
 
-    if( p_dec->fmt_in.i_codec != VLC_CODEC_MP4A )
+    if( p_dec->fmt_in.i_codec != VLC_CODEC_MP4A ||
+        p_dec->fmt_in.i_profile == AAC_PROFILE_ELD ||
+        (p_dec->fmt_in.i_extra > 1 &&
+         (GetWBE(p_dec->fmt_in.p_extra) & 0xffe0) == 0xf8e0)) /* ELD AOT */
     {
         return VLC_EGENERIC;
     }
@@ -138,7 +140,8 @@ static int Open( vlc_object_t *p_this )
 
         if( NeAACDecInit2( p_sys->hfaad, p_dec->fmt_in.p_extra,
                            p_dec->fmt_in.i_extra,
-                           &i_rate, &i_channels ) < 0 )
+                           &i_rate, &i_channels ) < 0 ||
+                i_channels >= MPEG4_ASC_MAX_INDEXEDPOS )
         {
             msg_Err( p_dec, "Failed to initialize faad using extra data" );
             NeAACDecClose( p_sys->hfaad );
@@ -512,13 +515,13 @@ static int DecodeBlock( decoder_t *p_dec, block_t *p_block )
         /* Convert frame.channel_position to our own channel values */
         p_dec->fmt_out.audio.i_physical_channels = 0;
 
-        uint8_t  pi_neworder_table[AOUT_CHAN_MAX];
-        uint32_t pi_faad_channels_positions[FAAD_CHANNEL_ID_COUNT + 1] = {0};
+        uint8_t  pi_neworder_table[64] = {0};
+        uint32_t pi_faad_channels_positions[64 + 1] = {0};
 
         bool b_reorder = false;
         if (p_dec->fmt_out.audio.channel_type == AUDIO_CHANNEL_TYPE_BITMAP)
         {
-            for( size_t i = 0; i < frame.channels && i < FAAD_CHANNEL_ID_COUNT; i++ )
+            for( size_t i = 0; i < frame.channels; i++ )
             {
                 unsigned pos = frame.channel_position[i];
                 if( likely(pos < FAAD_CHANNEL_ID_COUNT) )
@@ -591,8 +594,6 @@ static int DecodeBlock( decoder_t *p_dec, block_t *p_block )
             /* Drop byte of padding */
             FlushBuffer( p_sys, 0 );
         }
-
-        continue;
     }
 
     return VLCDEC_SUCCESS;

@@ -2,7 +2,6 @@
  * registry.cpp: Windows Registry Manipulation
  ****************************************************************************
  * Copyright (C) 2008 the VideoLAN team
- * $Id: dfee7794dc7758dd79c3d1a2c252530c98356c70 $
  *
  * Authors: Andre Weber <WeberAndre # gmx - de>
  *

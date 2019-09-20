@@ -2,7 +2,6 @@
  * vlm.cpp : VLM Management
  ****************************************************************************
  * Copyright © 2008 the VideoLAN team
- * $Id: b4faebd31471dec141f02acca15d1b9ff4e696e4 $
  *
  * Authors: Jean-Baptiste Kempf <jb@videolan.org>
  *          Jean-François Massol <jf.massol -at- gmail.com>
@@ -55,7 +54,7 @@
 
 VLMDialog::VLMDialog( intf_thread_t *_p_intf ) : QVLCFrame( _p_intf )
 {
-    vlm_t *p_vlm = vlm_New( p_intf->obj.libvlc, NULL );
+    vlm_t *p_vlm = vlm_New( vlc_object_instance(p_intf), NULL );
 
     if( !p_vlm )
     {

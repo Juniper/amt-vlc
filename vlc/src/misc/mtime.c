@@ -4,10 +4,9 @@
  *****************************************************************************
  * Copyright (C) 1998-2007 VLC authors and VideoLAN
  * Copyright © 2006-2007 Rémi Denis-Courmont
- * $Id: e3f87c895cb07e675bbd19e6515115085fbb21fb $
  *
  * Authors: Vincent Seguin <seguin@via.ecp.fr>
- *          Rémi Denis-Courmont <rem$videolan,org>
+ *          Rémi Denis-Courmont
  *          Gisle Vanem
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -39,16 +38,6 @@
 #include <time.h>
 #include <stdlib.h>
 
-/**
- * Convert seconds to a time in the format h:mm:ss.
- *
- * This function is provided for any interface function which need to print a
- * time string in the format h:mm:ss
- * date.
- * \param secs  the date to be converted
- * \param psz_buffer should be a buffer at least MSTRTIME_MAX_SIZE characters
- * \return psz_buffer is returned so this can be used as printf parameter.
- */
 char *secstotimestr( char *psz_buffer, int32_t i_seconds )
 {
     if( unlikely(i_seconds < 0) )
@@ -87,6 +76,7 @@ void date_Init( date_t *p_date, uint32_t i_divider_n, uint32_t i_divider_d )
 
 void date_Change( date_t *p_date, uint32_t i_divider_n, uint32_t i_divider_d )
 {
+    assert( p_date->i_divider_num != 0 );
     /* change time scale of remainder */
     p_date->i_remainder = p_date->i_remainder * i_divider_n / p_date->i_divider_num;
     p_date->i_divider_num = i_divider_n;
@@ -136,9 +126,6 @@ vlc_tick_t date_Decrement( date_t *p_date, uint32_t i_nb_samples )
     return p_date->date;
 }
 
-/**
- * @return NTP 64-bits timestamp in host byte order.
- */
 uint64_t NTPtime64(void)
 {
     struct timespec ts;

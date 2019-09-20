@@ -2,7 +2,6 @@
  * complete_preferences.cpp : "Normal preferences"
  ****************************************************************************
  * Copyright (C) 2006-2011 the VideoLAN team
- * $Id: 4179bde294949e93ce56cc0ee4887a4377f4c473 $
  *
  * Authors: Clément Stenac <zorglub@videolan.org>
  *
@@ -435,7 +434,7 @@ void PrefsTree::updateLoadedStatus( QTreeWidgetItem *item = NULL,
 
     if( loaded == NULL )
     {
-        vlc_object_t *p_root = VLC_OBJECT( p_intf->obj.libvlc );
+        vlc_object_t *p_root = VLC_OBJECT( vlc_object_instance(p_intf) );
         loaded = new QSet<QString>();
         populateLoadedSet( loaded, p_root );
         b_release = true;

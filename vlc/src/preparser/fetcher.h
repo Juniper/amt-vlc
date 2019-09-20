@@ -2,7 +2,6 @@
  * fetcher.h
  *****************************************************************************
  * Copyright (C) 1999-2008 VLC authors and VideoLAN
- * $Id: 1dc6336ada87233201329aebbb4d5eff80d8f8fa $
  *
  * Authors: Samuel Hocevar <sam@zoy.org>
  *          Clément Stenac <zorglub@videolan.org>
@@ -47,7 +46,8 @@ input_fetcher_t *input_fetcher_New( vlc_object_t * );
  * fetcher object is destroyed.
  */
 int input_fetcher_Push( input_fetcher_t *, input_item_t *,
-                        input_item_meta_request_option_t, int );
+                        input_item_meta_request_option_t,
+                        const input_fetcher_callbacks_t *, void * );
 
 /**
  * This function destroys the fetcher object and thread.
