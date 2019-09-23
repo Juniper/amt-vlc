@@ -112,6 +112,7 @@ _filter_chain_IsEmpty
 _filter_chain_MouseFilter
 _filter_chain_NewVideo
 _filter_chain_Reset
+_filter_chain_Clear
 _filter_chain_SubFilter
 _filter_chain_VideoFilter
 _filter_chain_VideoFlush

@@ -234,11 +234,11 @@ misc/filter.lo: ../../extras/package/macosx/../../../src/misc/filter.c \
   ../../extras/package/macosx/../../../include/vlc_fourcc.h \
   ../../extras/package/macosx/../../../include/vlc_viewpoint.h \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/math.h \
+  ../../extras/package/macosx/../../../include/vlc_picture.h \
+  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h \
   ../../extras/package/macosx/../../../include/vlc_modules.h \
   ../../extras/package/macosx/../../../src/misc/../misc/variables.h \
   ../../extras/package/macosx/../../../include/vlc_video_splitter.h \
-  ../../extras/package/macosx/../../../include/vlc_picture.h \
-  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h \
   ../../extras/package/macosx/../../../include/vlc_mouse.h \
   ../../extras/package/macosx/../../../include/vlc_vout_display.h \
   ../../extras/package/macosx/../../../include/vlc_picture_pool.h \
@@ -720,15 +720,15 @@ misc/filter.lo: ../../extras/package/macosx/../../../src/misc/filter.c \
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/math.h:
 
+../../extras/package/macosx/../../../include/vlc_picture.h:
+
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h:
+
 ../../extras/package/macosx/../../../include/vlc_modules.h:
 
 ../../extras/package/macosx/../../../src/misc/../misc/variables.h:
 
 ../../extras/package/macosx/../../../include/vlc_video_splitter.h:
-
-../../extras/package/macosx/../../../include/vlc_picture.h:
-
-/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h:
 
 ../../extras/package/macosx/../../../include/vlc_mouse.h:
 

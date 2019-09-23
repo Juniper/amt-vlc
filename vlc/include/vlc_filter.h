@@ -26,6 +26,7 @@
 #define VLC_FILTER_H 1
 
 #include <vlc_es.h>
+#include <vlc_picture.h>
 
 /**
  * \defgroup filter Filters
@@ -160,7 +161,14 @@ struct filter_t
  */
 static inline picture_t *filter_NewPicture( filter_t *p_filter )
 {
-    picture_t *pic = p_filter->owner.video->buffer_new( p_filter );
+    picture_t *pic = NULL;
+    if ( p_filter->owner.video != NULL && p_filter->owner.video->buffer_new != NULL)
+        pic = p_filter->owner.video->buffer_new( p_filter );
+    if ( pic == NULL )
+    {
+        // legacy filter owners not setting a default filter_allocator
+        pic = picture_NewFromFormat( &p_filter->fmt_out.video );
+    }
     if( pic == NULL )
         msg_Warn( p_filter, "can't get output picture" );
     return pic;
@@ -250,31 +258,33 @@ VLC_API void filter_DelProxyCallbacks( vlc_object_t *obj, filter_t *filter,
 # define filter_DelProxyCallbacks(a, b, c) \
     filter_DelProxyCallbacks(VLC_OBJECT(a), b, c)
 
+typedef filter_t vlc_blender_t;
+
 /**
  * It creates a blend filter.
  *
  * Only the chroma properties of the dest format is used (chroma
  * type, rgb masks and shifts)
  */
-VLC_API filter_t * filter_NewBlend( vlc_object_t *, const video_format_t *p_dst_chroma ) VLC_USED;
+VLC_API vlc_blender_t * filter_NewBlend( vlc_object_t *, const video_format_t *p_dst_chroma ) VLC_USED;
 
 /**
  * It configures blend filter parameters that are allowed to changed
  * after the creation.
  */
-VLC_API int filter_ConfigureBlend( filter_t *, int i_dst_width, int i_dst_height, const video_format_t *p_src );
+VLC_API int filter_ConfigureBlend( vlc_blender_t *, int i_dst_width, int i_dst_height, const video_format_t *p_src );
 
 /**
  * It blends a picture into another one.
  *
  * The input picture is not modified and not released.
  */
-VLC_API int filter_Blend( filter_t *, picture_t *p_dst, int i_dst_x, int i_dst_y, const picture_t *p_src, int i_alpha );
+VLC_API int filter_Blend( vlc_blender_t *, picture_t *p_dst, int i_dst_x, int i_dst_y, const picture_t *p_src, int i_alpha );
 
 /**
  * It destroys a blend filter created by filter_NewBlend.
  */
-VLC_API void filter_DeleteBlend( filter_t * );
+VLC_API void filter_DeleteBlend( vlc_blender_t * );
 
 /**
  * Create a picture_t *(*)( filter_t *, picture_t * ) compatible wrapper
@@ -342,10 +352,17 @@ VLC_API void filter_chain_Delete( filter_chain_t * );
  * reset p_fmt_in and p_fmt_out to the new values.
  *
  * \param p_chain pointer to filter chain
- * \param p_fmt_in new fmt_in params, may be NULL to leave input fmt unchanged
- * \param p_fmt_out new fmt_out params, may be NULL to leave output fmt unchanged
+ * \param p_fmt_in new fmt_in params
+ * \param p_fmt_out new fmt_out params
  */
 VLC_API void filter_chain_Reset( filter_chain_t *, const es_format_t *, const es_format_t * );
+
+/**
+ * Remove all existing filters
+ *
+ * \param p_chain pointer to filter chain
+ */
+VLC_API void filter_chain_Clear(filter_chain_t *);
 
 /**
  * Append a filter to the chain.

@@ -229,9 +229,9 @@ video_filter/grain.lo: \
   ../../extras/package/macosx/../../../include/vlc_es.h \
   ../../extras/package/macosx/../../../include/vlc_fourcc.h \
   ../../extras/package/macosx/../../../include/vlc_viewpoint.h \
-  ../../extras/package/macosx/../../../include/vlc_cpu.h \
   ../../extras/package/macosx/../../../include/vlc_picture.h \
   /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h \
+  ../../extras/package/macosx/../../../include/vlc_cpu.h \
   ../../extras/package/macosx/../../../include/vlc_rand.h
 
 ../config.h:
@@ -694,10 +694,10 @@ video_filter/grain.lo: \
 
 ../../extras/package/macosx/../../../include/vlc_viewpoint.h:
 
-../../extras/package/macosx/../../../include/vlc_cpu.h:
-
 ../../extras/package/macosx/../../../include/vlc_picture.h:
 
 /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h:
+
+../../extras/package/macosx/../../../include/vlc_cpu.h:
 
 ../../extras/package/macosx/../../../include/vlc_rand.h:

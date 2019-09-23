@@ -322,6 +322,8 @@ audio_filter/equalizer.lo: \
   ../../extras/package/macosx/../../../include/vlc_viewpoint.h \
   ../../extras/package/macosx/../../../include/vlc_block.h \
   ../../extras/package/macosx/../../../include/vlc_filter.h \
+  ../../extras/package/macosx/../../../include/vlc_picture.h \
+  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h \
   ../../extras/package/macosx/../../../modules/audio_filter/equalizer_presets.h
 
 ../config.h:
@@ -969,5 +971,9 @@ audio_filter/equalizer.lo: \
 ../../extras/package/macosx/../../../include/vlc_block.h:
 
 ../../extras/package/macosx/../../../include/vlc_filter.h:
+
+../../extras/package/macosx/../../../include/vlc_picture.h:
+
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h:
 
 ../../extras/package/macosx/../../../modules/audio_filter/equalizer_presets.h:

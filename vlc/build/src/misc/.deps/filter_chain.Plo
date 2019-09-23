@@ -227,13 +227,13 @@ misc/filter_chain.lo: \
   ../../extras/package/macosx/../../../include/vlc_fourcc.h \
   ../../extras/package/macosx/../../../include/vlc_viewpoint.h \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/math.h \
+  ../../extras/package/macosx/../../../include/vlc_picture.h \
+  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/assert.h \
+  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h \
   ../../extras/package/macosx/../../../include/vlc_modules.h \
   ../../extras/package/macosx/../../../include/vlc_mouse.h \
   ../../extras/package/macosx/../../../include/vlc_spu.h \
   ../../extras/package/macosx/../../../include/vlc_subpicture.h \
-  ../../extras/package/macosx/../../../include/vlc_picture.h \
-  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/assert.h \
-  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h \
   ../../extras/package/macosx/../../../include/vlc_text_style.h \
   ../../extras/package/macosx/../../../src/libvlc.h \
   ../../extras/package/macosx/../../../include/vlc_input_item.h \
@@ -699,6 +699,12 @@ misc/filter_chain.lo: \
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/math.h:
 
+../../extras/package/macosx/../../../include/vlc_picture.h:
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/assert.h:
+
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h:
+
 ../../extras/package/macosx/../../../include/vlc_modules.h:
 
 ../../extras/package/macosx/../../../include/vlc_mouse.h:
@@ -706,12 +712,6 @@ misc/filter_chain.lo: \
 ../../extras/package/macosx/../../../include/vlc_spu.h:
 
 ../../extras/package/macosx/../../../include/vlc_subpicture.h:
-
-../../extras/package/macosx/../../../include/vlc_picture.h:
-
-/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/assert.h:
-
-/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h:
 
 ../../extras/package/macosx/../../../include/vlc_text_style.h:
 

@@ -230,7 +230,9 @@ audio_filter/channel_mixer/libsimple_channel_mixer_plugin_la-simple.lo: \
   ../../extras/package/macosx/../../../include/vlc_viewpoint.h \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/math.h \
   ../../extras/package/macosx/../../../include/vlc_block.h \
-  ../../extras/package/macosx/../../../include/vlc_filter.h
+  ../../extras/package/macosx/../../../include/vlc_filter.h \
+  ../../extras/package/macosx/../../../include/vlc_picture.h \
+  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h
 
 ../config.h:
 
@@ -695,3 +697,7 @@ audio_filter/channel_mixer/libsimple_channel_mixer_plugin_la-simple.lo: \
 ../../extras/package/macosx/../../../include/vlc_block.h:
 
 ../../extras/package/macosx/../../../include/vlc_filter.h:
+
+../../extras/package/macosx/../../../include/vlc_picture.h:
+
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h:
