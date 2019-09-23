@@ -23,6 +23,8 @@
 #ifndef VLC_VIDEOCHROMA_D3D11_FMT_H_
 #define VLC_VIDEOCHROMA_D3D11_FMT_H_
 
+#include <vlc_codec.h>
+
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
@@ -79,6 +81,11 @@ typedef struct
     DXGI_FORMAT                   formatTexture;
 } picture_sys_d3d11_t;
 
+typedef struct
+{
+    ID3D11DeviceContext *device;
+} d3d11_decoder_device_t;
+
 /* index to use for texture/resource that use a known DXGI format
  * (ie not DXGI_FORMAT_UNKNWON) */
 #define KNOWN_DXGI_INDEX   0
@@ -89,6 +96,27 @@ static inline bool is_d3d11_opaque(vlc_fourcc_t chroma)
            chroma == VLC_CODEC_D3D11_OPAQUE_10B ||
            chroma == VLC_CODEC_D3D11_OPAQUE_RGBA ||
            chroma == VLC_CODEC_D3D11_OPAQUE_BGRA;
+}
+
+static inline d3d11_decoder_device_t *GetD3D11OpaqueDevice(vlc_decoder_device *device)
+{
+    if (device == NULL || device->type != VLC_DECODER_DEVICE_D3D11VA)
+        return NULL;
+    return device->opaque;
+}
+
+static inline d3d11_decoder_device_t *GetD3D11OpaqueContext(vlc_video_context *vctx)
+{
+    vlc_decoder_device *device = vctx ? vctx->device : NULL;
+    if (unlikely(device == NULL))
+        return NULL;
+    d3d11_decoder_device_t *res = NULL;
+    if (device->type == VLC_DECODER_DEVICE_D3D11VA)
+    {
+        assert(device->opaque != NULL);
+        res = GetD3D11OpaqueDevice(device);
+    }
+    return res;
 }
 
 void AcquireD3D11PictureSys(picture_sys_d3d11_t *p_sys);

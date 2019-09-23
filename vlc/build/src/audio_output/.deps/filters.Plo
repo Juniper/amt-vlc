@@ -232,6 +232,8 @@ audio_output/filters.lo: \
   ../../extras/package/macosx/../../../include/vlc_viewpoint.h \
   ../../extras/package/macosx/../../../include/vlc_block.h \
   ../../extras/package/macosx/../../../include/vlc_filter.h \
+  ../../extras/package/macosx/../../../include/vlc_picture.h \
+  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h \
   ../../extras/package/macosx/../../../src/libvlc.h \
   ../../extras/package/macosx/../../../include/vlc_input_item.h \
   ../../extras/package/macosx/../../../include/vlc_meta.h \
@@ -240,11 +242,9 @@ audio_output/filters.lo: \
   ../../extras/package/macosx/../../../include/vlc_list.h \
   /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdalign.h \
   ../../extras/package/macosx/../../../src/audio_output/aout_internal.h \
-  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h \
   ../../extras/package/macosx/../../../src/audio_output/../clock/clock.h \
   ../../extras/package/macosx/../../../src/audio_output/../video_output/vout_internal.h \
   ../../extras/package/macosx/../../../include/vlc_picture_fifo.h \
-  ../../extras/package/macosx/../../../include/vlc_picture.h \
   ../../extras/package/macosx/../../../include/vlc_picture_pool.h \
   ../../extras/package/macosx/../../../include/vlc_vout_display.h \
   ../../extras/package/macosx/../../../include/vlc_subpicture.h \
@@ -742,6 +742,10 @@ audio_output/filters.lo: \
 
 ../../extras/package/macosx/../../../include/vlc_filter.h:
 
+../../extras/package/macosx/../../../include/vlc_picture.h:
+
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h:
+
 ../../extras/package/macosx/../../../src/libvlc.h:
 
 ../../extras/package/macosx/../../../include/vlc_input_item.h:
@@ -758,15 +762,11 @@ audio_output/filters.lo: \
 
 ../../extras/package/macosx/../../../src/audio_output/aout_internal.h:
 
-/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h:
-
 ../../extras/package/macosx/../../../src/audio_output/../clock/clock.h:
 
 ../../extras/package/macosx/../../../src/audio_output/../video_output/vout_internal.h:
 
 ../../extras/package/macosx/../../../include/vlc_picture_fifo.h:
-
-../../extras/package/macosx/../../../include/vlc_picture.h:
 
 ../../extras/package/macosx/../../../include/vlc_picture_pool.h:
 

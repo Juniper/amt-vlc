@@ -242,6 +242,9 @@ audio_filter/spatializer/spatializer.lo: \
   ../../extras/package/macosx/../../../include/vlc_viewpoint.h \
   ../../extras/package/macosx/../../../include/vlc_block.h \
   ../../extras/package/macosx/../../../include/vlc_filter.h \
+  ../../extras/package/macosx/../../../include/vlc_picture.h \
+  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1/atomic \
+  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1/cstdint \
   ../../extras/package/macosx/../../../modules/audio_filter/spatializer/revmodel.hpp \
   ../../extras/package/macosx/../../../modules/audio_filter/spatializer/comb.hpp \
   ../../extras/package/macosx/../../../modules/audio_filter/spatializer/denormals.h \
@@ -733,6 +736,12 @@ audio_filter/spatializer/spatializer.lo: \
 ../../extras/package/macosx/../../../include/vlc_block.h:
 
 ../../extras/package/macosx/../../../include/vlc_filter.h:
+
+../../extras/package/macosx/../../../include/vlc_picture.h:
+
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1/atomic:
+
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1/cstdint:
 
 ../../extras/package/macosx/../../../modules/audio_filter/spatializer/revmodel.hpp:
 

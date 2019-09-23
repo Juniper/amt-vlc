@@ -208,6 +208,9 @@
 /* Define to 1 if you have the <features.h> header file. */
 /* #undef HAVE_FEATURES_H */
 
+/* Define to 1 if you have the <ffnvcodec/dynlink_loader.h> header file. */
+/* #undef HAVE_FFNVCODEC_DYNLINK_LOADER_H */
+
 /* Define to 1 if you have the `flock' function. */
 #define HAVE_FLOCK 1
 

@@ -198,8 +198,8 @@ typedef struct _amt_membership_update_msg {
 } amt_membership_update_msg_t;
 
 /* AMT Functions */
-static void amt_thread_cancel( stream_t *p_access );
 static int amt_sockets_init( stream_t *p_access );
+static void amt_thread_cancel( stream_t *p_access );
 static void amt_send_relay_discovery_msg( stream_t *p_access, char *relay_ip );
 static void amt_send_relay_request( stream_t *p_access, char *relay_ip );
 static int amt_joinSSM_group( stream_t *p_access );
@@ -497,6 +497,7 @@ static int Open( vlc_object_t *p_this )
                              sys->mcastSrc, i_server_port, IPPROTO_UDP );
     if( sys->fd == -1 )
     {
+        msg_Err( p_access, "cannot open socket" );
         sys->sAMT = -1;
         sys->sQuery = -1;
         VLC_ret = VLC_EGENERIC;
@@ -516,11 +517,13 @@ static int Open( vlc_object_t *p_this )
 
 cleanup: /* fall through */
 
+    /* release the allocated memory */
     free( psz_name );
     vlc_UrlClean( &url );
     if( serverinfo )
         freeaddrinfo( serverinfo );
 
+    /* if an error occurred free the memory */
     if ( VLC_ret != VLC_SUCCESS )
     {
         free( sys->relay );
@@ -539,7 +542,9 @@ static void Close( vlc_object_t *p_this )
     stream_t     *p_access = (stream_t*)p_this;
     access_sys_t *sys = p_access->p_sys;
 
-    amt_thread_cancel( p_access );
+    amt_thread_cancel(p_access);
+
+    msg_Dbg( p_access, "Closing AMT plugin" );
 
     /* If using AMT tunneling send leave message and free the relay addresses */
     if ( sys->tryAMT )
@@ -553,6 +558,7 @@ static void Close( vlc_object_t *p_this )
         /* Send IGMP leave message */
         amt_send_mem_update( p_access, sys->relayDisco, true );
     }
+
     free( sys->relay );
 
     /* If overflow block allocated then free the memory */
@@ -569,6 +575,8 @@ static void Close( vlc_object_t *p_this )
         net_Close( sys->sAMT );
     if( sys->sQuery != -1 )
         net_Close( sys->sQuery );
+
+    msg_Dbg( p_access, "Exiting AMT plugin" );
 }
 
 /*****************************************************************************
@@ -770,62 +778,66 @@ static bool open_amt_tunnel( stream_t *p_access )
         /* Store the binary representation */
         sys->relayDiscoAddr.sin_addr = server_addr->sin_addr;
 
+        /* If can't open socket try any others in list */
         if( amt_sockets_init( p_access ) != 0 )
-            continue; /* Try next server */
+            continue;
 
-        /* Negotiate with AMT relay and confirm you can pull a UDP packet  */
-        amt_send_relay_discovery_msg( p_access, relay_ip );
-        msg_Dbg( p_access, "Sent relay AMT discovery message to %s", relay_ip );
-
-        if( !amt_rcv_relay_adv( p_access ) )
-        {
-            msg_Err( p_access, "Error receiving AMT relay advertisement msg from %s, skipping", relay_ip );
-            goto error;
-        }
-        msg_Dbg( p_access, "Received AMT relay advertisement from %s", relay_ip );
-
-        amt_send_relay_request( p_access, relay_ip );
-        msg_Dbg( p_access, "Sent AMT relay request message to %s", relay_ip );
-
-        if( !amt_rcv_relay_mem_query( p_access ) )
-        {
-            msg_Err( p_access, "Could not receive AMT relay membership query from %s, reason: %s", relay_ip, vlc_strerror(errno));
-            goto error;
-        }
-        msg_Dbg( p_access, "Received AMT relay membership query from %s", relay_ip );
-
-        /* If single source multicast send SSM join */
-        if( sys->mcastSrcAddr.sin_addr.s_addr )
-        {
-            if( amt_joinSSM_group( p_access ) != 0 )
-            {
-                msg_Err( p_access, "Error joining SSM %s", vlc_strerror(errno) );
-                goto error;
-            }
-            msg_Dbg( p_access, "Joined SSM src: %s group: %s", sys->mcastSrc, sys->mcastGroup );
-        }
-
-        /* If any source multicast send ASM join */
-        else {
-            if( amt_joinASM_group( p_access ) != 0 )
-            {
-                msg_Err( p_access, "Error joining ASM %s", vlc_strerror(errno) );
-                goto error;
-            }
-            msg_Dbg( p_access, "Joined ASM group: %s", sys->mcastGroup );
-        }
-
-        bool eof=false;
-        block_t *pkt;
-
-        /* Confirm that you can pull a UDP packet from the socket */
-        if ( !(pkt = BlockUDP( p_access, &eof )) )
-            msg_Err( p_access, "Unable to receive UDP packet from AMT relay %s for multicast group %s", relay_ip, sys->mcastGroup );
+        /* Otherwise negotiate with AMT relay and confirm you can pull a UDP packet  */
         else
         {
-            block_Release( pkt );
-            msg_Dbg( p_access, "Got UDP packet from multicast group %s via AMT relay %s, continuing...", sys->mcastGroup, relay_ip );
-            break;   /* found an active server sending UDP packets, so exit loop */
+            amt_send_relay_discovery_msg( p_access, relay_ip );
+            msg_Dbg( p_access, "Sent relay AMT discovery message to %s", relay_ip );
+
+            if( !amt_rcv_relay_adv( p_access ) )
+            {
+                msg_Err( p_access, "Error receiving AMT relay advertisement msg from %s, skipping", relay_ip );
+                goto error;
+            }
+            msg_Dbg( p_access, "Received AMT relay advertisement from %s", relay_ip );
+
+            amt_send_relay_request( p_access, relay_ip );
+            msg_Dbg( p_access, "Sent AMT relay request message to %s", relay_ip );
+
+            if( !amt_rcv_relay_mem_query( p_access ) )
+            {
+                msg_Err( p_access, "Could not receive AMT relay membership query from %s, reason: %s", relay_ip, vlc_strerror(errno));
+                goto error;
+            }
+            msg_Dbg( p_access, "Received AMT relay membership query from %s", relay_ip );
+
+            /* If single source multicast send SSM join */
+            if( sys->mcastSrcAddr.sin_addr.s_addr )
+            {
+                if( amt_joinSSM_group( p_access ) != 0 )
+                {
+                    msg_Err( p_access, "Error joining SSM %s", vlc_strerror(errno) );
+                    goto error;
+                }
+                msg_Dbg( p_access, "Joined SSM src: %s group: %s", sys->mcastSrc, sys->mcastGroup );
+            }
+
+            /* If any source multicast send ASM join */
+            else {
+                if( amt_joinASM_group( p_access ) != 0 )
+                {
+                    msg_Err( p_access, "Error joining ASM %s", vlc_strerror(errno) );
+                    goto error;
+                }
+                msg_Dbg( p_access, "Joined ASM group: %s", sys->mcastGroup );
+            }
+
+            bool eof=false;
+            block_t *pkt;
+
+            /* Confirm that you can pull a UDP packet from the socket */
+            if ( !(pkt = BlockUDP( p_access, &eof )) )
+                msg_Err( p_access, "Unable to receive UDP packet from AMT relay %s for multicast group %s", relay_ip, sys->mcastGroup );
+            else
+            {
+                block_Release( pkt );
+                msg_Dbg( p_access, "Got UDP packet from multicast group %s via AMT relay %s, continuing...", sys->mcastGroup, relay_ip );
+                break;   /* found an active server sending UDP packets, so exit loop */
+           }
         }
 
         /* If started, the thread must be stopped before trying the next server
@@ -918,6 +930,7 @@ static void amt_thread_cancel( stream_t *p_access )
         vlc_join( sys->updateThread, NULL );
     }
 }
+
 
 /** Create relay discovery socket, query socket, UDP socket and
  * fills in relay anycast address for discovery
@@ -1277,6 +1290,8 @@ static bool amt_rcv_relay_adv( stream_t *p_access )
    |                               |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
+
+
 static bool amt_rcv_relay_mem_query( stream_t *p_access )
 {
     char pkt[RELAY_QUERY_MSG_LEN];
@@ -1314,6 +1329,8 @@ static bool amt_rcv_relay_mem_query( stream_t *p_access )
         return false;
     }
 
+    sys->glob_ulNonce = GetDWBE(&pkt[AMT_HDR_LEN + MAC_LEN]);
+
     size_t shift = AMT_HDR_LEN + MAC_LEN + NONCE_LEN;
     memcpy( &sys->relay_ip_hdr, &pkt[shift], IP_HDR_IGMP_LEN );
 
@@ -1336,8 +1353,15 @@ static bool amt_rcv_relay_mem_query( stream_t *p_access )
     shift++; assert( shift < RELAY_QUERY_MSG_LEN);
     memcpy( &sys->relay_igmp_query.nSrc, &pkt[shift], 2 );
 
+    amt_thread_cancel( p_access );
+
+    msg_Dbg( p_access, "Spawning AMT relay membership update thread");
+
     if( vlc_clone( &sys->updateThread, amt_mem_upd, p_access, VLC_THREAD_PRIORITY_LOW) )
+    {
+        msg_Err( p_access, "Could not create AMT relay membership update thread" );
         return false;
+    }
 
     /* set theadReady to true, thread will send periodic membership updates until false */
     sys->threadReady = true;
@@ -1405,6 +1429,8 @@ static void *amt_mem_upd( void *data )
 {
     stream_t     *p_access = (stream_t*) data;
     access_sys_t *sys = p_access->p_sys;
+ 
+    msg_Dbg( p_access, "AMT relay membership update thread started" );
  
     /* thread sends periodic AMT membership updates until Close() which terminates thread */
     while ( true  )

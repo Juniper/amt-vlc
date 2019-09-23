@@ -238,7 +238,7 @@ static int DecoderThread_Reload( struct decoder_owner *p_owner, bool b_packetize
     {
         assert( p_owner->fmt.i_cat == AUDIO_ES );
         audio_output_t *p_aout = p_owner->p_aout;
-        // no need to lock, the decoder and DecoderOutputThreads are dead
+        // no need to lock, the decoder and ModuleThread are dead
         p_owner->p_aout = NULL;
         if( p_aout )
         {
@@ -659,6 +659,7 @@ static subpicture_t *ModuleThread_NewSpuBuffer( decoder_t *p_dec,
             vout_UnregisterSubpictureChannel(p_owner->p_vout,
                                              p_owner->i_spu_channel);
             vout_Release(p_owner->p_vout);
+            p_owner->p_vout = NULL; // the DecoderThread should not use the old vout anymore
         }
 
         enum vlc_vout_order channel_order;
@@ -670,7 +671,6 @@ static subpicture_t *ModuleThread_NewSpuBuffer( decoder_t *p_dec,
         if (p_owner->i_spu_channel == VOUT_SPU_CHANNEL_INVALID)
         {
             /* The new vout doesn't support SPU, aborting... */
-            p_owner->p_vout = NULL; // the DecoderThread should not use the old vout anymore
             vlc_mutex_unlock(&p_owner->lock);
             vout_Release(p_vout);
             return NULL;
@@ -1753,6 +1753,8 @@ static struct decoder_owner * CreateDecoder( vlc_object_t *p_parent,
 {
     decoder_t *p_dec;
     struct decoder_owner *p_owner;
+    static_assert(offsetof(struct decoder_owner, dec) == 0,
+                  "the decoder must be first in the owner structure");
 
     p_owner = vlc_custom_create( p_parent, sizeof( *p_owner ), "decoder" );
     if( p_owner == NULL )
@@ -1973,7 +1975,7 @@ static void DeleteDecoder( decoder_t * p_dec )
     vlc_mutex_destroy( &p_owner->lock );
     vlc_mutex_destroy( &p_owner->mouse_lock );
 
-    decoder_Destroy( p_dec );
+    decoder_Destroy( &p_owner->dec );
 }
 
 /* */

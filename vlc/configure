@@ -1318,6 +1318,8 @@ LIBS_decklink
 CPPFLAGS_stream_out_sdi
 CPPFLAGS_decklinkoutput
 CPPFLAGS_decklink
+HAVE_NVDEC_FALSE
+HAVE_NVDEC_TRUE
 HAVE_V4L2_FALSE
 HAVE_V4L2_TRUE
 SMB2_LIBS
@@ -1740,6 +1742,7 @@ enable_sftp
 enable_nfs
 enable_smb2
 enable_v4l2
+enable_nvdec
 enable_decklink
 with_decklink_sdk
 enable_vcd
@@ -2887,6 +2890,7 @@ Input plugins:
   --enable-nfs            (support nfs protocol via libnfs) [default=auto]
   --enable-smb2           (support smb2 protocol via libsmb2) [default=auto]
   --disable-v4l2          disable Video4Linux version 2 (default auto)
+  --disable-nvdec         disable NVDEC decoder (default auto)
   --disable-decklink      disable Blackmagic DeckLink SDI input (default auto)
   --with-decklink-sdk=DIR location of Blackmagic DeckLink SDI SDK
   --disable-vcd           disable built-in VCD and CD-DA support (default
@@ -36478,6 +36482,39 @@ else
 fi
 
 
+# Check whether --enable-nvdec was given.
+if test "${enable_nvdec+set}" = set; then :
+  enableval=$enable_nvdec;
+fi
+
+have_nvdec="no"
+if test "$enable_nvdec" != "no"; then :
+
+  for ac_header in ffnvcodec/dynlink_loader.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "ffnvcodec/dynlink_loader.h" "ac_cv_header_ffnvcodec_dynlink_loader_h" "$ac_includes_default"
+if test "x$ac_cv_header_ffnvcodec_dynlink_loader_h" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_FFNVCODEC_DYNLINK_LOADER_H 1
+_ACEOF
+
+    have_nvdec="yes"
+
+fi
+
+done
+
+
+fi
+ if test "${have_nvdec}" != "no"; then
+  HAVE_NVDEC_TRUE=
+  HAVE_NVDEC_FALSE='#'
+else
+  HAVE_NVDEC_TRUE='#'
+  HAVE_NVDEC_FALSE=
+fi
+
+
 # Check whether --enable-decklink was given.
 if test "${enable_decklink+set}" = set; then :
   enableval=$enable_decklink;
@@ -60938,6 +60975,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${HAVE_V4L2_TRUE}" && test -z "${HAVE_V4L2_FALSE}"; then
   as_fn_error $? "conditional \"HAVE_V4L2\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${HAVE_NVDEC_TRUE}" && test -z "${HAVE_NVDEC_FALSE}"; then
+  as_fn_error $? "conditional \"HAVE_NVDEC\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${HAVE_DECKLINK_TRUE}" && test -z "${HAVE_DECKLINK_FALSE}"; then

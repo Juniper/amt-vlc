@@ -233,6 +233,7 @@ audio_filter/scaletempo.lo: \
   ../../extras/package/macosx/../../../include/vlc_atomic.h \
   /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h \
   ../../extras/package/macosx/../../../include/vlc_filter.h \
+  ../../extras/package/macosx/../../../include/vlc_picture.h \
   ../../extras/package/macosx/../../../include/vlc_modules.h \
   /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/limits.h \
   /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/limits.h \
@@ -707,6 +708,8 @@ audio_filter/scaletempo.lo: \
 /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h:
 
 ../../extras/package/macosx/../../../include/vlc_filter.h:
+
+../../extras/package/macosx/../../../include/vlc_picture.h:
 
 ../../extras/package/macosx/../../../include/vlc_modules.h:
 

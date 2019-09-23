@@ -229,8 +229,10 @@ audio_filter/channel_mixer/mono.lo: \
   ../../extras/package/macosx/../../../include/vlc_es.h \
   ../../extras/package/macosx/../../../include/vlc_fourcc.h \
   ../../extras/package/macosx/../../../include/vlc_viewpoint.h \
-  ../../extras/package/macosx/../../../include/vlc_aout.h \
-  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/assert.h
+  ../../extras/package/macosx/../../../include/vlc_picture.h \
+  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/assert.h \
+  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h \
+  ../../extras/package/macosx/../../../include/vlc_aout.h
 
 ../config.h:
 
@@ -692,6 +694,10 @@ audio_filter/channel_mixer/mono.lo: \
 
 ../../extras/package/macosx/../../../include/vlc_viewpoint.h:
 
-../../extras/package/macosx/../../../include/vlc_aout.h:
+../../extras/package/macosx/../../../include/vlc_picture.h:
 
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/assert.h:
+
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include/stdatomic.h:
+
+../../extras/package/macosx/../../../include/vlc_aout.h:

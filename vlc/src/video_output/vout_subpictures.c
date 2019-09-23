@@ -221,13 +221,6 @@ static void FilterRelease(filter_t *filter)
     vlc_object_delete(filter);
 }
 
-static picture_t *spu_new_video_buffer(filter_t *filter)
-{
-    const video_format_t *fmt = &filter->fmt_out.video;
-
-    return picture_NewFromFormat(fmt);
-}
-
 static int spu_get_attachments(filter_t *filter,
                                input_attachment_t ***attachment_ptr,
                                int *attachment_count)
@@ -274,10 +267,6 @@ static filter_t *SpuRenderCreateAndLoadText(spu_t *spu)
     return text;
 }
 
-static const struct filter_video_callbacks spu_scaler_cbs = {
-    spu_new_video_buffer,
-};
-
 static filter_t *SpuRenderCreateAndLoadScale(vlc_object_t *object,
                                              vlc_fourcc_t src_chroma,
                                              vlc_fourcc_t dst_chroma,
@@ -300,8 +289,6 @@ static filter_t *SpuRenderCreateAndLoadScale(vlc_object_t *object,
     scale->fmt_out.video.i_visible_width =
     scale->fmt_out.video.i_height =
     scale->fmt_out.video.i_visible_height = require_resize ? 16 : 32;
-
-    scale->owner.video = &spu_scaler_cbs;
 
     scale->p_module = module_need(scale, "video converter", NULL, false);
     if (!scale->p_module)
@@ -1819,7 +1806,7 @@ void spu_PutSubpicture(spu_t *spu, subpicture_t *subpic)
                 filter_chain_ForEach(sys->filter_chain,
                                      SubFilterDelProxyCallbacks,
                                      sys->vout);
-            filter_chain_Reset(sys->filter_chain, NULL, NULL);
+            filter_chain_Clear(sys->filter_chain);
 
             filter_chain_AppendFromString(spu->p->filter_chain, chain_update);
             if (sys->vout)
@@ -1828,7 +1815,7 @@ void spu_PutSubpicture(spu_t *spu, subpicture_t *subpic)
                                      sys->vout);
         }
         else
-            filter_chain_Reset(sys->filter_chain, NULL, NULL);
+            filter_chain_Clear(sys->filter_chain);
 
         /* "sub-source"  was formerly "sub-filter", so now the "sub-filter"
         configuration may contain sub-filters or sub-sources configurations.
@@ -1926,7 +1913,7 @@ subpicture_t *spu_Render(spu_t *spu,
                 filter_chain_ForEach(sys->source_chain,
                                      SubSourceDelProxyCallbacks,
                                      sys->vout);
-        filter_chain_Reset(sys->source_chain, NULL, NULL);
+        filter_chain_Clear(sys->source_chain);
 
         filter_chain_AppendFromString(spu->p->source_chain, chain_update);
         if (sys->vout)
