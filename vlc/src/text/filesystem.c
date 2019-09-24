@@ -199,23 +199,24 @@ int vlc_scandir( const char *dirname, char ***namelist,
     return val;
 }
 
-#if defined (_WIN32) || defined (__OS2__)
 # include <vlc_rand.h>
 
-int vlc_mkstemp( char *template )
+VLC_WEAK int vlc_mkstemp(char *template)
 {
-    static const char digits[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    static const int i_digits = sizeof(digits)/sizeof(*digits) - 1;
+    static const char bytes[] =
+        "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqstruvwxyz_-";
+    static const size_t nbytes = ARRAY_SIZE(bytes) - 1;
+    char *pattern;
 
-    /* */
-    assert( template );
+    static_assert(((ARRAY_SIZE(bytes) - 1) & (ARRAY_SIZE(bytes) - 2)) == 0,
+                  "statistical bias");
 
     /* Check template validity */
-    const size_t i_length = strlen( template );
-    char *psz_rand = &template[i_length-6];
+    assert(template != NULL);
 
-    if( i_length < 6 || strcmp( psz_rand, "XXXXXX" ) )
-    {
+    const size_t len = strlen(template);
+    if (len < 6
+     || strcmp(pattern = template + len - 6, "XXXXXX")) {
         errno = EINVAL;
         return -1;
     }
@@ -228,7 +229,7 @@ int vlc_mkstemp( char *template )
 
         vlc_rand_bytes( pi_rand, sizeof(pi_rand) );
         for( int j = 0; j < 6; j++ )
-            psz_rand[j] = digits[pi_rand[j] % i_digits];
+            pattern[j] = bytes[pi_rand[j] % nbytes];
 
         /* */
         int fd = vlc_open( template, O_CREAT | O_EXCL | O_RDWR, 0600 );
@@ -241,4 +242,3 @@ int vlc_mkstemp( char *template )
     errno = EEXIST;
     return -1;
 }
-#endif

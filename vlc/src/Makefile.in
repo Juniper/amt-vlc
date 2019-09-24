@@ -282,11 +282,12 @@ am__libvlccore_la_SOURCES_DIST = libvlc.c libvlc.h libvlc-module.c \
 	input/demux.c input/demux_chained.c input/es_out.c \
 	input/es_out_timeshift.c input/input.c input/info.h \
 	input/meta.c player/player.c player/player.h player/input.c \
-	player/track.c player/title.c player/aout.c player/vout.c \
-	player/osd.c clock/input_clock.h clock/clock.h \
-	clock/clock_internal.h input/decoder.h input/demux.h \
-	input/es_out.h input/event.h input/item.h input/mrl_helpers.h \
-	input/stream.h input/input_internal.h input/input_interface.h \
+	player/timer.c player/track.c player/title.c player/aout.c \
+	player/vout.c player/osd.c player/medialib.c \
+	clock/input_clock.h clock/clock.h clock/clock_internal.h \
+	input/decoder.h input/demux.h input/es_out.h input/event.h \
+	input/item.h input/mrl_helpers.h input/stream.h \
+	input/input_internal.h input/input_interface.h \
 	input/vlm_internal.h input/vlm_event.h input/resource.h \
 	input/resource.c input/services_discovery.c input/stats.c \
 	input/stream.c input/stream_fifo.c input/stream_extractor.c \
@@ -412,10 +413,11 @@ am_libvlccore_la_OBJECTS = libvlc.lo libvlc-module.lo missing.lo \
 	clock/input_clock.lo clock/clock.lo input/decoder.lo \
 	input/decoder_helpers.lo input/demux.lo input/demux_chained.lo \
 	input/es_out.lo input/es_out_timeshift.lo input/input.lo \
-	input/meta.lo player/player.lo player/input.lo player/track.lo \
-	player/title.lo player/aout.lo player/vout.lo player/osd.lo \
-	input/resource.lo input/services_discovery.lo input/stats.lo \
-	input/stream.lo input/stream_fifo.lo input/stream_extractor.lo \
+	input/meta.lo player/player.lo player/input.lo player/timer.lo \
+	player/track.lo player/title.lo player/aout.lo player/vout.lo \
+	player/osd.lo player/medialib.lo input/resource.lo \
+	input/services_discovery.lo input/stats.lo input/stream.lo \
+	input/stream_fifo.lo input/stream_extractor.lo \
 	input/stream_filter.lo input/stream_memory.lo \
 	input/subtitles.lo input/thumbnailer.lo input/var.lo \
 	audio_output/common.lo audio_output/dec.lo \
@@ -666,7 +668,8 @@ am__depfiles_remade = ./$(DEPDIR)/libvlc-module.Plo \
 	os2/$(DEPDIR)/plugin.Plo os2/$(DEPDIR)/rand.Plo \
 	os2/$(DEPDIR)/specific.Plo os2/$(DEPDIR)/thread.Plo \
 	player/$(DEPDIR)/aout.Plo player/$(DEPDIR)/input.Plo \
-	player/$(DEPDIR)/osd.Plo player/$(DEPDIR)/player.Plo \
+	player/$(DEPDIR)/medialib.Plo player/$(DEPDIR)/osd.Plo \
+	player/$(DEPDIR)/player.Plo player/$(DEPDIR)/timer.Plo \
 	player/$(DEPDIR)/title.Plo player/$(DEPDIR)/track.Plo \
 	player/$(DEPDIR)/vout.Plo playlist/$(DEPDIR)/content.Plo \
 	playlist/$(DEPDIR)/control.Plo playlist/$(DEPDIR)/export.Plo \
@@ -2014,11 +2017,12 @@ libvlccore_la_SOURCES = libvlc.c libvlc.h libvlc-module.c missing.c \
 	input/demux.c input/demux_chained.c input/es_out.c \
 	input/es_out_timeshift.c input/input.c input/info.h \
 	input/meta.c player/player.c player/player.h player/input.c \
-	player/track.c player/title.c player/aout.c player/vout.c \
-	player/osd.c clock/input_clock.h clock/clock.h \
-	clock/clock_internal.h input/decoder.h input/demux.h \
-	input/es_out.h input/event.h input/item.h input/mrl_helpers.h \
-	input/stream.h input/input_internal.h input/input_interface.h \
+	player/timer.c player/track.c player/title.c player/aout.c \
+	player/vout.c player/osd.c player/medialib.c \
+	clock/input_clock.h clock/clock.h clock/clock_internal.h \
+	input/decoder.h input/demux.h input/es_out.h input/event.h \
+	input/item.h input/mrl_helpers.h input/stream.h \
+	input/input_internal.h input/input_interface.h \
 	input/vlm_internal.h input/vlm_event.h input/resource.h \
 	input/resource.c input/services_discovery.c input/stats.c \
 	input/stream.c input/stream_fifo.c input/stream_extractor.c \
@@ -2370,6 +2374,8 @@ player/player.lo: player/$(am__dirstamp) \
 	player/$(DEPDIR)/$(am__dirstamp)
 player/input.lo: player/$(am__dirstamp) \
 	player/$(DEPDIR)/$(am__dirstamp)
+player/timer.lo: player/$(am__dirstamp) \
+	player/$(DEPDIR)/$(am__dirstamp)
 player/track.lo: player/$(am__dirstamp) \
 	player/$(DEPDIR)/$(am__dirstamp)
 player/title.lo: player/$(am__dirstamp) \
@@ -2379,6 +2385,8 @@ player/aout.lo: player/$(am__dirstamp) \
 player/vout.lo: player/$(am__dirstamp) \
 	player/$(DEPDIR)/$(am__dirstamp)
 player/osd.lo: player/$(am__dirstamp) player/$(DEPDIR)/$(am__dirstamp)
+player/medialib.lo: player/$(am__dirstamp) \
+	player/$(DEPDIR)/$(am__dirstamp)
 input/resource.lo: input/$(am__dirstamp) \
 	input/$(DEPDIR)/$(am__dirstamp)
 input/services_discovery.lo: input/$(am__dirstamp) \
@@ -3006,8 +3014,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@os2/$(DEPDIR)/thread.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@player/$(DEPDIR)/aout.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@player/$(DEPDIR)/input.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@player/$(DEPDIR)/medialib.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@player/$(DEPDIR)/osd.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@player/$(DEPDIR)/player.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@player/$(DEPDIR)/timer.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@player/$(DEPDIR)/title.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@player/$(DEPDIR)/track.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@player/$(DEPDIR)/vout.Plo@am__quote@ # am--include-marker
@@ -4136,8 +4146,10 @@ distclean: distclean-am
 	-rm -f os2/$(DEPDIR)/thread.Plo
 	-rm -f player/$(DEPDIR)/aout.Plo
 	-rm -f player/$(DEPDIR)/input.Plo
+	-rm -f player/$(DEPDIR)/medialib.Plo
 	-rm -f player/$(DEPDIR)/osd.Plo
 	-rm -f player/$(DEPDIR)/player.Plo
+	-rm -f player/$(DEPDIR)/timer.Plo
 	-rm -f player/$(DEPDIR)/title.Plo
 	-rm -f player/$(DEPDIR)/track.Plo
 	-rm -f player/$(DEPDIR)/vout.Plo
@@ -4408,8 +4420,10 @@ maintainer-clean: maintainer-clean-am
 	-rm -f os2/$(DEPDIR)/thread.Plo
 	-rm -f player/$(DEPDIR)/aout.Plo
 	-rm -f player/$(DEPDIR)/input.Plo
+	-rm -f player/$(DEPDIR)/medialib.Plo
 	-rm -f player/$(DEPDIR)/osd.Plo
 	-rm -f player/$(DEPDIR)/player.Plo
+	-rm -f player/$(DEPDIR)/timer.Plo
 	-rm -f player/$(DEPDIR)/title.Plo
 	-rm -f player/$(DEPDIR)/track.Plo
 	-rm -f player/$(DEPDIR)/vout.Plo

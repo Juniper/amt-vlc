@@ -45,7 +45,7 @@
 #include <vlc_common.h>
 #include <vlc_fs.h>
 
-#if !defined(HAVE_ACCEPT4) || !defined HAVE_MKOSTEMP
+#if !defined(HAVE_ACCEPT4)
 static inline void vlc_cloexec(int fd)
 {
     fcntl(fd, F_SETFD, FD_CLOEXEC | fcntl(fd, F_GETFD));
@@ -62,14 +62,7 @@ int vlc_open (const char *filename, int flags, ...)
         mode = va_arg (ap, unsigned int);
     va_end (ap);
 
-#ifdef O_CLOEXEC
     return open(filename, flags | O_CLOEXEC, mode);
-#else
-    int fd = open(filename, flags, mode);
-    if (fd != -1)
-        vlc_cloexec(fd);
-    return -1;
-#endif
 }
 
 int vlc_openat (int dir, const char *filename, int flags, ...)
@@ -82,28 +75,15 @@ int vlc_openat (int dir, const char *filename, int flags, ...)
         mode = va_arg (ap, unsigned int);
     va_end (ap);
 
-#ifdef HAVE_OPENAT
     return openat(dir, filename, flags | O_CLOEXEC, mode);
-#else
-    VLC_UNUSED (dir);
-    VLC_UNUSED (filename);
-    VLC_UNUSED (mode);
-    errno = ENOSYS;
-    return -1;
-#endif
 }
 
+#ifdef HAVE_MKOSTEMP
 int vlc_mkstemp (char *template)
 {
-#if defined (HAVE_MKOSTEMP) && defined (O_CLOEXEC)
     return mkostemp(template, O_CLOEXEC);
-#else
-    int fd = mkstemp(template);
-    if (fd != -1)
-        vlc_cloexec(fd);
-    return fd;
-#endif
 }
+#endif
 
 VLC_WEAK int vlc_memfd(void)
 {
@@ -192,14 +172,7 @@ char *vlc_getcwd (void)
 
 int vlc_dup (int oldfd)
 {
-#ifdef F_DUPFD_CLOEXEC
     return fcntl (oldfd, F_DUPFD_CLOEXEC, 0);
-#else
-    int newfd = dup (oldfd);
-    if (newfd != -1)
-        vlc_cloexec(oldfd);
-    return newfd;
-#endif
 }
 
 int vlc_pipe (int fds[2])

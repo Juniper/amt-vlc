@@ -165,7 +165,7 @@ old_postuninstall_cmds=""
 lock_old_archive_extraction=yes
 
 # A C compiler.
-LTCC="gcc -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk -mmacosx-version-min=10.11"
+LTCC="gcc -mmacosx-version-min=10.11"
 
 # LTCC compiler flags.
 LTCFLAGS="  -Werror=unknown-warning-option -Werror=invalid-command-line-argument -D_INTL_REDIRECT_MACROS -std=gnu11 -arch x86_64 -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include -Wall -Wextra -Wsign-compare -Wundef -Wpointer-arith -Wvolatile-register-var -Wformat -Wformat-security -Wbad-function-cast -Wwrite-strings -Wmissing-prototypes -Werror-implicit-function-declaration -Winit-self -pipe -fvisibility=hidden -fno-math-errno -funsafe-math-optimizations -funroll-loops -fstack-protector-strong"
@@ -308,7 +308,7 @@ striplib="strip -x"
 
 
 # The linker used to build libraries.
-LD=" -syslibroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk -mmacosx_version_min=10.11"
+LD=" -mmacosx_version_min=10.11"
 
 # How to create reloadable object files.
 reload_flag=" -r"
@@ -318,7 +318,7 @@ reload_cmds="\$LTCC \$LTCFLAGS -nostdlib \$wl-r -o \$output\$reload_objs"
 old_archive_cmds="\$AR \$AR_FLAGS \$oldlib\$oldobjs~\$RANLIB \$tool_oldlib"
 
 # A language specific compiler.
-CC="gcc -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk -mmacosx-version-min=10.11"
+CC="gcc -mmacosx-version-min=10.11"
 
 # Is the compiler the GNU compiler?
 with_gcc=yes
@@ -11652,7 +11652,7 @@ build_old_libs=`case $build_libtool_libs in yes) echo no;; *) echo yes;; esac`
 # ### BEGIN LIBTOOL TAG CONFIG: CXX
 
 # The linker used to build libraries.
-LD=" -syslibroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk -mmacosx_version_min=10.11"
+LD=" -mmacosx_version_min=10.11"
 
 # How to create reloadable object files.
 reload_flag=" -r"
@@ -11662,7 +11662,7 @@ reload_cmds="\$LTCC \$LTCFLAGS -nostdlib \$wl-r -o \$output\$reload_objs"
 old_archive_cmds="\$AR \$AR_FLAGS \$oldlib\$oldobjs~\$RANLIB \$tool_oldlib"
 
 # A language specific compiler.
-CC="g++ -stdlib=libc++ -std=c++11 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk -mmacosx-version-min=10.11"
+CC="g++ -stdlib=libc++ -std=c++11 -mmacosx-version-min=10.11"
 
 # Is the compiler the GNU compiler?
 with_gcc=yes

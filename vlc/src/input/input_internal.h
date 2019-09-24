@@ -90,6 +90,9 @@ typedef enum input_event_type_e
     /* At least one of "position", "time" "length" has changed */
     INPUT_EVENT_TIMES,
 
+    /* The output PTS changed */
+    INPUT_EVENT_OUTPUT_CLOCK,
+
     /* A title has been added or removed or selected.
      * It implies that the chapter has changed (no chapter event is sent) */
     INPUT_EVENT_TITLE,
@@ -147,11 +150,30 @@ typedef enum input_event_type_e
 #define VLC_INPUT_CAPABILITIES_REWINDABLE (1<<3)
 #define VLC_INPUT_CAPABILITIES_RECORDABLE (1<<4)
 
+struct vlc_input_event_state
+{
+    input_state_e value;
+    /* Only valid for PAUSE_S and PLAYING_S states */
+    vlc_tick_t date;
+};
+
 struct vlc_input_event_times
 {
     float percentage;
     vlc_tick_t ms;
+    vlc_tick_t normal_time;
     vlc_tick_t length;
+};
+
+struct vlc_input_event_output_clock
+{
+    vlc_es_id_t *id;
+    bool master;
+    vlc_tick_t system_ts;
+    vlc_tick_t ts;
+    double rate;
+    unsigned frame_rate;
+    unsigned frame_rate_base;
 };
 
 struct vlc_input_event_title
@@ -236,13 +258,15 @@ struct vlc_input_event
 
     union {
         /* INPUT_EVENT_STATE */
-        input_state_e state;
+        struct vlc_input_event_state state;
         /* INPUT_EVENT_RATE */
         float rate;
         /* INPUT_EVENT_CAPABILITIES */
         int capabilities; /**< cf. VLC_INPUT_CAPABILITIES_* bitwise flags */
         /* INPUT_EVENT_TIMES */
         struct vlc_input_event_times times;
+        /* INPUT_EVENT_OUTPUT_CLOCK */
+        struct vlc_input_event_output_clock output_clock;
         /* INPUT_EVENT_TITLE */
         struct vlc_input_event_title title;
         /* INPUT_EVENT_CHAPTER */
@@ -411,6 +435,10 @@ typedef union
         vlc_es_id_t *id;
         bool enabled;
     } vbi_transparency;
+    struct {
+        enum es_format_category_e cat;
+        bool enabled;
+    } es_autoselect;
 } input_control_param_t;
 
 typedef struct
@@ -440,6 +468,7 @@ typedef struct input_thread_private_t
     bool        b_recording;
     bool        b_thumbnailing;
     float       rate;
+    vlc_tick_t  normal_time;
 
     /* Playtime configuration and state */
     vlc_tick_t  i_start;    /* :start-time,0 by default */
@@ -561,37 +590,44 @@ enum input_control_e
 
     INPUT_CONTROL_SET_VBI_PAGE,
     INPUT_CONTROL_SET_VBI_TRANSPARENCY,
+
+    INPUT_CONTROL_SET_ES_AUTOSELECT,
 };
 
 /* Internal helpers */
 
-void input_ControlPush( input_thread_t *, int, const input_control_param_t * );
+int input_ControlPush( input_thread_t *, int, const input_control_param_t * );
 
 /* XXX for string value you have to allocate it before calling
  * input_ControlPushHelper
  */
-static inline void input_ControlPushHelper( input_thread_t *p_input, int i_type, vlc_value_t *val )
+static inline int input_ControlPushHelper( input_thread_t *p_input, int i_type, vlc_value_t *val )
 {
     if( val != NULL )
     {
         input_control_param_t param = { .val = *val };
-        input_ControlPush( p_input, i_type, &param );
+        return input_ControlPush( p_input, i_type, &param );
     }
     else
     {
-        input_ControlPush( p_input, i_type, NULL );
+        return input_ControlPush( p_input, i_type, NULL );
     }
 }
 
-static inline void input_ControlPushEsHelper( input_thread_t *p_input, int i_type,
-                                              vlc_es_id_t *id )
+static inline int input_ControlPushEsHelper( input_thread_t *p_input, int i_type,
+                                             vlc_es_id_t *id )
 {
     assert( i_type == INPUT_CONTROL_SET_ES || i_type == INPUT_CONTROL_UNSET_ES ||
             i_type == INPUT_CONTROL_RESTART_ES );
-    input_ControlPush( p_input, i_type, &(input_control_param_t) {
+    return input_ControlPush( p_input, i_type, &(input_control_param_t) {
         .id = vlc_es_id_Hold( id ),
     } );
 }
+
+/** Synchronously execute a control sequence. This MUST only be used before the
+ * input is started
+ */
+void input_ControlSync(input_thread_t *, int, const input_control_param_t *);
 
 bool input_Stopped( input_thread_t * );
 

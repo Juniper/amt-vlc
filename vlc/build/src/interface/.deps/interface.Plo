@@ -256,6 +256,7 @@ interface/interface.lo: \
   ../../extras/package/macosx/../../../include/vlc_block.h \
   ../../extras/package/macosx/../../../include/vlc_vector.h \
   ../../extras/package/macosx/../../../include/vlc_atomic.h \
+  ../../extras/package/macosx/../../../include/vlc_media_library.h \
   ../../extras/package/macosx/../../../src/input/input_internal.h \
   ../../extras/package/macosx/../../../include/vlc_access.h \
   ../../extras/package/macosx/../../../include/vlc_stream.h \
@@ -785,6 +786,8 @@ interface/interface.lo: \
 ../../extras/package/macosx/../../../include/vlc_vector.h:
 
 ../../extras/package/macosx/../../../include/vlc_atomic.h:
+
+../../extras/package/macosx/../../../include/vlc_media_library.h:
 
 ../../extras/package/macosx/../../../src/input/input_internal.h:
 
