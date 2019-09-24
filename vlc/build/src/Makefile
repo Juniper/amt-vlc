@@ -282,11 +282,12 @@ am__libvlccore_la_SOURCES_DIST = libvlc.c libvlc.h libvlc-module.c \
 	input/demux.c input/demux_chained.c input/es_out.c \
 	input/es_out_timeshift.c input/input.c input/info.h \
 	input/meta.c player/player.c player/player.h player/input.c \
-	player/track.c player/title.c player/aout.c player/vout.c \
-	player/osd.c clock/input_clock.h clock/clock.h \
-	clock/clock_internal.h input/decoder.h input/demux.h \
-	input/es_out.h input/event.h input/item.h input/mrl_helpers.h \
-	input/stream.h input/input_internal.h input/input_interface.h \
+	player/timer.c player/track.c player/title.c player/aout.c \
+	player/vout.c player/osd.c player/medialib.c \
+	clock/input_clock.h clock/clock.h clock/clock_internal.h \
+	input/decoder.h input/demux.h input/es_out.h input/event.h \
+	input/item.h input/mrl_helpers.h input/stream.h \
+	input/input_internal.h input/input_interface.h \
 	input/vlm_internal.h input/vlm_event.h input/resource.h \
 	input/resource.c input/services_discovery.c input/stats.c \
 	input/stream.c input/stream_fifo.c input/stream_extractor.c \
@@ -412,10 +413,11 @@ am_libvlccore_la_OBJECTS = libvlc.lo libvlc-module.lo missing.lo \
 	clock/input_clock.lo clock/clock.lo input/decoder.lo \
 	input/decoder_helpers.lo input/demux.lo input/demux_chained.lo \
 	input/es_out.lo input/es_out_timeshift.lo input/input.lo \
-	input/meta.lo player/player.lo player/input.lo player/track.lo \
-	player/title.lo player/aout.lo player/vout.lo player/osd.lo \
-	input/resource.lo input/services_discovery.lo input/stats.lo \
-	input/stream.lo input/stream_fifo.lo input/stream_extractor.lo \
+	input/meta.lo player/player.lo player/input.lo player/timer.lo \
+	player/track.lo player/title.lo player/aout.lo player/vout.lo \
+	player/osd.lo player/medialib.lo input/resource.lo \
+	input/services_discovery.lo input/stats.lo input/stream.lo \
+	input/stream_fifo.lo input/stream_extractor.lo \
 	input/stream_filter.lo input/stream_memory.lo \
 	input/subtitles.lo input/thumbnailer.lo input/var.lo \
 	audio_output/common.lo audio_output/dec.lo \
@@ -666,7 +668,8 @@ am__depfiles_remade = ./$(DEPDIR)/libvlc-module.Plo \
 	os2/$(DEPDIR)/plugin.Plo os2/$(DEPDIR)/rand.Plo \
 	os2/$(DEPDIR)/specific.Plo os2/$(DEPDIR)/thread.Plo \
 	player/$(DEPDIR)/aout.Plo player/$(DEPDIR)/input.Plo \
-	player/$(DEPDIR)/osd.Plo player/$(DEPDIR)/player.Plo \
+	player/$(DEPDIR)/medialib.Plo player/$(DEPDIR)/osd.Plo \
+	player/$(DEPDIR)/player.Plo player/$(DEPDIR)/timer.Plo \
 	player/$(DEPDIR)/title.Plo player/$(DEPDIR)/track.Plo \
 	player/$(DEPDIR)/vout.Plo playlist/$(DEPDIR)/content.Plo \
 	playlist/$(DEPDIR)/control.Plo playlist/$(DEPDIR)/export.Plo \
@@ -1027,10 +1030,10 @@ AOM_CFLAGS =
 AOM_LIBS = 
 AR = ar
 ARCH = x86_64 mmx sse sse2 avx avx2
-ARCHIVE_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-ARCHIVE_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -larchive -llzma -lbz2 -lz
-ARIBB24_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/libpng16
-ARIBB24_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -laribb24 -lm -lpng16 -lz
+ARCHIVE_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+ARCHIVE_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -larchive -llzma -lbz2 -lz 
+ARIBB24_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/libpng16 
+ARIBB24_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -laribb24 -lm -lpng16 -lz 
 ARIBB25_CFLAGS = 
 ARIBB25_LIBS = 
 AS = as
@@ -1042,15 +1045,15 @@ AUTOHEADER = ${SHELL} /Users/nlandsberg/vlc/autotools/missing autoheader
 AUTOMAKE = ${SHELL} /Users/nlandsberg/vlc/autotools/missing automake-1.16
 AVAHI_CFLAGS = 
 AVAHI_LIBS = 
-AVCODEC_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-AVCODEC_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lavcodec -framework CoreFoundation -framework VideoDecodeAcceleration -framework QuartzCore -lvpx -lm -lpthread -lopenjpeg -DOPJ_STATIC -lmp3lame -lgsm -lm -lz -pthread -lavutil -lm
-AVFORMAT_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-AVFORMAT_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lavformat -framework CoreFoundation -framework VideoDecodeAcceleration -framework QuartzCore -lvpx -lm -lpthread -lopenjpeg -DOPJ_STATIC -lmp3lame -lgsm -lm -lz -pthread -lavcodec -framework CoreFoundation -framework VideoDecodeAcceleration -framework QuartzCore -lvpx -lm -lpthread -lopenjpeg -DOPJ_STATIC -lmp3lame -lgsm -lm -lz -pthread -lavutil -lm
+AVCODEC_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+AVCODEC_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lavcodec -framework CoreFoundation -framework VideoDecodeAcceleration -framework QuartzCore -lvpx -lm -lpthread -lopenjpeg -DOPJ_STATIC -lmp3lame -lgsm -lm -lz -pthread -lavutil -lm 
+AVFORMAT_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+AVFORMAT_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lavformat -framework CoreFoundation -framework VideoDecodeAcceleration -framework QuartzCore -lvpx -lm -lpthread -lopenjpeg -DOPJ_STATIC -lmp3lame -lgsm -lm -lz -pthread -lavcodec -framework CoreFoundation -framework VideoDecodeAcceleration -framework QuartzCore -lvpx -lm -lpthread -lopenjpeg -DOPJ_STATIC -lmp3lame -lgsm -lm -lz -pthread -lavutil -lm 
 AWK = awk
 BITSTREAM_CFLAGS = 
 BITSTREAM_LIBS = 
-BLURAY_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-BLURAY_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lbluray -lxml2 -lm -lfreetype -lz
+BLURAY_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+BLURAY_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lbluray -lxml2 -lm -lfreetype -lz 
 BREAKPAD_CFLAGS = 
 BREAKPAD_LIBS = 
 BREAKPAD_URL = 
@@ -1058,92 +1061,92 @@ BUILDCC = c99
 BUILDEXEEXT = 
 CACA_CFLAGS = 
 CACA_LIBS = 
-CC = gcc -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk -mmacosx-version-min=10.11
+CC = gcc -mmacosx-version-min=10.11
 CCAS = gcc
 CCASDEPMODE = depmode=gcc3
 CCASFLAGS =  
 CCDEPMODE = depmode=gcc3
 CFLAGS =   -Werror=unknown-warning-option -Werror=invalid-command-line-argument -D_INTL_REDIRECT_MACROS -std=gnu11 -arch x86_64 -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include -Wall -Wextra -Wsign-compare -Wundef -Wpointer-arith -Wvolatile-register-var -Wformat -Wformat-security -Wbad-function-cast -Wwrite-strings -Wmissing-prototypes -Werror-implicit-function-declaration -Winit-self -pipe -fvisibility=hidden -fno-math-errno -funsafe-math-optimizations -funroll-loops -fstack-protector-strong
 CFLAGS_access_mtp = 
-CFLAGS_access_output_shout =  -D_THREAD_SAFE -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+CFLAGS_access_output_shout =  -D_THREAD_SAFE -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  
 CFLAGS_access_output_srt = 
 CFLAGS_access_srt = 
 CFLAGS_aom = 
-CFLAGS_archive =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+CFLAGS_archive =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  
 CFLAGS_aribcam = 
 CFLAGS_avahi = 
 CFLAGS_caca = 
-CFLAGS_cdda =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
+CFLAGS_cdda =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
 CFLAGS_daala = 
 CFLAGS_dav1d = 
 CFLAGS_dc1394 = 
-CFLAGS_dca =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/libdca 
+CFLAGS_dca =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/libdca  
 CFLAGS_deinterlace = 
 CFLAGS_dsm = 
 CFLAGS_dv1394 = 
 CFLAGS_dvdnav = 
 CFLAGS_dvdread = 
 CFLAGS_fdkaac = 
-CFLAGS_flac =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
-CFLAGS_fluidsynth =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+CFLAGS_flac =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  
+CFLAGS_fluidsynth =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  
 CFLAGS_gles2 = 
-CFLAGS_goom =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
-CFLAGS_kate =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+CFLAGS_goom =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  
+CFLAGS_kate =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  
 CFLAGS_kms = 
-CFLAGS_libbluray =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
-CFLAGS_libmpeg2 =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/mpeg2dec 
+CFLAGS_libbluray =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  
+CFLAGS_libmpeg2 =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/mpeg2dec  
 CFLAGS_libvlccore = 
 CFLAGS_medialibrary = 
 CFLAGS_microdns = 
 CFLAGS_mkv = 
 CFLAGS_mmal = 
 CFLAGS_mod = 
-CFLAGS_mpg123 =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+CFLAGS_mpg123 =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  
 CFLAGS_mtp = 
-CFLAGS_mux_ogg =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
-CFLAGS_nfs =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+CFLAGS_mux_ogg =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  
+CFLAGS_nfs =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  
 CFLAGS_notify = 
-CFLAGS_ogg =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-CFLAGS_oggspots =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+CFLAGS_ogg =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+CFLAGS_oggspots =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  
 CFLAGS_omxil = 
 CFLAGS_opencv_example = 
 CFLAGS_opencv_wrapper = 
-CFLAGS_opus =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/opus 
+CFLAGS_opus =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/opus  
 CFLAGS_qsv = 
 CFLAGS_rdp = 
-CFLAGS_samplerate =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
-CFLAGS_schroedinger =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/schroedinger-1.0 -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/orc-0.4 
+CFLAGS_samplerate =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  
+CFLAGS_schroedinger =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/schroedinger-1.0 -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/orc-0.4  
 CFLAGS_secret = 
-CFLAGS_sftp =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+CFLAGS_sftp =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  
 CFLAGS_shine = 
-CFLAGS_sid =  -DHAVE_UNIX -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
+CFLAGS_sid =  -DHAVE_UNIX -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
 CFLAGS_smb2 = 
 CFLAGS_smbc = 
 CFLAGS_soxr = 
 CFLAGS_spatialaudio = 
-CFLAGS_speex =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+CFLAGS_speex =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  
 CFLAGS_svg = 
 CFLAGS_svgdec = 
-CFLAGS_swscale =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-CFLAGS_theora =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
-CFLAGS_twolame =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+CFLAGS_swscale =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+CFLAGS_theora =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  
+CFLAGS_twolame =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  
 CFLAGS_udev = 
-CFLAGS_upnp =  -D_THREAD_SAFE -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/upnp 
+CFLAGS_upnp =  -D_THREAD_SAFE -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/upnp  
 CFLAGS_vnc = 
-CFLAGS_vorbis =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+CFLAGS_vorbis =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  
 CFLAGS_x262 = 
-CFLAGS_x264 =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
+CFLAGS_x264 =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
 CFLAGS_x26410b = 
-CFLAGS_x265 =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
-CFLAGS_xml =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/libxml2 
-CHROMAPRINT_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-CHROMAPRINT_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lchromaprint -lavcodec -lavutil
-CHROMECAST_CFLAGS = -D_THREAD_SAFE -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-CHROMECAST_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lprotobuf-lite -D_THREAD_SAFE
+CFLAGS_x265 =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  
+CFLAGS_xml =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/libxml2  
+CHROMAPRINT_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+CHROMAPRINT_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lchromaprint -lavcodec -lavutil 
+CHROMECAST_CFLAGS = -D_THREAD_SAFE -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+CHROMECAST_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lprotobuf-lite -D_THREAD_SAFE 
 CONTRIB_DIR = /Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15
 COPYRIGHT_MESSAGE = Copyright © 1996-2019 the VideoLAN team
 COPYRIGHT_YEARS = 1996-2019
-CPP = gcc -E -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk -mmacosx-version-min=10.11
+CPP = gcc -E -mmacosx-version-min=10.11
 CPPFLAGS = -I$(top_srcdir)/include -I$(top_builddir)/include  -arch x86_64 -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
 CPPFLAGS_a52 =  
 CPPFLAGS_access_mtp = 
@@ -1193,7 +1196,7 @@ CPPFLAGS_schroedinger =
 CPPFLAGS_secret = 
 CPPFLAGS_sftp = 
 CPPFLAGS_shine = 
-CPPFLAGS_skins2 =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/freetype2 -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/fribidi -DHAVE_FRIBIDI -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/harfbuzz -DHAVE_HARFBUZZ
+CPPFLAGS_skins2 =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/freetype2 -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/fribidi  -DHAVE_FRIBIDI -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/harfbuzz  -DHAVE_HARFBUZZ
 CPPFLAGS_smb2 = 
 CPPFLAGS_smbc = 
 CPPFLAGS_soxr = 
@@ -1208,14 +1211,14 @@ CPPFLAGS_udev =
 CPPFLAGS_upnp = 
 CPPFLAGS_vnc = 
 CPPFLAGS_vorbis = 
-CPPFLAGS_vpx =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include -DENABLE_VP8_DECODER -DENABLE_VP9_DECODER -DENABLE_VP8_ENCODER -DENABLE_VP9_ENCODER
+CPPFLAGS_vpx =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include  -DENABLE_VP8_DECODER -DENABLE_VP9_DECODER -DENABLE_VP8_ENCODER -DENABLE_VP9_ENCODER
 CPPFLAGS_x265 = 
 CPPFLAGS_xml = 
-CXX = g++ -stdlib=libc++ -std=c++11 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk -mmacosx-version-min=10.11
-CXXCPP = g++ -stdlib=libc++ -std=c++11 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk -mmacosx-version-min=10.11 -E
+CXX = g++ -stdlib=libc++ -std=c++11 -mmacosx-version-min=10.11
+CXXCPP = g++ -stdlib=libc++ -std=c++11 -mmacosx-version-min=10.11 -E
 CXXDEPMODE = depmode=gcc3
 CXXFLAGS = -g -O2 -std=c++14 -Werror=unknown-warning-option -Werror=invalid-command-line-argument -D_INTL_REDIRECT_MACROS -arch x86_64 -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include -Wall -Wextra -Wsign-compare -Wundef -Wpointer-arith -Wvolatile-register-var -Wformat -Wformat-security -fvisibility=hidden -fno-math-errno -funsafe-math-optimizations -funroll-loops -fstack-protector-strong
-CXXFLAGS_live555 =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/liveMedia -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/groupsock -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/BasicUsageEnvironment -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/UsageEnvironment
+CXXFLAGS_live555 =  -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/liveMedia -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/groupsock -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/BasicUsageEnvironment -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/UsageEnvironment 
 CXXFLAGS_mod = 
 CYGPATH_W = echo
 DAALA_CFLAGS = 
@@ -1226,8 +1229,8 @@ DBUS_CFLAGS =
 DBUS_LIBS = 
 DC1394_CFLAGS = 
 DC1394_LIBS = 
-DCA_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/libdca
-DCA_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -ldca
+DCA_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/libdca 
+DCA_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -ldca 
 DEFS = -DHAVE_CONFIG_H
 DEFS_BIGENDIAN = 
 DEPDIR = .deps
@@ -1242,8 +1245,8 @@ DSYMUTIL = dsymutil
 DUMPBIN = :
 DV1394_CFLAGS = 
 DV1394_LIBS = 
-DVBPSI_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-DVBPSI_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -ldvbpsi
+DVBPSI_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+DVBPSI_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -ldvbpsi 
 DVDNAV_CFLAGS = 
 DVDNAV_LIBS = 
 DVDREAD_CFLAGS = 
@@ -1260,20 +1263,20 @@ FDKAAC_LIBS =
 FGREP = /usr/bin/grep -F
 FILE_LIBVLCCORE_DLL = 
 FILE_LIBVLC_DLL = 
-FLAC_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-FLAC_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lFLAC -lm -logg
-FLUIDLITE_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-FLUIDLITE_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lfluidlite -logg
+FLAC_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+FLAC_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lFLAC -lm -logg 
+FLUIDLITE_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+FLUIDLITE_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lfluidlite -logg 
 FLUIDSYNTH_CFLAGS = 
-FLUIDSYNTH_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lfluidlite -logg
+FLUIDSYNTH_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lfluidlite -logg 
 FONTCONFIG_CFLAGS = 
 FONTCONFIG_LIBS = 
 FREERDP_CFLAGS = 
 FREERDP_LIBS = 
-FREETYPE_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/freetype2 -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-FREETYPE_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lfreetype -lz
-FRIBIDI_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/fribidi
-FRIBIDI_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lfribidi
+FREETYPE_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/freetype2 -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+FREETYPE_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lfreetype -lz 
+FRIBIDI_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/fribidi 
+FRIBIDI_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lfribidi 
 GCRYPT_CFLAGS = 
 GCRYPT_LIBS = -lgcrypt -lgpg-error
 GETTEXT_MACRO_VERSION = 0.19
@@ -1286,15 +1289,15 @@ GMSGFMT_015 = /Users/nlandsberg/vlc/extras/tools/build/bin/msgfmt
 GNUGETOPT_LIBS = 
 GNUTLS_CFLAGS = 
 GNUTLS_LIBS = 
-GOOM_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-GOOM_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lgoom2
+GOOM_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+GOOM_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lgoom2 
 GREP = /usr/bin/grep
 GST_APP_CFLAGS = 
 GST_APP_LIBS = 
 GST_VIDEO_CFLAGS = 
 GST_VIDEO_LIBS = 
-HARFBUZZ_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/harfbuzz
-HARFBUZZ_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lharfbuzz -framework CoreText -framework CoreGraphics -framework CoreFoundation
+HARFBUZZ_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/harfbuzz 
+HARFBUZZ_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lharfbuzz -framework CoreText -framework CoreGraphics -framework CoreFoundation 
 HAVE_CXX14 = 
 IDN_CFLAGS = 
 IDN_LIBS = 
@@ -1308,13 +1311,13 @@ INTL_MACOSX_LIBS = -Wl,-framework -Wl,CoreFoundation
 JACK_CFLAGS = 
 JACK_LIBS = 
 KAI_LIBS = 
-KATE_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-KATE_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lkate
+KATE_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+KATE_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lkate 
 KDE4_CONFIG = kde4-config
 KMS_CFLAGS = 
 KMS_LIBS = 
 KVA_LIBS = 
-LD =  -syslibroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk -mmacosx_version_min=10.11
+LD =  -mmacosx_version_min=10.11
 LDFLAGS =  -Wl,-headerpad_max_install_names -arch x86_64 -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib
 LDFLAGS_live555 = 
 LDFLAGS_mmal = 
@@ -1324,10 +1327,10 @@ LDFLAGS_x26410b =
 LEX = flex
 LEXLIB = -ll
 LEX_OUTPUT_ROOT = lex.yy
-LIBASS_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/harfbuzz -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/fribidi -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/freetype2 -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-LIBASS_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lass -lm -liconv -lharfbuzz -framework CoreText -framework CoreGraphics -framework CoreFoundation -lfribidi -lfreetype -lz
-LIBCDDB_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-LIBCDDB_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lcddb
+LIBASS_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/harfbuzz -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/fribidi -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/freetype2 -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+LIBASS_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lass -lm -liconv -lharfbuzz -framework CoreText -framework CoreGraphics -framework CoreFoundation -lfribidi -lfreetype -lz 
+LIBCDDB_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+LIBCDDB_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lcddb 
 LIBCOM = 
 LIBDL = 
 LIBEXT = .dylib
@@ -1336,8 +1339,8 @@ LIBINTL = /Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib/libintl.a -lic
 LIBM = -lm
 LIBMODPLUG_CFLAGS = 
 LIBMODPLUG_LIBS = 
-LIBMPEG2_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/mpeg2dec
-LIBMPEG2_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lmpeg2
+LIBMPEG2_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/mpeg2dec 
+LIBMPEG2_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lmpeg2 
 LIBOBJS =  ${LIBOBJDIR}aligned_alloc$U.o ${LIBOBJDIR}memrchr$U.o ${LIBOBJDIR}tdestroy$U.o ${LIBOBJDIR}timespec_get$U.o ${LIBOBJDIR}strverscmp$U.o ${LIBOBJDIR}sincos$U.o
 LIBPLACEBO_CFLAGS = 
 LIBPLACEBO_LIBS = 
@@ -1345,21 +1348,21 @@ LIBRT =
 LIBS = 
 LIBS_a52 =  -la52 -lm 
 LIBS_access_mtp = 
-LIBS_access_output_shout = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lshout -lvorbis -lm -ltheora -logg -lspeex  
+LIBS_access_output_shout = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lshout -lvorbis -lm -ltheora -logg -lspeex   
 LIBS_access_output_srt = 
 LIBS_access_srt = 
 LIBS_aom = 
-LIBS_archive = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -larchive -llzma -lbz2 -lz  
+LIBS_archive = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -larchive -llzma -lbz2 -lz   
 LIBS_aribcam = 
 LIBS_aribsub = -laribb24 
 LIBS_avahi = 
 LIBS_caca = 
-LIBS_cdda = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lcddb 
+LIBS_cdda = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lcddb  
 LIBS_crystalhd = 
 LIBS_daala = 
 LIBS_dav1d = 
 LIBS_dc1394 = 
-LIBS_dca = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -ldca  
+LIBS_dca = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -ldca   
 LIBS_decklink = 
 LIBS_decklinkoutput = 
 LIBS_dsm = 
@@ -1368,66 +1371,66 @@ LIBS_dvdnav =
 LIBS_dvdread = 
 LIBS_faad = -lfaad 
 LIBS_fdkaac = 
-LIBS_flac = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lFLAC -lm -logg  
-LIBS_fluidsynth = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lfluidlite -logg  
+LIBS_flac = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lFLAC -lm -logg   
+LIBS_fluidsynth = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lfluidlite -logg   
 LIBS_gles2 = 
 LIBS_gme = -lgme -lstdc++ -lm 
-LIBS_goom = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lgoom2  
-LIBS_kate = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lkate  
+LIBS_goom = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lgoom2   
+LIBS_kate = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lkate   
 LIBS_kms = 
 LIBS_libass = 
-LIBS_libbluray = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lbluray -lxml2 -lm -lfreetype -lz  
-LIBS_libmpeg2 = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lmpeg2  
+LIBS_libbluray = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lbluray -lxml2 -lm -lfreetype -lz   
+LIBS_libmpeg2 = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lmpeg2   
 LIBS_libvlc = -Wl,-undefined,dynamic_lookup,-framework,AppKit 
 LIBS_libvlccore = -Wl,-framework,CoreFoundation,-framework,CoreServices 
-LIBS_live555 = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lliveMedia -lgroupsock -lBasicUsageEnvironment -lUsageEnvironment 
+LIBS_live555 = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lliveMedia -lgroupsock -lBasicUsageEnvironment -lUsageEnvironment  
 LIBS_medialibrary = 
 LIBS_microdns = 
 LIBS_mkv = 
 LIBS_mmal = 
 LIBS_mod = 
 LIBS_mpc = 
-LIBS_mpg123 = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lmpg123  
+LIBS_mpg123 = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lmpg123   
 LIBS_mtp = 
-LIBS_mux_ogg = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -logg  
-LIBS_nfs = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lnfs  
+LIBS_mux_ogg = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -logg   
+LIBS_nfs = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lnfs   
 LIBS_notify = 
-LIBS_ogg = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -logg -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lvorbis -lm -logg 
-LIBS_oggspots = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -logg  
+LIBS_ogg = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -logg  -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lvorbis -lm -logg  
+LIBS_oggspots = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -logg   
 LIBS_opencv_example = 
 LIBS_opencv_wrapper = 
-LIBS_opus = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -logg -lopus  
+LIBS_opus = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -logg -lopus   
 LIBS_qsv = 
 LIBS_rdp = 
-LIBS_samplerate = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lsamplerate  
+LIBS_samplerate = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lsamplerate   
 LIBS_sap = -lz 
-LIBS_schroedinger = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lschroedinger-1.0 -lorc-0.4 -lpthread  
+LIBS_schroedinger = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lschroedinger-1.0 -lorc-0.4 -lpthread   
 LIBS_secret = 
-LIBS_sftp = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lssh2 -Wl,-syslibroot,/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk -mmacosx-version-min=10.7 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk -DMACOSX_DEPLOYMENT_TARGET=10.7 -m64 -lgcrypt -lgpg-error -lz -lgcrypt -lgpg-error -lz  
+LIBS_sftp = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lssh2 -Wl,-syslibroot,/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk -mmacosx-version-min=10.7 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk -DMACOSX_DEPLOYMENT_TARGET=10.7 -m64 -lgcrypt -lgpg-error -lz -lgcrypt -lgpg-error -lz   
 LIBS_shine = 
-LIBS_sid = /Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib/libsidplay2.la -lresid-builder 
-LIBS_skins2 = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lharfbuzz -framework CoreText -framework CoreGraphics -framework CoreFoundation -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lfribidi -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lfreetype -lz -lm 
+LIBS_sid = /Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib/libsidplay2.la  -lresid-builder 
+LIBS_skins2 = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lharfbuzz -framework CoreText -framework CoreGraphics -framework CoreFoundation  -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lfribidi  -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lfreetype -lz  -lm 
 LIBS_smb2 = 
 LIBS_smbc = 
 LIBS_soxr = 
 LIBS_spatialaudio = 
-LIBS_speex = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -logg -lspeex  
+LIBS_speex = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -logg -lspeex   
 LIBS_svg = 
 LIBS_svgdec = 
-LIBS_swscale = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lswscale -lm -lavutil -lm 
-LIBS_theora = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -ltheoraenc -ltheoradec -logg  
-LIBS_twolame = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -ltwolame  
+LIBS_swscale = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lswscale -lm -lavutil -lm  
+LIBS_theora = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -ltheoraenc -ltheoradec -logg   
+LIBS_twolame = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -ltwolame   
 LIBS_udev = 
-LIBS_upnp = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -D_THREAD_SAFE -lupnp -lthreadutil -lixml  
+LIBS_upnp = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -D_THREAD_SAFE -lupnp -lthreadutil -lixml   
 LIBS_vlc = -Wl,-undefined,dynamic_lookup,-framework,AppKit 
 LIBS_vnc = 
-LIBS_vorbis = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lvorbisenc -lvorbis -lm -logg  
-LIBS_vpx = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lvpx -lm -lpthread 
+LIBS_vorbis = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lvorbisenc -lvorbis -lm -logg   
+LIBS_vpx = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lvpx -lm -lpthread  
 LIBS_x262 = 
-LIBS_x264 = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lx264 -lpthread -lm -ldl 
+LIBS_x264 = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lx264 -lpthread -lm -ldl  
 LIBS_x26410b = 
-LIBS_x265 = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lx265 -lc++ -ldl -lpthread  
-LIBS_xml = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lxml2 -lm  
+LIBS_x265 = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lx265 -lc++ -ldl -lpthread   
+LIBS_xml = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lxml2 -lm   
 LIBTOOL = $(top_builddir)/doltlibtool
 LIBVA_CFLAGS = 
 LIBVA_DRM_CFLAGS = 
@@ -1437,15 +1440,15 @@ LIBVA_WL_CFLAGS =
 LIBVA_WL_LIBS = 
 LIBVA_X11_CFLAGS = 
 LIBVA_X11_LIBS = 
-LIBVORBIS_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-LIBVORBIS_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lvorbis -lm -logg
-LIBXML2_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/libxml2
-LIBXML2_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lxml2 -lm
+LIBVORBIS_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+LIBVORBIS_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lvorbis -lm -logg 
+LIBXML2_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/libxml2 
+LIBXML2_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lxml2 -lm 
 LINSYS_SDI_CFLAGS = 
 LINSYS_SDI_LIBS = 
 LIPO = lipo
-LIVE555_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/liveMedia -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/groupsock -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/BasicUsageEnvironment -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/UsageEnvironment
-LIVE555_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lliveMedia -lgroupsock -lBasicUsageEnvironment -lUsageEnvironment
+LIVE555_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/liveMedia -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/groupsock -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/BasicUsageEnvironment -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/UsageEnvironment 
+LIVE555_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lliveMedia -lgroupsock -lBasicUsageEnvironment -lUsageEnvironment 
 LN_S = ln -s
 LTCOMPILE = $(top_builddir)/doltcompile $(COMPILE)
 LTCXXCOMPILE = $(top_builddir)/doltcompile $(CXXCOMPILE)
@@ -1565,8 +1568,8 @@ LTLIBxml = libxml_plugin.la
 LTLIBzvbi = libzvbi_plugin.la
 LT_SYS_LIBRARY_PATH = 
 LUAC = /Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/bin/luac
-LUA_CFLAGS = -I/usr/local/include/lua
-LUA_LIBS = -L/usr/local/lib -llua -lm
+LUA_CFLAGS = 
+LUA_LIBS = -llua
 MACOSX_DEPLOYMENT_TARGET = 
 MAD_CFLAGS = 
 MAD_LIBS =  -lmad
@@ -1584,35 +1587,35 @@ MICRODNS_CFLAGS =
 MICRODNS_LIBS = 
 MKDIR_P = ../../extras/package/macosx/../../../autotools/install-sh -c -d
 MOC = 
-MPG123_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-MPG123_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lmpg123
+MPG123_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+MPG123_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lmpg123 
 MSGFMT = /Users/nlandsberg/vlc/extras/tools/build/bin/msgfmt
 MSGFMT_015 = /Users/nlandsberg/vlc/extras/tools/build/bin/msgfmt
 MSGMERGE = /Users/nlandsberg/vlc/extras/tools/build/bin/msgmerge
 MTP_CFLAGS = 
 MTP_LIBS = 
-NCURSES_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-NCURSES_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lncursesw
-NFS_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-NFS_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lnfs
+NCURSES_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+NCURSES_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lncursesw 
+NFS_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+NFS_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lnfs 
 NM = nm
 NMEDIT = nmedit
 NOTIFY_CFLAGS = 
 NOTIFY_LIBS = 
-OBJC = gcc -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk -mmacosx-version-min=10.11
+OBJC = gcc -mmacosx-version-min=10.11
 OBJCDEPMODE = depmode=gcc3
 OBJCFLAGS = -g -O2 -D_INTL_REDIRECT_MACROS -std=gnu11 -arch x86_64 -Werror=partial-availability -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include -F/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15 -F/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/Frameworks -fvisibility=hidden -funroll-loops
 OBJCOPY = 
 OBJDUMP = objdump
 OBJEXT = o
-OGGSPOTS_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-OGGSPOTS_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -logg
-OGG_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-OGG_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -logg
+OGGSPOTS_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+OGGSPOTS_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -logg 
+OGG_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+OGG_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -logg 
 OPENCV_CFLAGS = 
 OPENCV_LIBS = 
-OPUS_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/opus
-OPUS_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -logg -lopus
+OPUS_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/opus 
+OPUS_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -logg -lopus 
 OSS_LIBS = 
 OTOOL = otool
 OTOOL64 = :
@@ -1625,11 +1628,11 @@ PACKAGE_URL =
 PACKAGE_VERSION = 4.0.0-dev
 PATH_SEPARATOR = :
 PKGDIR = vlc
-PKG_CONFIG = /usr/local/bin/pkg-config --static
+PKG_CONFIG = /Users/nlandsberg/vlc/extras/tools/build/bin/pkg-config --static
 PKG_CONFIG_LIBDIR = 
 PKG_CONFIG_PATH = /Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib/pkgconfig:/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/share/pkgconfig:
-POSTPROC_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-POSTPROC_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lpostproc -lavutil -lm
+POSTPROC_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+POSTPROC_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lpostproc -lavutil -lm 
 POSUB = po
 PROGRAMFILES = 
 PROJECTM_CFLAGS = 
@@ -1646,10 +1649,10 @@ QT_VERSION =
 RANLIB = ranlib
 RC = 
 RCC = 
-SAMPLERATE_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-SAMPLERATE_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lsamplerate
-SCHROEDINGER_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/schroedinger-1.0 -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/orc-0.4
-SCHROEDINGER_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lschroedinger-1.0 -lorc-0.4 -lpthread
+SAMPLERATE_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+SAMPLERATE_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lsamplerate 
+SCHROEDINGER_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/schroedinger-1.0 -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/orc-0.4 
+SCHROEDINGER_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lschroedinger-1.0 -lorc-0.4 -lpthread 
 SDL_IMAGE_CFLAGS = 
 SDL_IMAGE_LIBS = 
 SECRET_CFLAGS = 
@@ -1657,15 +1660,15 @@ SECRET_LIBS =
 SED = /usr/bin/sed
 SET_MAKE = 
 SEVENZIP = 
-SFTP_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-SFTP_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lssh2 -Wl,-syslibroot,/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk -mmacosx-version-min=10.7 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk -DMACOSX_DEPLOYMENT_TARGET=10.7 -m64 -lgcrypt -lgpg-error -lz -lgcrypt -lgpg-error -lz
+SFTP_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+SFTP_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lssh2 -Wl,-syslibroot,/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk -mmacosx-version-min=10.7 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk -DMACOSX_DEPLOYMENT_TARGET=10.7 -m64 -lgcrypt -lgpg-error -lz -lgcrypt -lgpg-error -lz 
 SHELL = /bin/sh
 SHINE_CFLAGS = 
 SHINE_LIBS = 
-SHOUT_CFLAGS = -D_THREAD_SAFE -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-SHOUT_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lshout -lvorbis -lm -ltheora -logg -lspeex
-SID_CFLAGS = -DHAVE_UNIX -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-SID_LIBS = /Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib/libsidplay2.la
+SHOUT_CFLAGS = -D_THREAD_SAFE -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+SHOUT_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lshout -lvorbis -lm -ltheora -logg -lspeex 
+SID_CFLAGS = -DHAVE_UNIX -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+SID_LIBS = /Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib/libsidplay2.la 
 SMB2_CFLAGS = 
 SMB2_LIBS = 
 SMBCLIENT_CFLAGS = 
@@ -1675,10 +1678,10 @@ SOXR_CFLAGS =
 SOXR_LIBS = 
 SPATIALAUDIO_CFLAGS = 
 SPATIALAUDIO_LIBS = 
-SPEEXDSP_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-SPEEXDSP_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lspeexdsp
-SPEEX_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-SPEEX_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -logg -lspeex
+SPEEXDSP_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+SPEEXDSP_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lspeexdsp 
+SPEEX_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+SPEEX_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -logg -lspeex 
 SRT_CFLAGS = 
 SRT_LIBS = 
 STRIP = strip
@@ -1686,26 +1689,26 @@ SVGDEC_CFLAGS =
 SVGDEC_LIBS = 
 SVG_CFLAGS = 
 SVG_LIBS = 
-SWSCALE_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-SWSCALE_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lswscale -lm -lavutil -lm
+SWSCALE_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+SWSCALE_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lswscale -lm -lavutil -lm 
 SYMBOLIC_LDFLAGS = 
 SYS = darwin
 SYSTEMD_CFLAGS = 
 SYSTEMD_LIBS = 
-TAGLIB_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/taglib
-TAGLIB_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -ltag
-THEORA_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-THEORA_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -ltheoraenc -ltheoradec -logg
+TAGLIB_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/taglib 
+TAGLIB_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -ltag 
+THEORA_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+THEORA_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -ltheoraenc -ltheoradec -logg 
 TIGER_CFLAGS = 
 TIGER_LIBS = 
-TWOLAME_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-TWOLAME_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -ltwolame
+TWOLAME_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+TWOLAME_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -ltwolame 
 U2D = 
 UDEV_CFLAGS = 
 UDEV_LIBS = 
 UIC = 
-UPNP_CFLAGS = -D_THREAD_SAFE -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/upnp
-UPNP_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -D_THREAD_SAFE -lupnp -lthreadutil -lixml
+UPNP_CFLAGS = -D_THREAD_SAFE -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include/upnp 
+UPNP_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -D_THREAD_SAFE -lupnp -lthreadutil -lixml 
 USE_NLS = yes
 VDPAU_CFLAGS = 
 VDPAU_LIBS = 
@@ -1717,10 +1720,10 @@ VERSION_MINOR = 0
 VERSION_REVISION = 0
 VNC_CFLAGS = 
 VNC_LIBS = 
-VORBIS_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-VORBIS_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lvorbisenc -lvorbis -lm -logg
-VPX_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-VPX_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lvpx -lm -lpthread
+VORBIS_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+VORBIS_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lvorbisenc -lvorbis -lm -logg 
+VPX_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+VPX_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lvpx -lm -lpthread 
 VSXU_CFLAGS = 
 VSXU_LIBS = 
 VULKAN_CFLAGS = 
@@ -1744,10 +1747,10 @@ X262_CFLAGS =
 X262_LIBS = 
 X26410b_CFLAGS = 
 X26410b_LIBS = 
-X264_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-X264_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lx264 -lpthread -lm -ldl
-X265_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-X265_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lx265 -lc++ -ldl -lpthread
+X264_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+X264_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lx264 -lpthread -lm -ldl 
+X265_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+X265_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lx265 -lc++ -ldl -lpthread 
 X86ASM = nasm
 X86ASMDEFS = -DARCH_X86_32=0 -DARCH_X86_64=1 -DPREFIX
 X86ASMFLAGS = -f macho64
@@ -1791,8 +1794,8 @@ X_LIBS =
 X_PRE_LIBS = 
 YACC = bison -y
 YFLAGS = 
-ZVBI_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include
-ZVBI_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lzvbi -lm -lpng -lz -lpthread -lm -liconv
+ZVBI_CFLAGS = -I/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/include 
+ZVBI_LIBS = -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib -lzvbi -lm -lpng -lz -lpthread -lm -liconv 
 abs_builddir = /Users/nlandsberg/vlc/build/src
 abs_srcdir = /Users/nlandsberg/vlc/build/../extras/package/macosx/../../../src
 abs_top_builddir = /Users/nlandsberg/vlc/build
@@ -2014,11 +2017,12 @@ libvlccore_la_SOURCES = libvlc.c libvlc.h libvlc-module.c missing.c \
 	input/demux.c input/demux_chained.c input/es_out.c \
 	input/es_out_timeshift.c input/input.c input/info.h \
 	input/meta.c player/player.c player/player.h player/input.c \
-	player/track.c player/title.c player/aout.c player/vout.c \
-	player/osd.c clock/input_clock.h clock/clock.h \
-	clock/clock_internal.h input/decoder.h input/demux.h \
-	input/es_out.h input/event.h input/item.h input/mrl_helpers.h \
-	input/stream.h input/input_internal.h input/input_interface.h \
+	player/timer.c player/track.c player/title.c player/aout.c \
+	player/vout.c player/osd.c player/medialib.c \
+	clock/input_clock.h clock/clock.h clock/clock_internal.h \
+	input/decoder.h input/demux.h input/es_out.h input/event.h \
+	input/item.h input/mrl_helpers.h input/stream.h \
+	input/input_internal.h input/input_interface.h \
 	input/vlm_internal.h input/vlm_event.h input/resource.h \
 	input/resource.c input/services_discovery.c input/stats.c \
 	input/stream.c input/stream_fifo.c input/stream_extractor.c \
@@ -2370,6 +2374,8 @@ player/player.lo: player/$(am__dirstamp) \
 	player/$(DEPDIR)/$(am__dirstamp)
 player/input.lo: player/$(am__dirstamp) \
 	player/$(DEPDIR)/$(am__dirstamp)
+player/timer.lo: player/$(am__dirstamp) \
+	player/$(DEPDIR)/$(am__dirstamp)
 player/track.lo: player/$(am__dirstamp) \
 	player/$(DEPDIR)/$(am__dirstamp)
 player/title.lo: player/$(am__dirstamp) \
@@ -2379,6 +2385,8 @@ player/aout.lo: player/$(am__dirstamp) \
 player/vout.lo: player/$(am__dirstamp) \
 	player/$(DEPDIR)/$(am__dirstamp)
 player/osd.lo: player/$(am__dirstamp) player/$(DEPDIR)/$(am__dirstamp)
+player/medialib.lo: player/$(am__dirstamp) \
+	player/$(DEPDIR)/$(am__dirstamp)
 input/resource.lo: input/$(am__dirstamp) \
 	input/$(DEPDIR)/$(am__dirstamp)
 input/services_discovery.lo: input/$(am__dirstamp) \
@@ -3006,8 +3014,10 @@ include os2/$(DEPDIR)/specific.Plo # am--include-marker
 include os2/$(DEPDIR)/thread.Plo # am--include-marker
 include player/$(DEPDIR)/aout.Plo # am--include-marker
 include player/$(DEPDIR)/input.Plo # am--include-marker
+include player/$(DEPDIR)/medialib.Plo # am--include-marker
 include player/$(DEPDIR)/osd.Plo # am--include-marker
 include player/$(DEPDIR)/player.Plo # am--include-marker
+include player/$(DEPDIR)/timer.Plo # am--include-marker
 include player/$(DEPDIR)/title.Plo # am--include-marker
 include player/$(DEPDIR)/track.Plo # am--include-marker
 include player/$(DEPDIR)/vout.Plo # am--include-marker
@@ -4136,8 +4146,10 @@ distclean: distclean-am
 	-rm -f os2/$(DEPDIR)/thread.Plo
 	-rm -f player/$(DEPDIR)/aout.Plo
 	-rm -f player/$(DEPDIR)/input.Plo
+	-rm -f player/$(DEPDIR)/medialib.Plo
 	-rm -f player/$(DEPDIR)/osd.Plo
 	-rm -f player/$(DEPDIR)/player.Plo
+	-rm -f player/$(DEPDIR)/timer.Plo
 	-rm -f player/$(DEPDIR)/title.Plo
 	-rm -f player/$(DEPDIR)/track.Plo
 	-rm -f player/$(DEPDIR)/vout.Plo
@@ -4408,8 +4420,10 @@ maintainer-clean: maintainer-clean-am
 	-rm -f os2/$(DEPDIR)/thread.Plo
 	-rm -f player/$(DEPDIR)/aout.Plo
 	-rm -f player/$(DEPDIR)/input.Plo
+	-rm -f player/$(DEPDIR)/medialib.Plo
 	-rm -f player/$(DEPDIR)/osd.Plo
 	-rm -f player/$(DEPDIR)/player.Plo
+	-rm -f player/$(DEPDIR)/timer.Plo
 	-rm -f player/$(DEPDIR)/title.Plo
 	-rm -f player/$(DEPDIR)/track.Plo
 	-rm -f player/$(DEPDIR)/vout.Plo

@@ -50,7 +50,7 @@
 #define CAN_COMPILE_SSSE3 1
 
 /* The ./configure command line */
-#define CONFIGURE_LINE "../extras/package/macosx/../../../configure  '--prefix=/Users/nlandsberg/vlc/build/vlc_install_dir' '--enable-macosx' '--enable-merge-ffmpeg' '--enable-osx-notifications' '--enable-faad' '--enable-flac' '--enable-theora' '--enable-shout' '--enable-ncurses' '--enable-twolame' '--enable-libass' '--enable-macosx-avfoundation' '--disable-skins2' '--disable-xcb' '--disable-caca' '--disable-pulse' '--disable-sdl-image' '--disable-vnc' '--with-macosx-version-min=10.11' '--enable-debug' '--host=x86_64-apple-darwin15' '--with-macosx-sdk=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk' 'host_alias=x86_64-apple-darwin15' 'CFLAGS=' 'LDFLAGS='"
+#define CONFIGURE_LINE "../extras/package/macosx/../../../configure  '--prefix=/Users/nlandsberg/vlc/build/vlc_install_dir' '--enable-macosx' '--enable-merge-ffmpeg' '--enable-osx-notifications' '--enable-faad' '--enable-flac' '--enable-theora' '--enable-shout' '--enable-ncurses' '--enable-twolame' '--enable-libass' '--enable-macosx-avfoundation' '--disable-skins2' '--disable-xcb' '--disable-caca' '--disable-pulse' '--disable-sdl-image' '--disable-vnc' '--with-macosx-version-min=10.11' '--enable-debug' '--host=x86_64-apple-darwin15' 'host_alias=x86_64-apple-darwin15' 'CFLAGS=' 'LDFLAGS='"
 
 /* Copyright string */
 #define COPYRIGHT_MESSAGE "Copyright © 1996-2019 the VideoLAN team"
@@ -223,6 +223,9 @@
 /* Define to 1 if you have the `fork' function. */
 #define HAVE_FORK 1
 
+/* Define to 1 if you have the `fstatat' function. */
+#define HAVE_FSTATAT 1
+
 /* Define to 1 if you have the `fstatvfs' function. */
 #define HAVE_FSTATVFS 1
 
@@ -308,7 +311,7 @@
 /* #undef HAVE_KVA_H */
 
 /* Define to 1 if you have the <lauxlib.h> header file. */
-/* #undef HAVE_LAUXLIB_H */
+#define HAVE_LAUXLIB_H 1
 
 /* Define to 1 if you have the `lfind' function. */
 #define HAVE_LFIND 1
@@ -383,10 +386,10 @@
 #define HAVE_LRINTF 1
 
 /* Define to 1 if you have the <lualib.h> header file. */
-/* #undef HAVE_LUALIB_H */
+#define HAVE_LUALIB_H 1
 
 /* Define to 1 if you have the <lua.h> header file. */
-/* #undef HAVE_LUA_H */
+#define HAVE_LUA_H 1
 
 /* Define to 1 if you have the <mad.h> header file. */
 #define HAVE_MAD_H 1
@@ -441,9 +444,6 @@
 
 /* Define to 1 if you have the `nrand48' function. */
 #define HAVE_NRAND48 1
-
-/* Define to 1 if you have the `openat' function. */
-#define HAVE_OPENAT 1
 
 /* Define to 1 if you have the `open_memstream' function. */
 #define HAVE_OPEN_MEMSTREAM 1

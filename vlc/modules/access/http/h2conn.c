@@ -56,6 +56,9 @@ struct vlc_h2_conn
     uint32_t next_id; /**< Next free stream identifier */
     bool released; /**< Connection released by owner */
 
+    uint32_t init_send_cwnd; /**< Initial send congestion window */
+    uint64_t send_cwnd; /**< Send congestion window */
+
     vlc_mutex_t lock; /**< State machine lock */
     vlc_thread_t thread; /**< Receive thread */
 };
@@ -80,6 +83,8 @@ struct vlc_h2_stream
     struct vlc_h2_frame *recv_head; /**< Earliest pending received buffer */
     struct vlc_h2_frame **recv_tailp; /**< Tail of receive queue */
     vlc_cond_t recv_wait;
+
+    uint64_t send_cwnd; /**< Send congestion window */
 };
 
 static int vlc_h2_conn_queue(struct vlc_h2_conn *conn, struct vlc_h2_frame *f)
@@ -207,6 +212,21 @@ static int vlc_h2_stream_reset(void *ctx, uint_fast32_t code)
     s->recv_err = ECONNRESET;
     vlc_cond_broadcast(&s->recv_wait);
     return 0;
+}
+
+/** Reports remote window size increments */
+static void vlc_h2_stream_window_update(void *ctx, uint_fast32_t credit)
+{
+    struct vlc_h2_stream *s = ctx;
+
+    /* In the extremely unlikely event of an overflow, the window will be
+     * treated as negative, and we will stop sending: the peer is definitely
+     * insanely broken anyway.
+     */
+    s->send_cwnd += credit;
+
+    vlc_http_dbg(SO(s), "stream %"PRIu32" window update: +%"PRIuFAST32" to "
+                 "%"PRIu64, s->id, credit, s->send_cwnd);
 }
 
 static void vlc_h2_stream_wake_up(void *data)
@@ -415,6 +435,7 @@ static struct vlc_http_stream *vlc_h2_stream_open(struct vlc_http_conn *c,
     s->recv_head = NULL;
     s->recv_tailp = &s->recv_head;
     vlc_cond_init(&s->recv_wait);
+    s->send_cwnd = conn->init_send_cwnd;
 
     vlc_mutex_lock(&conn->lock);
     assert(!conn->released); /* Caller is buggy! */
@@ -450,6 +471,18 @@ error:
 
 /* Global/Connection frame callbacks */
 
+static void vlc_h2_initial_window_update(struct vlc_h2_conn *conn,
+                                         uint_fast32_t value)
+{
+    uint64_t delta = (uint64_t)value - conn->init_send_cwnd;
+
+    conn->init_send_cwnd = value;
+    conn->send_cwnd += delta;
+
+    for (struct vlc_h2_stream *s = conn->streams; s != NULL; s = s->older)
+        s->send_cwnd += delta;
+}
+
 /** Reports an HTTP/2 peer connection setting */
 static void vlc_h2_setting(void *ctx, uint_fast16_t id, uint_fast32_t value)
 {
@@ -457,6 +490,13 @@ static void vlc_h2_setting(void *ctx, uint_fast16_t id, uint_fast32_t value)
 
     vlc_http_dbg(CO(conn), "setting: %s (0x%04"PRIxFAST16"): %"PRIuFAST32,
                  vlc_h2_setting_name(id), id, value);
+
+    switch (id)
+    {
+        case VLC_H2_SETTING_INITIAL_WINDOW_SIZE:
+            vlc_h2_initial_window_update(conn, value);
+            break;
+    }
 }
 
 /** Reports end of HTTP/2 peer settings */
@@ -525,6 +565,16 @@ static void vlc_h2_window_status(void *ctx, uint32_t *restrict rcwd)
         *rcwd += 1 << 30;
 }
 
+static void vlc_h2_window_update(void *ctx, uint_fast32_t credit)
+{
+    struct vlc_h2_conn *conn = ctx;
+
+    conn->send_cwnd += credit;
+
+    vlc_http_dbg(CO(conn), "window update: +%"PRIuFAST32" to %"PRIu64,
+                 credit, conn->send_cwnd);
+}
+
 /** HTTP/2 frames parser callbacks table */
 static const struct vlc_h2_parser_cbs vlc_h2_parser_callbacks =
 {
@@ -534,12 +584,14 @@ static const struct vlc_h2_parser_cbs vlc_h2_parser_callbacks =
     vlc_h2_error,
     vlc_h2_reset,
     vlc_h2_window_status,
+    vlc_h2_window_update,
     vlc_h2_stream_lookup,
     vlc_h2_stream_error,
     vlc_h2_stream_headers,
     vlc_h2_stream_data,
     vlc_h2_stream_end,
     vlc_h2_stream_reset,
+    vlc_h2_stream_window_update,
 };
 
 /**
@@ -732,6 +784,8 @@ struct vlc_http_conn *vlc_h2_conn_create(void *ctx, struct vlc_tls *tls)
     conn->streams = NULL;
     conn->next_id = 1; /* TODO: server side */
     conn->released = false;
+    conn->init_send_cwnd = VLC_H2_DEFAULT_INIT_WINDOW;
+    conn->send_cwnd = VLC_H2_DEFAULT_INIT_WINDOW;
 
     if (unlikely(conn->out == NULL))
         goto error;

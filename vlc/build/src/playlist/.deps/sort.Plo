@@ -253,6 +253,7 @@ playlist/sort.lo: \
   ../../extras/package/macosx/../../../include/vlc_vout_osd.h \
   ../../extras/package/macosx/../../../include/vlc_aout.h \
   ../../extras/package/macosx/../../../include/vlc_block.h \
+  ../../extras/package/macosx/../../../include/vlc_media_library.h \
   ../../extras/package/macosx/../../../src/input/input_internal.h \
   ../../extras/package/macosx/../../../include/vlc_access.h \
   ../../extras/package/macosx/../../../include/vlc_stream.h \
@@ -778,6 +779,8 @@ playlist/sort.lo: \
 ../../extras/package/macosx/../../../include/vlc_aout.h:
 
 ../../extras/package/macosx/../../../include/vlc_block.h:
+
+../../extras/package/macosx/../../../include/vlc_media_library.h:
 
 ../../extras/package/macosx/../../../src/input/input_internal.h:
 

@@ -1361,8 +1361,11 @@ input_item_parser_InputEvent(input_thread_t *input,
 
     switch (event->type)
     {
+        case INPUT_EVENT_TIMES:
+            input_item_SetDuration(input_GetItem(input), event->times.length);
+            break;
         case INPUT_EVENT_STATE:
-            parser->state = event->state;
+            parser->state = event->state.value;
             break;
         case INPUT_EVENT_DEAD:
         {

@@ -335,22 +335,7 @@ text/strings.lo: ../../extras/package/macosx/../../../src/text/strings.c \
   ../../extras/package/macosx/../../../include/vlc_subpicture.h \
   ../../extras/package/macosx/../../../include/vlc_text_style.h \
   ../../extras/package/macosx/../../../include/vlc_vout_osd.h \
-  ../../extras/package/macosx/../../../src/libvlc.h \
-  ../../extras/package/macosx/../../../src/text/../input/input_internal.h \
-  ../../extras/package/macosx/../../../include/vlc_access.h \
-  ../../extras/package/macosx/../../../include/vlc_stream.h \
-  ../../extras/package/macosx/../../../include/vlc_demux.h \
-  ../../extras/package/macosx/../../../include/vlc_es_out.h \
-  ../../extras/package/macosx/../../../src/text/../input/input_interface.h \
-  ../../extras/package/macosx/../../../src/misc/interrupt.h \
-  ../../extras/package/macosx/../../../include/vlc_interrupt.h \
-  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/sys/socket.h \
-  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/machine/_param.h \
-  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/i386/_param.h \
-  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/net/net_kev.h \
-  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/sys/_types/_sa_family_t.h \
-  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/sys/_types/_socklen_t.h \
-  /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/sys/_types/_iovec_t.h
+  ../../extras/package/macosx/../../../src/libvlc.h
 
 ../config.h:
 
@@ -1027,33 +1012,3 @@ text/strings.lo: ../../extras/package/macosx/../../../src/text/strings.c \
 ../../extras/package/macosx/../../../include/vlc_vout_osd.h:
 
 ../../extras/package/macosx/../../../src/libvlc.h:
-
-../../extras/package/macosx/../../../src/text/../input/input_internal.h:
-
-../../extras/package/macosx/../../../include/vlc_access.h:
-
-../../extras/package/macosx/../../../include/vlc_stream.h:
-
-../../extras/package/macosx/../../../include/vlc_demux.h:
-
-../../extras/package/macosx/../../../include/vlc_es_out.h:
-
-../../extras/package/macosx/../../../src/text/../input/input_interface.h:
-
-../../extras/package/macosx/../../../src/misc/interrupt.h:
-
-../../extras/package/macosx/../../../include/vlc_interrupt.h:
-
-/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/sys/socket.h:
-
-/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/machine/_param.h:
-
-/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/i386/_param.h:
-
-/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/net/net_kev.h:
-
-/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/sys/_types/_sa_family_t.h:
-
-/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/sys/_types/_socklen_t.h:
-
-/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/usr/include/sys/_types/_iovec_t.h:

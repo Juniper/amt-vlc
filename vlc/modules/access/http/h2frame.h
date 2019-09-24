@@ -105,6 +105,7 @@ struct vlc_h2_parser_cbs
     void (*error)(void *ctx, uint_fast32_t code);
     int  (*reset)(void *ctx, uint_fast32_t last_seq, uint_fast32_t code);
     void (*window_status)(void *ctx, uint32_t *rcwd);
+    void (*window_update)(void *ctx, uint_fast32_t credit);
 
     void *(*stream_lookup)(void *ctx, uint_fast32_t id);
     int  (*stream_error)(void *ctx, uint_fast32_t id, uint_fast32_t code);
@@ -113,6 +114,7 @@ struct vlc_h2_parser_cbs
     int  (*stream_data)(void *ctx, struct vlc_h2_frame *f);
     void (*stream_end)(void *ctx);
     int  (*stream_reset)(void *ctx, uint_fast32_t code);
+    void (*stream_window_update)(void *ctx, uint_fast32_t credit);
 };
 
 struct vlc_h2_parser *vlc_h2_parse_init(void *ctx,

@@ -767,6 +767,8 @@ _vlc_thumbnailer_Cancel
 _vlc_thumbnailer_Release
 _vlc_player_AddAssociatedMedia
 _vlc_player_AddListener
+_vlc_player_AddSmpteTimer
+_vlc_player_AddTimer
 _vlc_player_aout_AddListener
 _vlc_player_aout_EnableFilter
 _vlc_player_aout_GetVolume
@@ -825,6 +827,7 @@ _vlc_player_Pause
 _vlc_player_program_Delete
 _vlc_player_program_Dup
 _vlc_player_RemoveListener
+_vlc_player_RemoveTimer
 _vlc_player_RestartEsId
 _vlc_player_Resume
 _vlc_player_SeekByPos
@@ -861,6 +864,8 @@ _vlc_player_SetTeletextTransparency
 _vlc_player_SetTrackCategoryEnabled
 _vlc_player_Start
 _vlc_player_Stop
+_vlc_player_timer_point_GetNextIntervalDate
+_vlc_player_timer_point_Interpolate
 _vlc_player_title_list_GetAt
 _vlc_player_title_list_GetCount
 _vlc_player_title_list_Hold

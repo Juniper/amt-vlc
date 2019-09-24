@@ -17,7 +17,7 @@ old_library=''
 inherited_linker_flags=' '
 
 # Libraries that this one depends upon.
-dependency_libs=' -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib /Users/nlandsberg/vlc/build/vlc_install_dir/lib/libvlccore.la -lc -liconv -L/usr/local/lib -llua -lm'
+dependency_libs=' -L/Users/nlandsberg/vlc/contrib/x86_64-apple-darwin15/lib /Users/nlandsberg/vlc/build/vlc_install_dir/lib/libvlccore.la -lc -liconv -llua -lm'
 
 # Names of additional weak libraries provided by this library
 weak_library_names=''

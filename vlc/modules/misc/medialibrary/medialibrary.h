@@ -143,7 +143,9 @@ public:
 private:
     int controlMedia( int query, va_list args );
     int getMeta( const medialibrary::IMedia& media, int meta, char** result );
+    int getMeta( const medialibrary::IMedia& media, vlc_ml_playback_states_all* result );
     int setMeta( medialibrary::IMedia& media, int meta, const char* value );
+    int setMeta( medialibrary::IMedia& media, const vlc_ml_playback_states_all* values );
     int filterListChildrenQuery( int query, int parentType );
     int listAlbums( int listQuery, const medialibrary::QueryParameters* paramsPtr,
                     const char* pattern, uint32_t nbItems, uint32_t offset, va_list args );
@@ -165,19 +167,19 @@ private:
     // IMediaLibraryCb interface
 public:
     virtual void onMediaAdded(std::vector<medialibrary::MediaPtr> media) override;
-    virtual void onMediaModified(std::vector<medialibrary::MediaPtr> media) override;
+    virtual void onMediaModified(std::vector<int64_t> media) override;
     virtual void onMediaDeleted(std::vector<int64_t> mediaIds) override;
     virtual void onArtistsAdded(std::vector<medialibrary::ArtistPtr> artists) override;
-    virtual void onArtistsModified(std::vector<medialibrary::ArtistPtr> artists) override;
+    virtual void onArtistsModified(std::vector<int64_t> artists) override;
     virtual void onArtistsDeleted(std::vector<int64_t> artistsIds) override;
     virtual void onAlbumsAdded(std::vector<medialibrary::AlbumPtr> albums) override;
-    virtual void onAlbumsModified(std::vector<medialibrary::AlbumPtr> albums) override;
+    virtual void onAlbumsModified(std::vector<int64_t> albums) override;
     virtual void onAlbumsDeleted(std::vector<int64_t> albumsIds) override;
     virtual void onPlaylistsAdded(std::vector<medialibrary::PlaylistPtr> playlists) override;
-    virtual void onPlaylistsModified(std::vector<medialibrary::PlaylistPtr> playlists) override;
+    virtual void onPlaylistsModified(std::vector<int64_t> playlists) override;
     virtual void onPlaylistsDeleted(std::vector<int64_t> playlistIds) override;
     virtual void onGenresAdded(std::vector<medialibrary::GenrePtr> genres) override;
-    virtual void onGenresModified(std::vector<medialibrary::GenrePtr> genres) override;
+    virtual void onGenresModified(std::vector<int64_t> genres) override;
     virtual void onGenresDeleted(std::vector<int64_t> genreIds) override;
     virtual void onDiscoveryStarted(const std::string& entryPoint) override;
     virtual void onDiscoveryProgress(const std::string& entryPoint) override;
@@ -193,6 +195,7 @@ public:
     virtual void onMediaThumbnailReady(medialibrary::MediaPtr media,
                                        medialibrary::ThumbnailSizeType sizeType,
                                        bool success) override;
+    virtual void onHistoryChanged( medialibrary::HistoryType historyType ) override;
 };
 
 bool Convert( const medialibrary::IMedia* input, vlc_ml_media_t& output );
@@ -223,7 +226,7 @@ To* ml_convert_list( const std::vector<std::shared_ptr<From>>& input )
 
     // Allocate the ml_*_list_t
     auto list = vlc::wrap_cptr(
-        static_cast<To*>( malloc( sizeof( To ) + input.size() * sizeof( ItemType ) ) ),
+        static_cast<To*>( calloc( 1, sizeof( To ) + input.size() * sizeof( ItemType ) ) ),
         static_cast<void(*)(To*)>( &vlc_ml_release ) );
     if ( unlikely( list == nullptr ) )
         return nullptr;
@@ -245,7 +248,7 @@ T* CreateAndConvert( const Input* input )
     if ( input == nullptr )
         return nullptr;
     auto res = vlc::wrap_cptr(
-                static_cast<T*>( malloc( sizeof( T ) ) ),
+                static_cast<T*>( calloc( 1, sizeof( T ) ) ),
                 static_cast<void(*)(T*)>( &vlc_ml_release ) );
     if ( unlikely( res == nullptr ) )
         return nullptr;

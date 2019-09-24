@@ -114,6 +114,7 @@ static void PacketizeReset(void *p_private, bool b_broken);
 static block_t *PacketizeParse(void *p_private, bool *pb_ts_used, block_t *);
 static block_t *ParseNALBlock(decoder_t *, bool *pb_ts_used, block_t *);
 static int PacketizeValidate(void *p_private, block_t *);
+static block_t * PacketizeDrain(void *);
 static bool ParseSEICallback( const hxxx_sei_data_t *, void * );
 static block_t *GetCc( decoder_t *, decoder_cc_desc_t * );
 static block_t *GetXPSCopy(decoder_sys_t *);
@@ -213,7 +214,8 @@ static int Open(vlc_object_t *p_this)
     packetizer_Init(&p_sys->packetizer,
                     p_hevc_startcode, sizeof(p_hevc_startcode), startcode_FindAnnexB,
                     p_hevc_startcode, 1, 5,
-                    PacketizeReset, PacketizeParse, PacketizeValidate, p_dec);
+                    PacketizeReset, PacketizeParse, PacketizeValidate, PacketizeDrain,
+                    p_dec);
 
     /* Copy properties */
     es_format_Copy(&p_dec->fmt_out, &p_dec->fmt_in);
@@ -583,7 +585,7 @@ static void ActivateSets(decoder_t *p_dec,
     p_sys->p_active_vps = p_vps;
     if(p_sps)
     {
-        if(!p_dec->fmt_in.video.i_frame_rate || !p_dec->fmt_in.video.i_frame_rate_base)
+        if(!p_dec->fmt_out.video.i_frame_rate || !p_dec->fmt_out.video.i_frame_rate_base)
         {
             unsigned num, den;
             if(hevc_get_frame_rate( p_sps, p_vps, &num, &den ))
@@ -595,6 +597,8 @@ static void ActivateSets(decoder_t *p_dec,
                    num <= UINT_MAX / 2)
                     date_Change(&p_sys->dts, 2 * num, den);
             }
+            p_dec->fmt_out.video.i_frame_rate = p_sys->dts.i_divider_num >> 1;
+            p_dec->fmt_out.video.i_frame_rate_base = p_sys->dts.i_divider_den;
         }
 
         if(p_dec->fmt_in.video.primaries == COLOR_PRIMARIES_UNDEF)
@@ -992,6 +996,28 @@ static int PacketizeValidate( void *p_private, block_t *p_au )
     VLC_UNUSED(p_private);
     VLC_UNUSED(p_au);
     return VLC_SUCCESS;
+}
+
+static block_t * PacketizeDrain(void *p_private)
+{
+    decoder_t *p_dec = p_private;
+    decoder_sys_t *p_sys = p_dec->p_sys;
+
+    block_t *p_out = NULL;
+
+    if( p_sys->frame.p_chain &&
+        p_sys->sets != MISSING &&
+        p_sys->b_recovery_point )
+    {
+        p_out = OutputQueues(p_sys, true);
+        if( p_out )
+        {
+            p_out = GatherAndValidateChain(p_out);
+            if( p_out )
+                SetOutputBlockProperties( p_dec, p_out );
+        }
+    }
+    return p_out;
 }
 
 static bool ParseSEICallback( const hxxx_sei_data_t *p_sei_data, void *cbdata )
