@@ -1,0 +1,81 @@
+
+<!doctype html>
+<html class=".js" lang="en">
+
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <title>M2ICast</title>
+  <meta name="description" content="Multicast streams for viewing">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+</head>
+
+<body>
+  <!--[if lte IE 9]>
+    <p class="browserupgrade">You are using an <strong>outdated</strong> browser. Please <a href="https://browsehappy.com/">upgrade your browser</a> to improve your experience and security.</p>
+  <![endif]-->
+
+  <embed type="application/x-vlc-plugin" pluginspage="http://www.videolan.org"
+    width="640"
+    height="480"
+    id="vlc"
+    target="amt://162.250.138.201@232.162.250.139" />
+    <script type="text/javascript">
+
+       // <!--
+    
+        var vlc = document.getElementById("vlc");
+    
+        //vlc.audio.toggleMute();
+    
+        //-->
+    
+        </script>
+
+  <!-- Add your site or application content here -->
+  <center><h1>Welcome to M2ICast!</h1></center>
+  <div class="stream-list">
+    <h3>List of multicast streams</h3>
+    <button onclick="getIps()">Click to view streams.</button>
+    <div id="streams" style="display: none">
+    </div>
+  </div>
+  <p>Hello world!</p>
+  <script>
+    function getIps() {
+        var streams = document.getElementById("streams");
+
+        if( streams.style.display === "none" ) {
+          streams.style.display = "block";
+        } else {
+          streams.style.display = "none";
+        }
+
+        var ips = fetch('static/mcast-i2-1.log').then(function(response) {
+          return response.text();
+        }).then(function(text) {
+          var lines = text.split('\n');
+          var test = [];
+          lines = lines.slice(1);
+          lines.forEach(function(element) {
+            //console.log(element.split("\\w*"));
+            test.push(element);
+          });
+          return test;
+        }).then(function(text) {
+          text.forEach(function(element) {
+            var link = document.createElement('a');
+            link.setAttribute('href', 'amt://@' + element.toString());
+            link.innerHTML = element.toString();
+            var newln = document.createElement('br');
+            streams.appendChild(link);
+            streams.appendChild(newln);
+          });
+
+        });
+    }
+  </script>
+</body>
+
+</html>
