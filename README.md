@@ -21,6 +21,5 @@ Some known working streams to try out include:
 - amt://162.250.138.201@232.162.250.138
 - amt://162.250.138.201@232.162.250.139
 - amt://162.250.138.201@232.162.250.140
-- amt://162.250.138.201@232.162.250.141
 
 If you need to change/input the relay address, go to VLC->Preferences->Show all->Input/Codecs->Access Modules->AMT and change the address. The default relay is amt-relay.m2icast.net, which currently maps to three DNS A records (162.250.137.254, 162.250.136.101 and 198.38.23.145).  The first AMT relay to return a packet is selected as the relay.
