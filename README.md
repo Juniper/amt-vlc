@@ -7,6 +7,9 @@ VLC after Nov 11, 2019 from https://nightlies.videolan.org/
 
 The precompiled binaries in this repository are posted for historical purposes.  It is recommended to use mainline VLC code.
 
+The easiest way to start using AMT is to visit the [Multicast Menu](https://multicastmenu.herokuapp.com/).  On that site, known active MBONE streams are listed.  You can launch VLC directly from your web browser, or follow the instructions to open a stream from VLC either the command line or GUI.
+
+
 To use:
 - Open VLC
 - File->Open Network or Control-N
